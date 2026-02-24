@@ -173,7 +173,8 @@ async function createWindow() {
   });
 
   if (isDevelopment) {
-    await mainWindow.loadURL('http://localhost:4521');
+    const devPort = process.env.VITE_PORT || process.env.PORT || '4521';
+    await mainWindow.loadURL(`http://localhost:${devPort}`);
     mainWindow.webContents.openDevTools();
     
     // Enable IPC debugging in development

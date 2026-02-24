@@ -1,15 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { API } from '../utils/api';
 import type { CreateSessionRequest } from '../types/session';
 import type { Project } from '../types/project';
 import { useErrorStore } from '../stores/errorStore';
-import { GitBranch, ChevronRight, ChevronDown, X } from 'lucide-react';
+import { GitBranch, ChevronRight, ChevronDown, X, Search, Check } from 'lucide-react';
 import { CommitModeSettings } from './CommitModeSettings';
 import type { CommitModeSettings as CommitModeSettingsType } from '../../../shared/types';
 import { Modal, ModalHeader, ModalBody, ModalFooter } from './ui/Modal';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { useSessionPreferencesStore, type SessionCreationPreferences } from '../stores/sessionPreferencesStore';
+import { useSessionStore } from '../stores/sessionStore';
 
 // Interface for branch information
 interface BranchInfo {
@@ -60,8 +61,16 @@ export function CreateSessionDialog({
   });
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showSessionOptions, setShowSessionOptions] = useState(false);
+  const [branchSearch, setBranchSearch] = useState('');
+  const [isBranchDropdownOpen, setIsBranchDropdownOpen] = useState(false);
+  const [highlightedBranchIndex, setHighlightedBranchIndex] = useState(0);
+  const [userEditedName, setUserEditedName] = useState(false);
+  const branchDropdownRef = useRef<HTMLDivElement>(null);
+  const branchInputRef = useRef<HTMLInputElement>(null);
+  const branchListRef = useRef<HTMLDivElement>(null);
   const { showError } = useErrorStore();
   const { preferences, loadPreferences, updatePreferences } = useSessionPreferencesStore();
+  const existingSessions = useSessionStore(state => state.sessions);
 
   // Load session creation preferences when dialog opens
   useEffect(() => {
@@ -74,6 +83,7 @@ export function CreateSessionDialog({
         setSessionName(initialSessionName);
       }
       setSessionCount(1);
+      setUserEditedName(!!initialSessionName);
       setFormData(prev => ({ ...prev, count: 1, baseBranch: initialBaseBranch }));
     }
   }, [isOpen, loadPreferences, initialSessionName, initialBaseBranch]);
@@ -125,6 +135,20 @@ export function CreateSessionDialog({
               const defaultBranch = remoteMain || currentBranch;
               if (defaultBranch) {
                 setFormData(prev => ({ ...prev, baseBranch: defaultBranch.name }));
+                // Auto-populate session name from default branch if user hasn't edited
+                if (!initialSessionName) {
+                  const baseName = defaultBranch.name.replace(/^[^/]+\//, '');
+                  const existingNames = new Set(existingSessions.map(s => s.name));
+                  let autoName = baseName;
+                  if (existingNames.has(baseName)) {
+                    let suffix = 1;
+                    while (existingNames.has(`${baseName}-${suffix}`)) {
+                      suffix++;
+                    }
+                    autoName = `${baseName}-${suffix}`;
+                  }
+                  setSessionName(autoName);
+                }
               }
             }
           }
@@ -140,6 +164,122 @@ export function CreateSessionDialog({
       }
     }
   }, [isOpen, projectId]);
+
+  // Filtered branches based on search term
+  const filteredBranches = useMemo(() => {
+    if (!branchSearch.trim()) return branches;
+    const search = branchSearch.toLowerCase();
+    return branches.filter(b => b.name.toLowerCase().includes(search));
+  }, [branches, branchSearch]);
+
+  // Flat list of filtered branches for keyboard navigation (remote first, then local)
+  const flatFilteredBranches = useMemo(() => {
+    const remote = filteredBranches.filter(b => b.isRemote);
+    const local = filteredBranches.filter(b => !b.isRemote);
+    return [...remote, ...local];
+  }, [filteredBranches]);
+
+  // Click outside handler for branch dropdown
+  useEffect(() => {
+    if (!isBranchDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (branchDropdownRef.current && !branchDropdownRef.current.contains(e.target as Node)) {
+        setIsBranchDropdownOpen(false);
+        setBranchSearch('');
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isBranchDropdownOpen]);
+
+  // Reset branch search state when dialog closes
+  useEffect(() => {
+    if (!isOpen) {
+      setIsBranchDropdownOpen(false);
+      setBranchSearch('');
+      setHighlightedBranchIndex(0);
+    }
+  }, [isOpen]);
+
+  // Scroll highlighted item into view
+  useEffect(() => {
+    if (!isBranchDropdownOpen || !branchListRef.current) return;
+    const items = branchListRef.current.querySelectorAll('[data-branch-item]');
+    const highlighted = items[highlightedBranchIndex];
+    if (highlighted) {
+      highlighted.scrollIntoView({ block: 'nearest' });
+    }
+  }, [highlightedBranchIndex, isBranchDropdownOpen]);
+
+  const generateSessionName = useCallback((branchName: string): string => {
+    // Strip remote prefix (e.g. "origin/feature-x" -> "feature-x")
+    const baseName = branchName.replace(/^[^/]+\//, '');
+    const existingNames = new Set(existingSessions.map(s => s.name));
+
+    if (!existingNames.has(baseName)) {
+      return baseName;
+    }
+
+    // Find next available suffix
+    let suffix = 1;
+    while (existingNames.has(`${baseName}-${suffix}`)) {
+      suffix++;
+    }
+    return `${baseName}-${suffix}`;
+  }, [existingSessions]);
+
+  const selectBranch = useCallback((branchName: string) => {
+    setFormData(prev => ({ ...prev, baseBranch: branchName }));
+    savePreferences({ baseBranch: branchName });
+    setIsBranchDropdownOpen(false);
+    setBranchSearch('');
+    setHighlightedBranchIndex(0);
+
+    // Auto-populate session name if user hasn't manually edited it
+    if (!userEditedName) {
+      const autoName = generateSessionName(branchName);
+      setSessionName(autoName);
+      setFormData(prev => ({ ...prev, baseBranch: branchName, worktreeTemplate: autoName }));
+      setWorktreeError(null);
+    }
+  }, [savePreferences, userEditedName, generateSessionName]);
+
+  const handleBranchKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (!isBranchDropdownOpen) {
+      if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        setIsBranchDropdownOpen(true);
+        return;
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setHighlightedBranchIndex(prev =>
+          prev < flatFilteredBranches.length - 1 ? prev + 1 : prev
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setHighlightedBranchIndex(prev => (prev > 0 ? prev - 1 : 0));
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (flatFilteredBranches[highlightedBranchIndex]) {
+          selectBranch(flatFilteredBranches[highlightedBranchIndex].name);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        e.stopPropagation();
+        setIsBranchDropdownOpen(false);
+        setBranchSearch('');
+        setHighlightedBranchIndex(0);
+        break;
+    }
+  }, [isBranchDropdownOpen, flatFilteredBranches, highlightedBranchIndex, selectBranch]);
 
   // Add keyboard shortcut handler
   useEffect(() => {
@@ -161,13 +301,18 @@ export function CreateSessionDialog({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
 
-  // Auto-focus session name input on dialog open
+  // Auto-focus branch input on dialog open (branch is now first)
   useEffect(() => {
     if (isOpen) {
       // Small delay to let the dialog render
       const timer = setTimeout(() => {
-        const input = document.getElementById('worktreeTemplate') as HTMLInputElement;
-        if (input) input.focus();
+        if (branchInputRef.current) {
+          branchInputRef.current.focus();
+        } else {
+          // Fall back to session name if no branches
+          const input = document.getElementById('worktreeTemplate') as HTMLInputElement;
+          if (input) input.focus();
+        }
       }, 100);
       return () => clearTimeout(timer);
     }
@@ -319,7 +464,162 @@ export function CreateSessionDialog({
       <ModalBody className="p-0">
         <div className="flex-1 overflow-y-auto">
           <form id="create-session-form" onSubmit={handleSubmit}>
-            {/* 1. Session Name (visible, required) */}
+            {/* 1. Base Branch (select first, auto-populates session name) */}
+            {branches.length > 0 && (
+              <div className="p-6 border-b border-border-primary">
+                <div className="flex items-center gap-2 mb-1">
+                  <GitBranch className="w-4 h-4 text-text-tertiary" />
+                  <label htmlFor="baseBranch" className="text-sm font-medium text-text-primary">
+                    Base Branch
+                  </label>
+                </div>
+                <div ref={branchDropdownRef} className="relative">
+                  <div
+                    className={`flex items-center w-full border rounded-md bg-surface-secondary ${
+                      isBranchDropdownOpen
+                        ? 'border-interactive ring-2 ring-interactive'
+                        : 'border-border-primary'
+                    } ${isLoadingBranches ? 'opacity-50 pointer-events-none' : ''}`}
+                  >
+                    <Search className="w-4 h-4 text-text-tertiary ml-3 shrink-0" />
+                    <input
+                      ref={branchInputRef}
+                      id="baseBranch"
+                      type="text"
+                      value={isBranchDropdownOpen ? branchSearch : (formData.baseBranch || '')}
+                      onChange={(e) => {
+                        setBranchSearch(e.target.value);
+                        setHighlightedBranchIndex(0);
+                        if (!isBranchDropdownOpen) {
+                          setIsBranchDropdownOpen(true);
+                        }
+                      }}
+                      onFocus={() => {
+                        setIsBranchDropdownOpen(true);
+                        setBranchSearch('');
+                        setHighlightedBranchIndex(0);
+                      }}
+                      onKeyDown={handleBranchKeyDown}
+                      placeholder={isBranchDropdownOpen ? 'Search branches...' : 'Select a branch'}
+                      className="w-full px-2 py-2 bg-transparent text-text-primary text-sm focus:outline-none"
+                      autoComplete="off"
+                      disabled={isLoadingBranches}
+                    />
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => {
+                        setIsBranchDropdownOpen(!isBranchDropdownOpen);
+                        if (!isBranchDropdownOpen) {
+                          setBranchSearch('');
+                          setHighlightedBranchIndex(0);
+                          branchInputRef.current?.focus();
+                        }
+                      }}
+                      className="px-2 py-2 text-text-tertiary hover:text-text-primary shrink-0"
+                    >
+                      <ChevronDown className={`w-4 h-4 transition-transform ${isBranchDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                  </div>
+
+                  {isBranchDropdownOpen && (
+                    <div
+                      ref={branchListRef}
+                      className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md border border-border-primary bg-surface-secondary shadow-lg"
+                    >
+                      {flatFilteredBranches.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-text-tertiary">
+                          No branches match &ldquo;{branchSearch}&rdquo;
+                        </div>
+                      ) : (
+                        <>
+                          {/* Remote branches group */}
+                          {filteredBranches.some(b => b.isRemote) && (
+                            <>
+                              <div className="px-3 py-1.5 text-xs font-semibold text-text-tertiary uppercase tracking-wider bg-surface-primary sticky top-0">
+                                Remote Branches
+                              </div>
+                              {filteredBranches.filter(b => b.isRemote).map(branch => {
+                                const flatIndex = flatFilteredBranches.indexOf(branch);
+                                return (
+                                  <div
+                                    key={branch.name}
+                                    data-branch-item
+                                    className={`flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer ${
+                                      flatIndex === highlightedBranchIndex
+                                        ? 'bg-interactive/10 text-text-primary'
+                                        : 'text-text-secondary hover:bg-surface-hover'
+                                    }`}
+                                    onMouseEnter={() => setHighlightedBranchIndex(flatIndex)}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      selectBranch(branch.name);
+                                    }}
+                                  >
+                                    <GitBranch className="w-3.5 h-3.5 shrink-0 text-text-tertiary" />
+                                    <span className="truncate flex-1">{branch.name}</span>
+                                    {formData.baseBranch === branch.name && (
+                                      <Check className="w-3.5 h-3.5 shrink-0 text-interactive" />
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </>
+                          )}
+
+                          {/* Local branches group */}
+                          {filteredBranches.some(b => !b.isRemote) && (
+                            <>
+                              <div className="px-3 py-1.5 text-xs font-semibold text-text-tertiary uppercase tracking-wider bg-surface-primary sticky top-0">
+                                Local Branches
+                              </div>
+                              {filteredBranches.filter(b => !b.isRemote).map(branch => {
+                                const flatIndex = flatFilteredBranches.indexOf(branch);
+                                return (
+                                  <div
+                                    key={branch.name}
+                                    data-branch-item
+                                    className={`flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer ${
+                                      flatIndex === highlightedBranchIndex
+                                        ? 'bg-interactive/10 text-text-primary'
+                                        : 'text-text-secondary hover:bg-surface-hover'
+                                    }`}
+                                    onMouseEnter={() => setHighlightedBranchIndex(flatIndex)}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      selectBranch(branch.name);
+                                    }}
+                                  >
+                                    <GitBranch className="w-3.5 h-3.5 shrink-0 text-text-tertiary" />
+                                    <span className="truncate flex-1">
+                                      {branch.name}
+                                      {branch.isCurrent && (
+                                        <span className="ml-1.5 text-xs text-text-tertiary">(current)</span>
+                                      )}
+                                      {branch.hasWorktree && (
+                                        <span className="ml-1.5 text-xs text-text-tertiary">(has worktree)</span>
+                                      )}
+                                    </span>
+                                    {formData.baseBranch === branch.name && (
+                                      <Check className="w-3.5 h-3.5 shrink-0 text-interactive" />
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-text-tertiary mt-1">
+                  Remote branches will automatically track the remote for git pull/push.
+                </p>
+              </div>
+            )}
+
+            {/* 2. Session Name (auto-populated from branch, editable) */}
             <div className="p-6 border-b border-border-primary">
               <label className="block text-sm font-medium text-text-primary mb-1">
                 Session Name
@@ -332,6 +632,7 @@ export function CreateSessionDialog({
                   const value = e.target.value;
                   setSessionName(value);
                   setFormData({ ...formData, worktreeTemplate: value });
+                  setUserEditedName(true);
                   // Real-time validation
                   const error = validateWorktreeName(value);
                   setWorktreeError(error);
@@ -342,58 +643,10 @@ export function CreateSessionDialog({
               />
               {!worktreeError && (
                 <p className="text-xs text-text-tertiary mt-1">
-                  The name for your session and worktree folder.
+                  Auto-filled from branch. Edit to customize.
                 </p>
               )}
             </div>
-
-            {/* 2. Base Branch (always visible) */}
-            {branches.length > 0 && (
-              <div className="p-6 border-b border-border-primary">
-                <div className="flex items-center gap-2 mb-1">
-                  <GitBranch className="w-4 h-4 text-text-tertiary" />
-                  <label htmlFor="baseBranch" className="text-sm font-medium text-text-primary">
-                    Base Branch
-                  </label>
-                </div>
-                <select
-                  id="baseBranch"
-                  value={formData.baseBranch || ''}
-                  onChange={(e) => {
-                    const selectedBranch = e.target.value;
-                    setFormData({ ...formData, baseBranch: selectedBranch });
-                    savePreferences({ baseBranch: selectedBranch });
-                  }}
-                  className="w-full px-3 py-2 border border-border-primary rounded-md focus:outline-none focus:ring-2 focus:ring-interactive text-text-primary bg-surface-secondary"
-                  disabled={isLoadingBranches}
-                >
-                  {/* Remote branches group */}
-                  {branches.some(b => b.isRemote) && (
-                    <optgroup label="Remote Branches">
-                      {branches.filter(b => b.isRemote).map(branch => (
-                        <option key={branch.name} value={branch.name}>
-                          {branch.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-
-                  {/* Local branches group */}
-                  {branches.some(b => !b.isRemote) && (
-                    <optgroup label="Local Branches">
-                      {branches.filter(b => !b.isRemote).map(branch => (
-                        <option key={branch.name} value={branch.name}>
-                          {branch.name} {branch.isCurrent ? '(current)' : ''} {branch.hasWorktree ? '(has worktree)' : ''}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
-                <p className="text-xs text-text-tertiary mt-1">
-                  Remote branches will automatically track the remote for git pull/push.
-                </p>
-              </div>
-            )}
 
             {/* 3. Number of Sessions (compact with expand) */}
             <div className="px-6 py-4 border-b border-border-primary">
