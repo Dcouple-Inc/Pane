@@ -8,6 +8,7 @@ import { PanelContainer } from './panels/PanelContainer';
 import { usePanelStore } from '../stores/panelStore';
 import { panelApi } from '../services/panelApi';
 import { ToolPanel, ToolPanelType } from '../../../shared/types/panels';
+import { PanelCreateOptions } from '../types/panelComponents';
 import { SessionProvider } from '../contexts/SessionContext';
 import { DetailPanel } from './DetailPanel';
 import { useResizable } from '../hooks/useResizable';
@@ -63,80 +64,26 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     side: 'right'
   });
 
-  // Load panels when main repo session changes and ensure dashboard panel exists
+  // Load panels when main repo session changes (no auto-creation, matches worktree session behavior)
   useEffect(() => {
     if (mainRepoSessionId) {
       console.log('[ProjectView] Loading panels for project session:', mainRepoSessionId);
       panelApi.loadPanelsForSession(mainRepoSessionId).then(async (loadedPanels) => {
         console.log('[ProjectView] Loaded panels:', loadedPanels);
-        
-        // Check if dashboard panel exists, create if not
-        const dashboardPanel = loadedPanels.find(p => p.type === 'dashboard');
-        const setupTasksPanel = loadedPanels.find(p => p.type === 'setup-tasks');
-        
-        let panelsCreated = false;
-        
-        if (!dashboardPanel) {
-          console.log('[ProjectView] Creating dashboard panel for project');
-          await panelApi.createPanel({
-            sessionId: mainRepoSessionId,
-            type: 'dashboard',
-            title: 'Dashboard',
-            metadata: { permanent: true }
-          });
-          panelsCreated = true;
-        }
-        
-        if (!setupTasksPanel) {
-          console.log('[ProjectView] Creating setup-tasks panel for project');
-          await panelApi.createPanel({
-            sessionId: mainRepoSessionId,
-            type: 'setup-tasks',
-            title: 'Setup',
-            metadata: { permanent: true }
-          });
-          panelsCreated = true;
-        }
 
-        // Create explorer panel if it doesn't exist
-        const explorerPanel = loadedPanels.find(p => p.type === 'explorer');
-        if (!explorerPanel) {
-          try {
-            console.log('[ProjectView] Creating explorer panel for project');
-            await panelApi.createPanel({
-              sessionId: mainRepoSessionId,
-              type: 'explorer',
-              title: 'Explorer',
-              metadata: {}
-            });
-            panelsCreated = true;
-          } catch (error) {
-            console.error('[ProjectView] Failed to create explorer panel:', error);
-          }
-        }
+        setPanels(mainRepoSessionId, loadedPanels);
 
-        // Reload panels if any were created
-        const finalPanels = panelsCreated 
-          ? await panelApi.loadPanelsForSession(mainRepoSessionId)
-          : loadedPanels;
-        
-        setPanels(mainRepoSessionId, finalPanels);
-        
-        // Determine which panel should be active
+        // Pick default active: prefer explorer, then diff, then first panel
+        const fallback = loadedPanels.find(p => p.type === 'explorer')
+          || loadedPanels.find(p => p.type === 'diff')
+          || loadedPanels[0];
+
         const activePanel = await panelApi.getActivePanel(mainRepoSessionId);
-        const explorerPanelToActivate = finalPanels.find(p => p.type === 'explorer');
-        const dashPanel = finalPanels.find(p => p.type === 'dashboard');
-
-        if (!activePanel) {
-          // No active panel - prioritize explorer if it exists, otherwise dashboard
-          const panelToActivate = explorerPanelToActivate || dashPanel;
-          if (panelToActivate) {
-            setActivePanelInStore(mainRepoSessionId, panelToActivate.id);
-            await panelApi.setActivePanel(mainRepoSessionId, panelToActivate.id);
-          }
-        } else {
-          // There's already an active panel, use it
+        if (activePanel) {
           setActivePanelInStore(mainRepoSessionId, activePanel.id);
+        } else if (fallback) {
+          setActivePanelInStore(mainRepoSessionId, fallback.id);
+          await panelApi.setActivePanel(mainRepoSessionId, fallback.id);
         }
       });
     }
@@ -166,31 +113,20 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
   const handlePanelClose = useCallback(
     async (panel: ToolPanel) => {
       if (!mainRepoSessionId) return;
-      
-      // Don't allow closing dashboard or setup-tasks panels
-      if (panel.type === 'dashboard' || panel.type === 'setup-tasks') {
-        console.log('[ProjectView] Cannot close permanent panel:', panel.type);
-        return;
-      }
-      
+
       // Find next panel to activate
       const panelIndex = sessionPanels.findIndex(p => p.id === panel.id);
-      let nextPanel = sessionPanels[panelIndex + 1] || sessionPanels[panelIndex - 1];
-      
-      // If no other panel or the next panel is the same, fall back to dashboard
-      if (!nextPanel || nextPanel.id === panel.id) {
-        nextPanel = sessionPanels.find(p => p.type === 'dashboard') || sessionPanels[0];
-      }
-      
+      const nextPanel = sessionPanels[panelIndex + 1] || sessionPanels[panelIndex - 1];
+
       // Remove from store first for immediate UI update
       removePanel(mainRepoSessionId, panel.id);
-      
-      // Set next active panel (should always have dashboard)
+
+      // Set next active panel if available
       if (nextPanel) {
         setActivePanelInStore(mainRepoSessionId, nextPanel.id);
         await panelApi.setActivePanel(mainRepoSessionId, nextPanel.id);
       }
-      
+
       // Delete on backend
       await panelApi.deletePanel(panel.id);
     },
@@ -198,14 +134,44 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
   );
 
   const handlePanelCreate = useCallback(
-    async (type: ToolPanelType) => {
+    async (type: ToolPanelType, options?: PanelCreateOptions) => {
       if (!mainRepoSessionId) return;
-      
+
+      // For Codex panels, include the last selected model and thinking level in initial state
+      let initialState: { customState?: unknown } | undefined = undefined;
+      if (type === 'codex') {
+        const savedModel = localStorage.getItem('codex.lastSelectedModel');
+        const savedThinkingLevel = localStorage.getItem('codex.lastSelectedThinkingLevel');
+
+        initialState = {
+          customState: {
+            codexConfig: {
+              model: savedModel || 'auto',
+              modelProvider: 'openai',
+              thinkingLevel: savedThinkingLevel || 'medium',
+              sandboxMode: 'workspace-write',
+              webSearch: false
+            }
+          }
+        };
+      }
+
+      // For terminal panels with initialCommand (e.g., Terminal (Claude))
+      if (type === 'terminal' && options?.initialCommand) {
+        initialState = {
+          customState: {
+            initialCommand: options.initialCommand
+          }
+        };
+      }
+
       const newPanel = await panelApi.createPanel({
         sessionId: mainRepoSessionId,
-        type
+        type,
+        title: options?.title,
+        initialState
       });
-      
+
       // Immediately add the panel and set it as active
       // The panel:created event will also fire, but addPanel checks for duplicates
       addPanel(newPanel);
@@ -355,16 +321,27 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     };
   }, [projectId]);
 
-  // Create AI panel when pending prompt is set
+  // Create terminal panel with AI CLI when pending prompt is set
   useEffect(() => {
     if (pendingAiPrompt && mainRepoSessionId && !isLoadingSession) {
-      const createAiPanel = async () => {
+      const createAiTerminalPanel = async () => {
         try {
-          // Create new AI panel (always create new, don't reuse)
+          // Determine the CLI command based on the AI tool
+          const cliCommand = pendingAiPrompt.aiTool === 'claude'
+            ? 'claude --dangerously-skip-permissions'
+            : 'codex';
+          const panelTitle = pendingAiPrompt.aiTool === 'claude' ? 'Claude CLI' : 'Codex CLI';
+
+          // Create a terminal panel with the AI CLI command
           const newPanel = await panelApi.createPanel({
             sessionId: mainRepoSessionId,
-            type: pendingAiPrompt.aiTool,
-            title: pendingAiPrompt.aiTool === 'claude' ? 'Claude' : 'Codex'
+            type: 'terminal',
+            title: panelTitle,
+            initialState: {
+              customState: {
+                initialCommand: cliCommand
+              }
+            }
           });
 
           // Add panel to store
@@ -374,22 +351,22 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
           setActivePanelInStore(mainRepoSessionId, newPanel.id);
           await panelApi.setActivePanel(mainRepoSessionId, newPanel.id);
 
-          // Store the pending input for the panel to pick up
+          // Store the pending input for the panel to pick up (will be sent after CLI starts)
           localStorage.setItem(`pending-panel-input-${newPanel.id}`, pendingAiPrompt.prompt);
 
           // Clear the pending prompt
           setPendingAiPrompt(null);
         } catch (error) {
-          console.error('Failed to create AI panel:', error);
+          console.error('Failed to create AI terminal panel:', error);
           showError({
-            title: 'Failed to Create AI Panel',
-            error: 'Could not create AI panel for run script generation. You can manually add a Claude or Codex panel.'
+            title: 'Failed to Create AI Terminal',
+            error: 'Could not create terminal for run script generation. You can manually add a Terminal (Claude) panel.'
           });
           setPendingAiPrompt(null);
         }
       };
 
-      createAiPanel();
+      createAiTerminalPanel();
     }
   }, [pendingAiPrompt, mainRepoSessionId, isLoadingSession, addPanel, setActivePanelInStore, showError]);
 
@@ -442,10 +419,11 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
                   );
                 })
               ) : (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center">
-                    <p className="text-text-secondary mb-4">Loading dashboard...</p>
-                    <p className="text-text-tertiary text-sm">Setting up project panels</p>
+                <div className="flex-1 flex items-center justify-center text-text-secondary">
+                  <div className="text-center p-8">
+                    <div className="text-4xl mb-4">⚡</div>
+                    <h2 className="text-xl font-semibold mb-2">No Active Panel</h2>
+                    <p className="text-sm">Add a tool panel to get started</p>
                   </div>
                 </div>
               )}

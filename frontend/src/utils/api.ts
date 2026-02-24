@@ -285,6 +285,21 @@ export class API {
       return window.electronAPI.sessions.hasStash(sessionId);
     },
 
+    async setUpstream(sessionId: string, remoteBranch: string) {
+      if (!isElectron()) throw new Error('Electron API not available');
+      return window.electronAPI.sessions.setUpstream(sessionId, remoteBranch);
+    },
+
+    async getUpstream(sessionId: string) {
+      if (!isElectron()) throw new Error('Electron API not available');
+      return window.electronAPI.sessions.getUpstream(sessionId);
+    },
+
+    async getRemoteBranches(sessionId: string) {
+      if (!isElectron()) throw new Error('Electron API not available');
+      return window.electronAPI.sessions.getRemoteBranches(sessionId);
+    },
+
     async getGitStatus(sessionId: string) {
       if (!isElectron()) throw new Error('Electron API not available');
       return window.electronAPI.sessions.getGitStatus(sessionId);
@@ -418,6 +433,11 @@ export class API {
     async updateSessionPreferences(preferences: SessionCreationPreferences) {
       if (!isElectron()) throw new Error('Electron API not available');
       return window.electronAPI.config.updateSessionPreferences(preferences);
+    },
+
+    async getAvailableShells() {
+      if (!isElectron()) throw new Error('Electron API not available');
+      return window.electronAPI.config.getAvailableShells();
     },
   };
 

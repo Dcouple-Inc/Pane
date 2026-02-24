@@ -1,3 +1,15 @@
+-- Projects table for managing multiple projects
+CREATE TABLE IF NOT EXISTS projects (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  path TEXT NOT NULL UNIQUE,
+  system_prompt TEXT,
+  run_script TEXT,
+  active BOOLEAN NOT NULL DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Sessions table to store persistent session data
 CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
@@ -11,7 +23,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   last_output TEXT,
   exit_code INTEGER,
   pid INTEGER,
-  claude_session_id TEXT
+  claude_session_id TEXT,
+  project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE
 );
 
 -- Session outputs table to store terminal output history
@@ -39,3 +52,4 @@ CREATE INDEX IF NOT EXISTS idx_session_outputs_session_id ON session_outputs(ses
 CREATE INDEX IF NOT EXISTS idx_session_outputs_timestamp ON session_outputs(timestamp);
 CREATE INDEX IF NOT EXISTS idx_conversation_messages_session_id ON conversation_messages(session_id);
 CREATE INDEX IF NOT EXISTS idx_conversation_messages_timestamp ON conversation_messages(timestamp);
+CREATE INDEX IF NOT EXISTS idx_sessions_project_id ON sessions(project_id);

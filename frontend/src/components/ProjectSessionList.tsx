@@ -13,26 +13,28 @@ import { FieldWithTooltip } from './ui/FieldWithTooltip';
 import { Card } from './ui/Card';
 import { TogglePillImproved } from './ui/TogglePillImproved';
 import { API } from '../utils/api';
+import { cycleIndex } from '../utils/arrayUtils';
 import type { Session, GitStatus } from '../types/session';
 import type { Project, CreateProjectRequest } from '../types/project';
 
-const RUN_SCRIPT_PROMPT = `I'm using foozol, a tool that manages multiple AI coding sessions using git worktrees. Each session runs in its own worktree directory.
+const RUN_SCRIPT_PROMPT = `I use foozol to manage multiple AI coding sessions with git worktrees.
+Each worktree needs its own dev server on a unique port.
 
-Please analyze this project and create a **foozol-run.sh** script. This script needs to:
+Make the dev command intelligent:
 
-1. **Work from any git worktree** - Detect if running from a worktree subdirectory and resolve paths correctly. The main repo might be at ../.. or similar relative to the worktree.
+1. **Worktree detection** - Auto-detect if running from main repo or a git worktree, resolve paths correctly
+2. **Dynamic port allocation** - Assign unique, deterministic port using hash(cwd) % 1000 + base_port
+3. **Port conflict resolution** - Check if port is in use and auto-resolve by incrementing
+4. **Cross-platform** - Use Node.js (not bash) for Windows/macOS/Linux compatibility
+5. **Smart dependency detection** - Auto-detect if deps need installing (compare package.json mtime vs node_modules)
+6. **Build staleness check** - Auto-detect if build is stale (compare src mtime vs dist)
+7. **Clean termination** - Handle Ctrl+C gracefully (use taskkill on Windows)
+8. **Modify package.json directly** - Don't create separate shell scripts
+9. **Auto-detect project type** - Look for package.json, requirements.txt, Cargo.toml, go.mod, etc.
+10. **Clear output** - Print the URL/port being used so user knows where to access the app
 
-2. **Dynamic port allocation** - Generate a unique port based on the current directory path (e.g., hash the path and use: base_port + (hash % 1000)). This allows multiple worktrees to run the same project simultaneously without port conflicts.
-
-3. **Find dependencies intelligently** - For Node.js projects, check for node_modules locally first, then in parent directories. For Python, check for venv/virtualenv. Handle monorepo structures.
-
-4. **Safe process management** - Before starting, check if something is already running on the calculated port and offer to kill it or pick a different port.
-
-5. **Auto-detect project type** - Look for package.json, requirements.txt, Cargo.toml, go.mod, etc. and use the appropriate start command.
-
-6. **Clear output** - Print the URL/port being used so the user knows where to access the running app.
-
-First, analyze the project structure to understand what type of project this is, then create the foozol-run.sh script with clear comments.`;
+First analyze the project structure, then implement the intelligent dev command.
+This enables running 3+ instances of the same project in different worktrees with zero manual config.`;
 
 interface ProjectSessionListProps {
   sessionSortAscending: boolean;
@@ -125,13 +127,31 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
     return result;
   }, [projects, expandedProjects, sessionsByProject]);
 
+  // Flat list of ALL active sessions (for cycling - includes collapsed projects)
+  const allActiveSessions = useMemo(() => {
+    const result: Session[] = [];
+    projects.forEach(p => {
+      const list = sessionsByProject.get(p.id) || [];
+      result.push(...list);
+    });
+    return result;
+  }, [projects, sessionsByProject]);
+
   // Register ⌘1-⌘9 hotkeys with dynamic session name labels
   const allVisibleSessionsRef = useRef(allVisibleSessions);
   allVisibleSessionsRef.current = allVisibleSessions;
+  const allActiveSessionsRef = useRef(allActiveSessions);
+  allActiveSessionsRef.current = allActiveSessions;
+  const activeSessionIdRef = useRef(activeSessionId);
+  activeSessionIdRef.current = activeSessionId;
   const setActiveSessionRef = useRef(setActiveSession);
   setActiveSessionRef.current = setActiveSession;
   const navigateToSessionsRef = useRef(navigateToSessions);
   navigateToSessionsRef.current = navigateToSessions;
+  const expandedProjectsRef = useRef(expandedProjects);
+  expandedProjectsRef.current = expandedProjects;
+  const setExpandedProjectsRef = useRef(setExpandedProjects);
+  setExpandedProjectsRef.current = setExpandedProjects;
 
   // Build stable label key so we re-register when session names/projects change
   const sessionLabelKey = allVisibleSessions.slice(0, 9).map(s => `${s.name}:${s.projectId}`).join('|');
@@ -169,6 +189,68 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
     }
     return () => ids.forEach(id => unregister(id));
   }, [register, unregister, sessionLabelKey]);
+
+  // Session cycling: navigates to next/prev session across ALL active sessions
+  // (not just visible ones from expanded projects). Auto-expands collapsed
+  // projects when cycling to their sessions so users can see the selection.
+  const cycleSession = useCallback((direction: 'next' | 'prev') => {
+    const sessions = allActiveSessionsRef.current;
+    if (sessions.length === 0) return;
+
+    const currentId = activeSessionIdRef.current;
+    const currentIndex = sessions.findIndex(s => s.id === currentId);
+    const nextIndex = cycleIndex(currentIndex, sessions.length, direction);
+    if (nextIndex === -1) return;
+
+    const nextSession = sessions[nextIndex];
+
+    // Auto-expand the project if it's collapsed
+    if (nextSession.projectId != null && !expandedProjectsRef.current.has(nextSession.projectId)) {
+      setExpandedProjectsRef.current(prev => {
+        const next = new Set(prev);
+        next.add(nextSession.projectId!);
+        return next;
+      });
+    }
+
+    setActiveSessionRef.current(nextSession.id);
+    navigateToSessionsRef.current();
+  }, []);
+
+  // Register session cycling hotkeys
+  useEffect(() => {
+    const nextKeys = ['mod+shift+Tab', 'mod+ArrowDown'];
+    const prevKeys = ['mod+Tab', 'mod+ArrowUp'];
+    const ids: string[] = [];
+
+    nextKeys.forEach((keys, i) => {
+      const id = `cycle-session-next-${i}`;
+      ids.push(id);
+      register({
+        id,
+        label: 'Next Session',
+        keys,
+        category: 'session',
+        enabled: () => allActiveSessionsRef.current.length > 1,
+        action: () => cycleSession('next'),
+      });
+    });
+
+    prevKeys.forEach((keys, i) => {
+      const id = `cycle-session-prev-${i}`;
+      ids.push(id);
+      register({
+        id,
+        label: 'Previous Session',
+        keys,
+        category: 'session',
+        enabled: () => allActiveSessionsRef.current.length > 1,
+        action: () => cycleSession('prev'),
+      });
+    });
+
+    return () => ids.forEach(id => unregister(id));
+  }, [register, unregister, cycleSession]);
 
   // Auto-expand projects with active session or that have sessions
   useEffect(() => {
@@ -379,27 +461,6 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
 
               {isExpanded && (
                 <div className="mt-0.5">
-                  {/* + New workspace + project menu */}
-                  <div className="flex items-center justify-between pl-6 pr-3">
-                    <button
-                      onClick={() => handleNewSession(project)}
-                      className="flex items-center gap-1.5 py-1.5 text-xs text-text-tertiary hover:text-text-primary transition-colors"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>New workspace</span>
-                    </button>
-                    <Dropdown
-                      trigger={
-                        <button className="p-1 rounded text-text-muted hover:text-text-tertiary hover:bg-surface-hover transition-colors">
-                          <MoreHorizontal className="w-3.5 h-3.5" />
-                        </button>
-                      }
-                      items={projectMenuItems}
-                      position="auto"
-                      width="sm"
-                    />
-                  </div>
-
                   {/* Sessions */}
                   {projectSessions.map((session) => (
                     <SessionRow
@@ -421,6 +482,27 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
                       onRenameCancel={() => { setEditingSessionId(null); setEditingName(''); }}
                     />
                   ))}
+
+                  {/* + New workspace + project menu */}
+                  <div className="flex items-center justify-between pl-6 pr-3">
+                    <button
+                      onClick={() => handleNewSession(project)}
+                      className="flex items-center gap-1.5 py-1.5 text-xs text-text-tertiary hover:text-text-primary transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>New workspace</span>
+                    </button>
+                    <Dropdown
+                      trigger={
+                        <button className="p-1 rounded text-text-muted hover:text-text-tertiary hover:bg-surface-hover transition-colors">
+                          <MoreHorizontal className="w-3.5 h-3.5" />
+                        </button>
+                      }
+                      items={projectMenuItems}
+                      position="auto"
+                      width="sm"
+                    />
+                  </div>
                 </div>
               )}
             </div>

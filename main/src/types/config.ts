@@ -13,7 +13,7 @@ export interface AppConfig {
   runScript?: string[];
   // Custom claude executable path (for when it's not in PATH)
   claudeExecutablePath?: string;
-  // Custom codex executable path (for when it's not in PATH)  
+  // Custom codex executable path (for when it's not in PATH)
   codexExecutablePath?: string;
   // Permission mode for all sessions
   defaultPermissionMode?: 'approve' | 'ignore';
@@ -82,6 +82,8 @@ export interface AppConfig {
   };
   // User-defined custom commands for the Add Tool picker
   customCommands?: CustomCommand[];
+  // Preferred shell for Windows terminals
+  preferredShell?: 'auto' | 'gitbash' | 'powershell' | 'pwsh' | 'cmd';
 }
 
 export interface UpdateConfigRequest {
@@ -147,4 +149,6 @@ export interface UpdateConfigRequest {
   };
   // User-defined custom commands for the Add Tool picker
   customCommands?: CustomCommand[];
+  // Preferred shell for Windows terminals
+  preferredShell?: 'auto' | 'gitbash' | 'powershell' | 'pwsh' | 'cmd';
 }

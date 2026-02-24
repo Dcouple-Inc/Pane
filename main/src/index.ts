@@ -26,8 +26,6 @@ import { DatabaseService } from './database/database';
 import { RunCommandManager } from './services/runCommandManager';
 import { PermissionIpcServer } from './services/permissionIpcServer';
 import { VersionChecker } from './services/versionChecker';
-import { StravuAuthManager } from './services/stravuAuthManager';
-import { StravuNotebookService } from './services/stravuNotebookService';
 import { Logger } from './utils/logger';
 import { ArchiveProgressManager } from './services/archiveProgressManager';
 import { AnalyticsManager } from './services/analyticsManager';
@@ -76,8 +74,8 @@ function setAppTitle() {
 }
 let taskQueue: TaskQueue | null = null;
 
-// Service instances
-let configManager: ConfigManager;
+// Service instances (configManager exported for shell preference access)
+export let configManager: ConfigManager;
 let logger: Logger;
 let sessionManager: SessionManager;
 let worktreeManager: WorktreeManager;
@@ -91,8 +89,6 @@ let databaseService: DatabaseService;
 let runCommandManager: RunCommandManager;
 let permissionIpcServer: PermissionIpcServer | null;
 let versionChecker: VersionChecker;
-let stravuAuthManager: StravuAuthManager;
-let stravuNotebookService: StravuNotebookService;
 let archiveProgressManager: ArchiveProgressManager;
 let analyticsManager: AnalyticsManager;
 let spotlightManager: SpotlightManager;
@@ -627,8 +623,6 @@ async function initializeServices() {
 
   // Initialize version checker
   versionChecker = new VersionChecker(configManager, logger);
-  stravuAuthManager = new StravuAuthManager(logger);
-  stravuNotebookService = new StravuNotebookService(stravuAuthManager, logger);
 
   taskQueue = new TaskQueue({
     sessionManager,
@@ -654,8 +648,6 @@ async function initializeServices() {
     worktreeNameGenerator,
     runCommandManager,
     versionChecker,
-    stravuAuthManager,
-    stravuNotebookService,
     taskQueue,
     getMainWindow: () => mainWindow,
     logger,

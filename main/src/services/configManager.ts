@@ -24,7 +24,7 @@ export class ConfigManager extends EventEmitter {
       defaultPermissionMode: 'ignore',
       defaultModel: 'sonnet',
       stravuApiKey: undefined,
-      stravuServerUrl: 'https://api.stravu.com',
+      stravuServerUrl: '', // Stravu integration disabled
       notifications: {
         enabled: true,
         playSound: true,
@@ -59,7 +59,7 @@ export class ConfigManager extends EventEmitter {
       },
       analytics: {
         enabled: false, // Opt-in: disabled by default until user consents
-        posthogApiKey: 'phc_uwOqT2KUa4C9Qx5WbEPwQSN9mUCoSGFg1aY0b670ft5',
+        posthogApiKey: '', // Analytics disabled - configure your own PostHog key
         posthogHost: 'https://us.i.posthog.com'
       },
       disableAutoContext: true // Default to disabled - users can manually run /context
@@ -165,7 +165,7 @@ export class ConfigManager extends EventEmitter {
   }
 
   getStravuServerUrl(): string {
-    return this.config.stravuServerUrl || 'https://api.stravu.com';
+    return this.config.stravuServerUrl || ''; // Stravu integration disabled
   }
 
   getDefaultModel(): string {
@@ -224,11 +224,22 @@ export class ConfigManager extends EventEmitter {
     if (!this.config.analytics) {
       this.config.analytics = {
         enabled: true,
-        posthogApiKey: 'phc_uwOqT2KUa4C9Qx5WbEPwQSN9mUCoSGFg1aY0b670ft5',
+        posthogApiKey: '', // Analytics disabled - configure your own PostHog key
         posthogHost: 'https://us.i.posthog.com'
       };
     }
     this.config.analytics.distinctId = distinctId;
     await this.saveConfig();
+  }
+
+  /**
+   * Get the user's preferred shell for terminal sessions.
+   * Validates the preference against allowed values and returns 'auto' if invalid.
+   * @returns One of: 'auto', 'gitbash', 'powershell', 'pwsh', 'cmd'
+   */
+  getPreferredShell(): string {
+    const pref = this.config.preferredShell || 'auto';
+    const validPrefs = ['auto', 'gitbash', 'powershell', 'pwsh', 'cmd'];
+    return validPrefs.includes(pref) ? pref : 'auto';
   }
 }

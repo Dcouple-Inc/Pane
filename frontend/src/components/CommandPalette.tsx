@@ -23,10 +23,10 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   const getAll = useHotkeyStore((s) => s.getAll);
   const search = useHotkeyStore((s) => s.search);
 
-  // Get filtered results — exclude the command palette's own hotkey and disabled hotkeys
+  // Get filtered results — exclude the command palette's own hotkey, disabled hotkeys, and showInPalette: false
   const results = (searchTerm
-    ? search(searchTerm)
-    : getAll()
+    ? search(searchTerm, { paletteOnly: true })
+    : getAll({ paletteOnly: true })
   ).filter((h) => h.id !== 'open-command-palette' && (!h.enabled || h.enabled()));
 
   const { listItems, commandCount } = buildListItems(results);
@@ -142,9 +142,11 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
                 onMouseEnter={() => setSelectedIndex(item.flatIndex)}
               >
                 <span>{item.hotkey.label}</span>
-                <kbd className="text-xs text-text-tertiary bg-surface-tertiary px-2 py-0.5 rounded font-mono ml-4 shrink-0">
-                  {formatKeyDisplay(item.hotkey.keys)}
-                </kbd>
+                {item.hotkey.keys && (
+                  <kbd className="text-xs text-text-tertiary bg-surface-tertiary px-2 py-0.5 rounded font-mono ml-4 shrink-0">
+                    {formatKeyDisplay(item.hotkey.keys)}
+                  </kbd>
+                )}
               </button>
             );
           })

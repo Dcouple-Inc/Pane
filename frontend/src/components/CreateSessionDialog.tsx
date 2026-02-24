@@ -115,10 +115,17 @@ export function CreateSessionDialog({
         }).then(([branchesResponse, mainBranchResponse]) => {
           if (branchesResponse.success && branchesResponse.data) {
             setBranches(branchesResponse.data);
-            // Set the current branch as default if available
-            const currentBranch = branchesResponse.data.find((b: BranchInfo) => b.isCurrent);
-            if (currentBranch && !formData.baseBranch) {
-              setFormData(prev => ({ ...prev, baseBranch: currentBranch.name }));
+            // Default to remote main branch (origin/main or origin/master) for proper tracking
+            // Fall back to current local branch if no remote main found
+            if (!formData.baseBranch) {
+              const remoteMain = branchesResponse.data.find((b: BranchInfo) =>
+                b.isRemote && (b.name === 'origin/main' || b.name === 'origin/master')
+              );
+              const currentBranch = branchesResponse.data.find((b: BranchInfo) => b.isCurrent);
+              const defaultBranch = remoteMain || currentBranch;
+              if (defaultBranch) {
+                setFormData(prev => ({ ...prev, baseBranch: defaultBranch.name }));
+              }
             }
           }
 

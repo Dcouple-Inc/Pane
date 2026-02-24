@@ -1,7 +1,7 @@
 import { IpcMain } from 'electron';
 import type { AppServices } from './types';
 import { execSync } from '../utils/commandExecutor';
-import { buildGitCommitCommand, escapeShellArg } from '../utils/shellEscape';
+import { buildGitCommitCommand } from '../utils/shellEscape';
 import { panelManager } from '../services/panelManager';
 import { mainWindow } from '../index';
 import { panelEventBus } from '../services/panelEventBus';
@@ -161,13 +161,14 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       throw new Error('Project path not found for session');
     }
 
-    const mainBranch = await worktreeManager.getProjectMainBranch(project.path);
+    const wslContext = getWSLContextForSession(session.id);
+    const mainBranch = await worktreeManager.getProjectMainBranch(project.path, wslContext);
     let comparisonBranch = mainBranch;
     let historySource: 'remote' | 'local' | 'branch' = 'branch';
     let useFallback = false;
 
     if (session.isMainRepo) {
-      const originBranch = await worktreeManager.getOriginBranch(session.worktreePath, mainBranch);
+      const originBranch = await worktreeManager.getOriginBranch(session.worktreePath, mainBranch, wslContext);
       if (originBranch) {
         comparisonBranch = originBranch;
         historySource = 'remote';
@@ -182,7 +183,7 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
 
     if (!useFallback) {
       try {
-        commits = gitDiffManager.getCommitHistory(session.worktreePath, limit, comparisonBranch);
+        commits = gitDiffManager.getCommitHistory(session.worktreePath, limit, comparisonBranch, wslContext);
       } catch (error) {
         if (session.isMainRepo) {
           console.warn(`[IPC:git] Falling back to local commit history for session ${session.id}:`, error);
@@ -253,10 +254,11 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       }));
 
       // Check for uncommitted changes
-      const hasUncommittedChanges = gitDiffManager.hasChanges(session.worktreePath);
+      const wslCtx = getWSLContextForSession(sessionId);
+      const hasUncommittedChanges = gitDiffManager.hasChanges(session.worktreePath, wslCtx);
       if (hasUncommittedChanges) {
         // Get stats for uncommitted changes
-        const uncommittedDiff = await gitDiffManager.captureWorkingDirectoryDiff(session.worktreePath);
+        const uncommittedDiff = await gitDiffManager.captureWorkingDirectoryDiff(session.worktreePath, wslCtx);
         
         // Add uncommitted changes as execution with id 0
         executions.unshift({
@@ -300,7 +302,8 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
 
       // Get diff for the specific commit
       const commit = commits[executionIndex];
-      const diff = gitDiffManager.getCommitDiff(session.worktreePath, commit.hash);
+      const wslCtx = getWSLContextForSession(sessionId);
+      const diff = gitDiffManager.getCommitDiff(session.worktreePath, commit.hash, wslCtx);
       return { success: true, data: diff };
     } catch (error) {
       console.error('Failed to get execution diff:', error);
@@ -364,7 +367,8 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
         return { success: false, error: 'Cannot access git diff for archived session' };
       }
 
-      const diff = await gitDiffManager.getGitDiff(session.worktreePath);
+      const wslCtx = getWSLContextForSession(sessionId);
+      const diff = await gitDiffManager.getGitDiff(session.worktreePath, wslCtx);
       return { success: true, data: diff };
     } catch (error) {
       // Don't log errors for expected failures
@@ -394,7 +398,7 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
           console.error('Error checking git status:', error);
         }
         
-        const uncommittedDiff = await gitDiffManager.captureWorkingDirectoryDiff(session.worktreePath);
+        const uncommittedDiff = await gitDiffManager.captureWorkingDirectoryDiff(session.worktreePath, wslContext);
         return { success: true, data: uncommittedDiff };
       }
 
@@ -481,10 +485,12 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
           }
 
           // Use git diff to show all changes from before the range to the newest selected commit
+          const wslCtxForDiff = getWSLContextForSession(sessionId);
           const diff = await gitDiffManager.captureCommitDiff(
             session.worktreePath,
             fromCommitHash,
-            newerCommit.hash
+            newerCommit.hash,
+            wslCtxForDiff
           );
           return { success: true, data: diff };
         }
@@ -494,7 +500,8 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       if (!executionIds || executionIds.length === 0) {
         if (commits.length === 0) {
           // No commits, but there might be uncommitted changes
-          const uncommittedDiff = await gitDiffManager.captureWorkingDirectoryDiff(session.worktreePath);
+          const wslCtxForUncommitted = getWSLContextForSession(sessionId);
+          const uncommittedDiff = await gitDiffManager.captureWorkingDirectoryDiff(session.worktreePath, wslCtxForUncommitted);
           return { success: true, data: uncommittedDiff };
         }
 
@@ -592,10 +599,12 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
           const fromCommit = commits[fromIndex]; // Oldest selected
           const toCommit = commits[toIndex]; // Newest selected
 
+          const wslCtxForRange = getWSLContextForSession(sessionId);
           const diff = await gitDiffManager.captureCommitDiff(
             session.worktreePath,
             fromCommit.hash,
-            toCommit.hash
+            toCommit.hash,
+            wslCtxForRange
           );
           return { success: true, data: diff };
         }
@@ -606,7 +615,8 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
         const commitIndex = executionIds[0] - 1;
         if (commitIndex >= 0 && commitIndex < commits.length) {
           const commit = commits[commitIndex];
-          const diff = gitDiffManager.getCommitDiff(session.worktreePath, commit.hash);
+          const wslCtxForCommit = getWSLContextForSession(sessionId);
+          const diff = gitDiffManager.getCommitDiff(session.worktreePath, commit.hash, wslCtxForCommit);
           return { success: true, data: diff };
         }
       }
@@ -1435,6 +1445,84 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
     }
   });
 
+  ipcMain.handle('sessions:set-upstream', async (_event, sessionId: string, remoteBranch: string) => {
+    try {
+      const session = await sessionManager.getSession(sessionId);
+      if (!session) {
+        return { success: false, error: 'Session not found' };
+      }
+
+      if (!session.worktreePath) {
+        return { success: false, error: 'Session has no worktree path' };
+      }
+
+      const wslContext = getWSLContextForSession(sessionId);
+      const result = await worktreeManager.setUpstream(session.worktreePath, remoteBranch, wslContext);
+
+      // Refresh git status after setting upstream
+      await refreshGitStatusForSession(sessionId);
+
+      return { success: true, data: result };
+    } catch (error: unknown) {
+      console.error('Failed to set upstream:', error);
+      const gitError = error as GitError;
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to set upstream',
+        gitError: {
+          output: gitError.gitOutput || (error instanceof Error ? error.message : String(error)),
+          workingDirectory: gitError.workingDirectory || ''
+        }
+      };
+    }
+  });
+
+  ipcMain.handle('sessions:get-upstream', async (_event, sessionId: string) => {
+    try {
+      const session = await sessionManager.getSession(sessionId);
+      if (!session) {
+        return { success: false, error: 'Session not found' };
+      }
+
+      if (!session.worktreePath) {
+        return { success: false, error: 'Session has no worktree path' };
+      }
+
+      const wslContext = getWSLContextForSession(sessionId);
+      const upstream = await worktreeManager.getUpstream(session.worktreePath, wslContext);
+      return { success: true, data: upstream };
+    } catch (error: unknown) {
+      console.error('Failed to get upstream:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get upstream'
+      };
+    }
+  });
+
+  ipcMain.handle('sessions:get-remote-branches', async (_event, sessionId: string) => {
+    try {
+      const session = await sessionManager.getSession(sessionId);
+      if (!session) {
+        return { success: false, error: 'Session not found' };
+      }
+
+      if (!session.worktreePath) {
+        return { success: false, error: 'Session has no worktree path' };
+      }
+
+      const wslContext = getWSLContextForSession(sessionId);
+      const branches = await worktreeManager.getRemoteBranches(session.worktreePath, wslContext);
+      return { success: true, data: branches };
+    } catch (error: unknown) {
+      console.error('Failed to get remote branches:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get remote branches'
+      };
+    }
+  });
+
   ipcMain.handle('sessions:git-stage-and-commit', async (_event, sessionId: string, message: string) => {
     try {
       const session = await sessionManager.getSession(sessionId);
@@ -1667,15 +1755,52 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       // Get all sessions for the project
       const sessions = await sessionManager.getAllSessions();
       const projectSessions = sessions.filter(s => s.projectId === projectId && !s.archived);
-      
+
       // Cancel git status operations for all project sessions
       const sessionIds = projectSessions.map(s => s.id);
       gitStatusManager.cancelMultipleGitStatus(sessionIds);
-      
+
       return { success: true };
     } catch (error) {
       console.error('Error cancelling git status:', error);
       return { success: false, error: (error as Error).message };
+    }
+  });
+
+  ipcMain.handle('git:get-github-remote', async (_event, sessionId: string) => {
+    try {
+      const session = sessionManager.getSession(sessionId);
+      if (!session?.worktreePath) {
+        return { success: true, data: null };
+      }
+
+      const wslContext = getWSLContextForSession(sessionId);
+      const stdout = gitExecSync('git remote -v', session.worktreePath, wslContext);
+
+      // Parse remote output for github.com
+      const lines = stdout.split('\n');
+      for (const line of lines) {
+        // Match SSH format: git@github.com:org/repo.git (repo can contain dots like repo.name)
+        const sshMatch = line.match(/git@github\.com:([^/]+\/[^\s]+?)(?:\.git)?(?:\s|$)/);
+        if (sshMatch) {
+          // Remove .git suffix if present
+          const repo = sshMatch[1].replace(/\.git$/, '');
+          return { success: true, data: `https://github.com/${repo}` };
+        }
+
+        // Match HTTPS format: https://github.com/org/repo.git or https://github.com/org/repo
+        const httpsMatch = line.match(/https:\/\/github\.com\/([^/]+\/[^\s]+?)(?:\.git)?(?:\s|$)/);
+        if (httpsMatch) {
+          // Remove .git suffix if present
+          const repo = httpsMatch[1].replace(/\.git$/, '');
+          return { success: true, data: `https://github.com/${repo}` };
+        }
+      }
+
+      return { success: true, data: null };
+    } catch (error) {
+      console.error('Failed to get GitHub remote:', error);
+      return { success: true, data: null }; // Silent fail, just no git links
     }
   });
 } 

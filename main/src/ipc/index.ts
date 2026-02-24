@@ -9,7 +9,6 @@ import { registerDialogHandlers } from './dialog';
 import { registerGitHandlers } from './git';
 import { registerScriptHandlers } from './script';
 import { registerPromptHandlers } from './prompt';
-import { registerStravuHandlers } from './stravu';
 import { registerFileHandlers } from './file';
 import { registerFolderHandlers } from './folders';
 import { registerUIStateHandlers } from './uiState';
@@ -35,7 +34,6 @@ export function registerIpcHandlers(services: AppServices): void {
   registerGitHandlers(ipcMain, services);
   registerScriptHandlers(ipcMain, services);
   registerPromptHandlers(ipcMain, services);
-  registerStravuHandlers(ipcMain, services);
   registerFileHandlers(ipcMain, services);
   registerFolderHandlers(ipcMain, services);
   registerUIStateHandlers(services);

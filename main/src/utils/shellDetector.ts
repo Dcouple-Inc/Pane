@@ -17,10 +17,21 @@ export class ShellDetector {
 
   /**
    * Get the user's default shell
+   * @param preferredShell Optional preferred shell ('auto', 'gitbash', 'powershell', 'pwsh', 'cmd')
    * @param forceRefresh Force re-detection instead of using cache
    * @returns Shell information including path and name
    */
-  static getDefaultShell(forceRefresh = false): ShellInfo {
+  static getDefaultShell(preferredShell?: string, forceRefresh = false): ShellInfo {
+    // If specific preference provided (not 'auto'), try to use it
+    if (preferredShell && preferredShell !== 'auto') {
+      const preferred = this.getShellByPreference(preferredShell);
+      if (preferred) {
+        return preferred;
+      }
+      // Preferred shell not available, fall through to auto-detect
+    }
+
+    // Use cache if available and not forcing refresh
     if (!forceRefresh && this.cachedShell) {
       return this.cachedShell;
     }
@@ -41,26 +52,60 @@ export class ShellDetector {
   }
 
   private static detectWindowsShell(): ShellInfo {
-    // Check for PowerShell Core first
+    // Check for Git Bash first (top priority)
+    const gitBashPath = this.findGitBash();
+    if (gitBashPath) {
+      return { path: gitBashPath, name: 'gitbash', args: this.getShellArgs('gitbash') };
+    }
+
+    // Check for PowerShell Core
     const pwshPath = this.findExecutable('pwsh.exe');
     if (pwshPath) {
-      return { path: pwshPath, name: 'pwsh' };
+      return { path: pwshPath, name: 'pwsh', args: this.getShellArgs('pwsh') };
     }
 
     // Check for Windows PowerShell
     const powershellPath = this.findExecutable('powershell.exe');
     if (powershellPath) {
-      return { path: powershellPath, name: 'powershell' };
+      return { path: powershellPath, name: 'powershell', args: this.getShellArgs('powershell') };
     }
 
     // Fall back to cmd.exe
     const cmdPath = path.join(process.env.SYSTEMROOT || 'C:\\Windows', 'System32', 'cmd.exe');
     if (fs.existsSync(cmdPath)) {
-      return { path: cmdPath, name: 'cmd' };
+      return { path: cmdPath, name: 'cmd', args: this.getShellArgs('cmd') };
     }
 
     // Last resort
-    return { path: 'cmd.exe', name: 'cmd' };
+    return { path: 'cmd.exe', name: 'cmd', args: this.getShellArgs('cmd') };
+  }
+
+  private static findGitBash(): string | null {
+    const locations = [
+      path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Git', 'bin', 'bash.exe'),
+      path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Git', 'bin', 'bash.exe'),
+      'C:\\Git\\bin\\bash.exe',
+      path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Git', 'bin', 'bash.exe'),
+      path.join(os.homedir(), 'scoop', 'apps', 'git', 'current', 'bin', 'bash.exe'),
+    ];
+
+    // Check GIT_INSTALL_ROOT env var first
+    const gitInstallRoot = process.env.GIT_INSTALL_ROOT || '';
+    if (gitInstallRoot) {
+      locations.unshift(path.join(gitInstallRoot, 'bin', 'bash.exe'));
+    }
+
+    for (const loc of locations) {
+      try {
+        if (loc && fs.existsSync(loc)) return loc;
+      } catch {
+        // Permission denied or other fs error, skip this location
+      }
+    }
+
+    // No PATH fallback - bash.exe in PATH could be WSL launcher (C:\Windows\System32\bash.exe)
+    // which is not Git Bash. Users with non-standard Git installs can set GIT_INSTALL_ROOT.
+    return null;
   }
 
   private static detectUnixShell(): ShellInfo {
@@ -157,6 +202,7 @@ export class ShellDetector {
       case 'sh':
       case 'zsh':
       case 'fish':
+      case 'gitbash':
         return ['-i']; // Interactive mode
       case 'pwsh':
       case 'powershell':
@@ -171,15 +217,17 @@ export class ShellDetector {
    * @param command The command to execute
    * @returns Array of arguments to pass to spawn/exec
    */
-  static getShellCommandArgs(command: string): { shell: string; args: string[] } {
-    const shellInfo = this.getDefaultShell();
-    
+  static getShellCommandArgs(command: string, preferredShell?: string): { shell: string; args: string[] } {
+    const shellInfo = this.getDefaultShell(preferredShell);
+
     switch (shellInfo.name) {
       case 'cmd':
         return { shell: shellInfo.path, args: ['/c', command] };
       case 'powershell':
       case 'pwsh':
         return { shell: shellInfo.path, args: ['-Command', command] };
+      case 'gitbash':
+        return { shell: shellInfo.path, args: ['-c', command] };
       default:
         // Unix shells
         return { shell: shellInfo.path, args: ['-c', command] };
@@ -197,6 +245,67 @@ export class ShellDetector {
       return true;
     } catch {
       return false;
+    }
+  }
+
+  /**
+   * Get a list of available shells on Windows
+   * @returns Array of available shells with id, name, and path
+   */
+  static getAvailableShells(): Array<{ id: string; name: string; path: string }> {
+    if (process.platform !== 'win32') return [];
+
+    const shells: Array<{ id: string; name: string; path: string }> = [];
+
+    const gitBash = this.findGitBash();
+    if (gitBash) shells.push({ id: 'gitbash', name: 'Git Bash', path: gitBash });
+
+    const pwsh = this.findExecutable('pwsh.exe');
+    if (pwsh) shells.push({ id: 'pwsh', name: 'PowerShell Core', path: pwsh });
+
+    const powershell = this.findExecutable('powershell.exe');
+    if (powershell) shells.push({ id: 'powershell', name: 'Windows PowerShell', path: powershell });
+
+    const cmdPath = path.join(process.env.SYSTEMROOT || 'C:\\Windows', 'System32', 'cmd.exe');
+    try {
+      if (fs.existsSync(cmdPath)) shells.push({ id: 'cmd', name: 'Command Prompt', path: cmdPath });
+    } catch { /* ignore */ }
+
+    return shells;
+  }
+
+  /**
+   * Get shell by preference ID
+   * @param preference Shell preference ID ('gitbash', 'powershell', 'pwsh', 'cmd')
+   * @returns ShellInfo if found, null otherwise
+   */
+  static getShellByPreference(preference: string): ShellInfo | null {
+    if (process.platform !== 'win32') return null;
+
+    switch (preference) {
+      case 'gitbash': {
+        const gitBash = this.findGitBash();
+        return gitBash ? { path: gitBash, name: 'gitbash', args: this.getShellArgs('gitbash') } : null;
+      }
+      case 'pwsh': {
+        const pwsh = this.findExecutable('pwsh.exe');
+        return pwsh ? { path: pwsh, name: 'pwsh', args: this.getShellArgs('pwsh') } : null;
+      }
+      case 'powershell': {
+        const powershell = this.findExecutable('powershell.exe');
+        return powershell ? { path: powershell, name: 'powershell', args: this.getShellArgs('powershell') } : null;
+      }
+      case 'cmd': {
+        const cmdPath = path.join(process.env.SYSTEMROOT || 'C:\\Windows', 'System32', 'cmd.exe');
+        try {
+          if (fs.existsSync(cmdPath)) {
+            return { path: cmdPath, name: 'cmd', args: this.getShellArgs('cmd') };
+          }
+        } catch { /* ignore */ }
+        return null;
+      }
+      default:
+        return null;
     }
   }
 }

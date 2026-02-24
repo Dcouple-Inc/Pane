@@ -37,11 +37,11 @@ class UIStateManager {
 
   getSessionSortAscending(): boolean {
     const value = this.db.getUIState('treeView.sessionSortAscending');
-    if (!value) return false; // Default to descending (newest first)
+    if (!value) return true; // Default to ascending (newest at bottom)
     try {
       return JSON.parse(value);
     } catch {
-      return false;
+      return true;
     }
   }
 

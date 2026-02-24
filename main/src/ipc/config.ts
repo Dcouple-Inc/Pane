@@ -1,5 +1,6 @@
 import { IpcMain } from 'electron';
 import type { AppServices } from './types';
+import { ShellDetector } from '../utils/shellDetector';
 
 export function registerConfigHandlers(ipcMain: IpcMain, { configManager, claudeCodeManager, getMainWindow }: AppServices): void {
   ipcMain.handle('config:get', async () => {
@@ -60,6 +61,17 @@ export function registerConfigHandlers(ipcMain: IpcMain, { configManager, claude
     } catch (error) {
       console.error('Failed to update session creation preferences:', error);
       return { success: false, error: 'Failed to update session creation preferences' };
+    }
+  });
+
+  ipcMain.handle('config:get-available-shells', async () => {
+    try {
+      const shells = ShellDetector.getAvailableShells();
+      return { success: true, data: shells };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to get available shells';
+      console.error('Failed to get available shells:', error);
+      return { success: false, error: message };
     }
   });
 } 

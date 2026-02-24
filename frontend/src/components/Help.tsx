@@ -1,11 +1,19 @@
+import { useMemo } from 'react';
 import { GitBranch, Terminal, Folder, Zap, MessageSquare, Settings, Bell, History } from 'lucide-react';
 import { Modal, ModalHeader, ModalBody } from './ui/Modal';
 import { useHotkeyStore, type HotkeyDefinition } from '../stores/hotkeyStore';
 import { formatKeyDisplay, CATEGORY_LABELS } from '../utils/hotkeyUtils';
 
 function KeyboardShortcutsSection() {
-  const allHotkeys = useHotkeyStore((s) => s.getAll())
-    .filter((h) => !h.enabled || h.enabled());
+  const hotkeys = useHotkeyStore((s) => s.hotkeys);
+  const allHotkeys = useMemo(
+    () =>
+      Array.from(hotkeys.values())
+        .filter((def) => !def.devOnly || process.env.NODE_ENV === 'development')
+        .filter((def) => def.showInPalette !== false)
+        .filter((h) => !h.enabled || h.enabled()),
+    [hotkeys]
+  );
 
   const grouped = allHotkeys.reduce<Record<string, HotkeyDefinition[]>>((acc, def) => {
     if (!acc[def.category]) acc[def.category] = [];
@@ -36,9 +44,13 @@ function KeyboardShortcutsSection() {
               {hotkeys.map((hotkey) => (
                 <div key={hotkey.id} className="flex justify-between items-center">
                   <span className="text-text-secondary">{hotkey.label}</span>
-                  <kbd className="px-2 py-1 bg-surface-tertiary rounded text-sm font-mono">
-                    {formatKeyDisplay(hotkey.keys)}
-                  </kbd>
+                  {hotkey.keys ? (
+                    <kbd className="px-2 py-1 bg-surface-tertiary rounded text-sm font-mono">
+                      {formatKeyDisplay(hotkey.keys)}
+                    </kbd>
+                  ) : (
+                    <span className="text-xs text-text-muted italic">palette only</span>
+                  )}
                 </div>
               ))}
             </div>

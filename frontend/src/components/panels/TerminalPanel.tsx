@@ -2,13 +2,18 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import type { WebglAddon } from '@xterm/addon-webgl';
+import type { WebLinksAddon } from '@xterm/addon-web-links';
 import { useSession } from '../../contexts/SessionContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { TerminalPanelProps } from '../../types/panelComponents';
 import { renderLog, devLog } from '../../utils/console';
 import { getTerminalTheme } from '../../utils/terminalTheme';
 import { throttle } from '../../utils/performanceUtils';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, FileEdit, FolderOpen } from 'lucide-react';
+import { useTerminalLinks } from '../terminal/hooks/useTerminalLinks';
+import { TerminalLinkTooltip } from '../terminal/TerminalLinkTooltip';
+import { TerminalPopover, PopoverButton } from '../terminal/TerminalPopover';
+import { SelectionPopover } from '../terminal/SelectionPopover';
 import '@xterm/xterm/css/xterm.css';
 
 // Type for terminal state restoration
@@ -26,6 +31,8 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const webglAddonRef = useRef<WebglAddon | null>(null);
+  const webLinksAddonRef = useRef<WebLinksAddon | null>(null);
+  const isActiveRef = useRef(isActive);
   const [isInitialized, setIsInitialized] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -41,6 +48,26 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
   } else {
     devLog.error('[TerminalPanel] No session context available');
   }
+
+  // Keep isActiveRef in sync with isActive prop
+  useEffect(() => {
+    isActiveRef.current = isActive;
+  }, [isActive]);
+
+  // Terminal link handling hook
+  const {
+    onMouseMove,
+    tooltip,
+    filePopover,
+    selectionPopover,
+    handleOpenInEditor,
+    handleShowInExplorer,
+    closeFilePopover,
+    closeSelectionPopover,
+  } = useTerminalLinks(xtermRef.current, {
+    workingDirectory: workingDirectory || '',
+    sessionId: sessionId || panel.sessionId,
+  });
 
   // Initialize terminal only once when component first mounts
   // Keep it alive even when switching sessions
@@ -111,10 +138,10 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
 
           // Ctrl/Cmd+1-9: switch sessions
           if (ctrlOrMeta && e.key >= '1' && e.key <= '9') return false;
-          // Alt+1-9: switch panel tabs
-          if (e.altKey && e.key >= '1' && e.key <= '9') return false;
-          // Ctrl/Cmd+W: close active tab
-          if (ctrlOrMeta && e.key.toLowerCase() === 'w') return false;
+          // Ctrl+Alt+1-9: switch panel tabs
+          if (ctrlOrMeta && e.altKey && e.key >= '1' && e.key <= '9') return false;
+          // Ctrl/Cmd+Q: close active tab
+          if (ctrlOrMeta && e.key.toLowerCase() === 'q') return false;
           // Ctrl/Cmd+K: command palette
           if (ctrlOrMeta && e.key.toLowerCase() === 'k') return false;
           // Ctrl/Cmd+P: prompt history
@@ -125,6 +152,13 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           if (ctrlOrMeta && e.shiftKey && e.key.toLowerCase() === 'd') return false;
           // Ctrl/Cmd+Shift+R: toggle run
           if (ctrlOrMeta && e.shiftKey && e.key.toLowerCase() === 'r') return false;
+
+          // Session cycling - Tab
+          if (ctrlOrMeta && e.key === 'Tab') return false;
+          // Session cycling - Ctrl+Up/Down arrows
+          if (ctrlOrMeta && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) return false;
+          // Tab cycling - Ctrl+A/D
+          if (ctrlOrMeta && (e.key.toLowerCase() === 'a' || e.key.toLowerCase() === 'd')) return false;
 
           return true; // Let terminal handle everything else
         });
@@ -155,6 +189,26 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           } catch (e) {
             console.warn('[TerminalPanel] WebGL renderer failed for panel', panel.id, ', using DOM renderer:', e);
             webglAddonRef.current = null;
+          }
+
+          // Load WebLinksAddon for clickable URLs
+          try {
+            const { WebLinksAddon: WebLinksAddonImpl } = await import('@xterm/addon-web-links');
+            if (!disposed) {
+              const isMac = navigator.platform.toUpperCase().includes('MAC');
+              const webLinksAddon = new WebLinksAddonImpl((event, uri) => {
+                // Only open link if Ctrl (Windows/Linux) or Cmd (Mac) is held
+                if (isMac ? event.metaKey : event.ctrlKey) {
+                  window.electronAPI.openExternal(uri);
+                }
+              });
+              terminal.loadAddon(webLinksAddon);
+              webLinksAddonRef.current = webLinksAddon;
+              console.log('[TerminalPanel] WebLinksAddon loaded for panel', panel.id);
+            }
+          } catch (e) {
+            console.warn('[TerminalPanel] WebLinksAddon failed to load for panel', panel.id, ':', e);
+            webLinksAddonRef.current = null;
           }
 
           xtermRef.current = terminal;
@@ -237,7 +291,13 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           // Handle resize
           // Throttle resize to avoid excessive fit() calls during window resize
           const throttledResize = throttle(() => {
-            if (fitAddon && !disposed) {
+            if (fitAddon && !disposed && terminalRef.current) {
+              // Skip resize if container is too small (likely hidden via display:none)
+              const rect = terminalRef.current.getBoundingClientRect();
+              if (rect.width < 100 || rect.height < 100) {
+                return;
+              }
+
               fitAddon.fit();
               const dimensions = fitAddon.proposeDimensions();
               if (dimensions) {
@@ -247,7 +307,9 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           }, 100);
 
           const resizeObserver = new ResizeObserver(() => {
-            throttledResize();
+            if (isActiveRef.current) {  // Only resize when panel is active
+              throttledResize();
+            }
           });
 
           resizeObserver.observe(terminalRef.current);
@@ -285,6 +347,12 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
         webglAddonRef.current = null;
       }
 
+      // Dispose WebLinks addon
+      if (webLinksAddonRef.current) {
+        try { webLinksAddonRef.current.dispose(); } catch { /* ignore */ }
+        webLinksAddonRef.current = null;
+      }
+
       // Dispose XTerm instance only on final unmount
       if (xtermRef.current) {
         try {
@@ -309,22 +377,28 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
     };
   }, [panel.id]); // Only depend on panel.id to prevent re-initialization on session switch
 
-  // Handle visibility changes (resize when becoming visible)
+  // Handle visibility changes (resize and focus when becoming visible)
+  // Include isInitialized so this effect re-runs after terminal initialization completes
   useEffect(() => {
-    if (isActive && fitAddonRef.current && xtermRef.current) {
-      console.log('[TerminalPanel] Panel became active, fitting terminal');
+    if (isActive && isInitialized && fitAddonRef.current && xtermRef.current) {
       // Use requestAnimationFrame to ensure the DOM has reflowed after display: none -> block,
       // then fit. If the container still has tiny dimensions, retry after a longer delay.
       const fitTerminal = () => {
-        if (!fitAddonRef.current) return;
+        if (!fitAddonRef.current || !xtermRef.current) return;
         fitAddonRef.current.fit();
         const dimensions = fitAddonRef.current.proposeDimensions();
         if (dimensions) {
           window.electronAPI.invoke('terminal:resize', panel.id, dimensions.cols, dimensions.rows);
           // If cols are suspiciously small, the reflow hasn't happened yet — retry
           if (dimensions.cols < 20) {
-            console.log('[TerminalPanel] Cols too small after fit:', dimensions.cols, '- retrying');
             setTimeout(fitTerminal, 150);
+          } else {
+            // Focus the terminal once it's properly sized
+            xtermRef.current?.focus();
+            // Re-focus after a short delay to handle any focus stealing from other components
+            setTimeout(() => {
+              xtermRef.current?.focus();
+            }, 50);
           }
         }
       };
@@ -332,7 +406,7 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
         requestAnimationFrame(fitTerminal);
       });
     }
-  }, [isActive, panel.id]);
+  }, [isActive, panel.id, isInitialized]);
 
   useEffect(() => {
     if (!xtermRef.current) {
@@ -389,7 +463,7 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
 
   // Always render the terminal div to keep XTerm instance alive
   return (
-    <div className="h-full w-full relative">
+    <div className="h-full w-full relative" onMouseMove={onMouseMove}>
       <div ref={terminalRef} className="h-full w-full" />
 
       {/* Refresh button - helps recover from stuck terminals */}
@@ -409,6 +483,44 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           <div className="text-text-secondary">Initializing terminal...</div>
         </div>
       )}
+
+      {/* Terminal link overlays */}
+      <TerminalLinkTooltip
+        visible={tooltip.visible}
+        x={tooltip.x}
+        y={tooltip.y}
+        linkText={tooltip.text}
+        hint={tooltip.hint}
+      />
+
+      <TerminalPopover
+        visible={filePopover.visible}
+        x={filePopover.x}
+        y={filePopover.y}
+        onClose={closeFilePopover}
+      >
+        <PopoverButton onClick={handleOpenInEditor}>
+          <span className="flex items-center gap-2">
+            <FileEdit className="w-4 h-4" />
+            Open in Editor
+          </span>
+        </PopoverButton>
+        <PopoverButton onClick={handleShowInExplorer}>
+          <span className="flex items-center gap-2">
+            <FolderOpen className="w-4 h-4" />
+            Show in Explorer
+          </span>
+        </PopoverButton>
+      </TerminalPopover>
+
+      <SelectionPopover
+        visible={selectionPopover.visible}
+        x={selectionPopover.x}
+        y={selectionPopover.y}
+        text={selectionPopover.text}
+        workingDirectory={workingDirectory}
+        onClose={closeSelectionPopover}
+      />
     </div>
   );
 });

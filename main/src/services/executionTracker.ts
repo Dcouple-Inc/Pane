@@ -8,6 +8,7 @@ import { buildGitCommitCommand } from '../utils/shellEscape';
 import { formatForDisplay } from '../utils/timestampUtils';
 import { commitManager } from './commitManager';
 import type { CommitModeSettings } from '../../../shared/types';
+import { getWSLContextFromProject } from '../utils/wslUtils';
 
 interface ExecutionContext {
   sessionId: string;
@@ -29,6 +30,12 @@ export class ExecutionTracker extends EventEmitter {
     super();
   }
 
+  private getWSLContextForSession(sessionId: string) {
+    const project = this.sessionManager.getProjectForSession(sessionId);
+    if (!project) return null;
+    return getWSLContextFromProject(project);
+  }
+
   /**
    * Start tracking a new prompt execution
    */
@@ -41,7 +48,8 @@ export class ExecutionTracker extends EventEmitter {
       const executionSequence = await this.sessionManager.getNextExecutionSequence(sessionId);
       
       // Capture the current commit hash as the starting point
-      const beforeCommitHash = this.gitDiffManager.getCurrentCommitHash(worktreePath);
+      const wslContext = this.getWSLContextForSession(sessionId);
+      const beforeCommitHash = this.gitDiffManager.getCurrentCommitHash(worktreePath, wslContext);
       console.log(`[ExecutionTracker] Starting from commit: ${beforeCommitHash}, sequence: ${executionSequence}`);
       this.logger?.verbose(`Starting from commit: ${beforeCommitHash}`);
       
@@ -162,21 +170,23 @@ export class ExecutionTracker extends EventEmitter {
       }
       
       // Get the current commit hash after auto-commit
-      const afterCommitHash = this.gitDiffManager.getCurrentCommitHash(context.worktreePath);
-      
+      const wslContext = this.getWSLContextForSession(sessionId);
+      const afterCommitHash = this.gitDiffManager.getCurrentCommitHash(context.worktreePath, wslContext);
+
       let executionDiff: GitDiffResult;
-      
+
       // Always get the diff between the before and after commits
       if (afterCommitHash === context.beforeCommitHash) {
         // No changes at all
-        executionDiff = await this.gitDiffManager.captureWorkingDirectoryDiff(context.worktreePath);
+        executionDiff = await this.gitDiffManager.captureWorkingDirectoryDiff(context.worktreePath, wslContext);
         this.logger?.verbose(`No changes made during execution`);
       } else {
         // Get the diff between commits
         executionDiff = await this.gitDiffManager.captureCommitDiff(
-          context.worktreePath, 
-          context.beforeCommitHash, 
-          afterCommitHash
+          context.worktreePath,
+          context.beforeCommitHash,
+          afterCommitHash,
+          wslContext
         );
         this.logger?.verbose(`Captured diff between commits ${context.beforeCommitHash} and ${afterCommitHash}`);
       }
@@ -189,7 +199,7 @@ export class ExecutionTracker extends EventEmitter {
           commitMessage = execSync(`git log -1 --format=%s ${afterCommitHash}`, {
             cwd: context.worktreePath,
             encoding: 'utf8'
-          }).trim();
+          }, wslContext).trim();
           this.logger?.verbose(`Retrieved commit message: ${commitMessage}`);
         } catch (error) {
           this.logger?.warn(`Failed to get commit message: ${error}`);

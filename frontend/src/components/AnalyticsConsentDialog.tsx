@@ -74,11 +74,11 @@ export default function AnalyticsConsentDialog({ isOpen, onClose }: AnalyticsCon
 
   return (
     <Modal isOpen={isOpen} onClose={() => {}} size="md" closeOnOverlayClick={false} closeOnEscape={false} showCloseButton={false}>
-      {/* Header with gradient */}
-      <div className="bg-gradient-to-r from-interactive to-interactive-active p-6 text-on-interactive rounded-t-lg">
+      {/* Header */}
+      <div className="p-6 border-b border-border-primary">
         <div className="flex items-center">
           <img src={foozolLogo} alt="foozol" className="h-10 w-10 mr-3" />
-          <h1 className="text-2xl font-bold">Help Improve foozol</h1>
+          <h1 className="text-lg font-semibold text-text-primary">Help Improve foozol</h1>
         </div>
       </div>
 

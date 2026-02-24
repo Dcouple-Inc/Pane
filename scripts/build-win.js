@@ -6,10 +6,11 @@
  * particularly dealing with pnpm + node-gyp compatibility issues.
  *
  * Usage:
- *   node scripts/build-win.js [arch]
+ *   node scripts/build-win.js [arch] [--publish]
  *
  * Arguments:
- *   arch - Target architecture: 'x64', 'arm64', or 'both' (default: 'x64')
+ *   arch      - Target architecture: 'x64', 'arm64', or 'both' (default: 'x64')
+ *   --publish - Use '--publish always' instead of '--publish never' (for CI releases)
  *
  * What this script does:
  * 1. Patches winpty.gyp to fix batch file path issues on Windows
@@ -31,7 +32,9 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const NODE_MODULES = path.join(ROOT_DIR, 'node_modules');
 
 // Parse command line arguments
-const arch = process.argv[2] || 'x64';
+const shouldPublish = process.argv.includes('--publish');
+const args = process.argv.slice(2).filter(a => a !== '--publish');
+const arch = args[0] || 'x64';
 if (!['x64', 'arm64', 'both'].includes(arch)) {
   console.error('Invalid architecture. Use: x64, arm64, or both');
   process.exit(1);
@@ -171,18 +174,9 @@ function copyNodeAddonApi() {
 }
 
 /**
- * Download Electron-compatible prebuilt for better-sqlite3-multiple-ciphers
- *
- * The issue: When using `pnpm install --ignore-scripts` or when prebuild-install
- * runs without knowing about Electron, the wrong binary (Node.js ABI) gets installed.
- * This causes "is not a valid Win32 application" errors at runtime.
- *
- * This function runs prebuild-install with the correct Electron runtime and version.
+ * Find the better-sqlite3-multiple-ciphers package directory
  */
-function downloadBetterSqlitePrebuilt() {
-  console.log('📥 Downloading Electron prebuilt for better-sqlite3-multiple-ciphers...');
-
-  // Find the better-sqlite3-multiple-ciphers package directory
+function findBetterSqliteDir() {
   const betterSqlitePattern = path.join(
     NODE_MODULES,
     '.pnpm',
@@ -194,15 +188,34 @@ function downloadBetterSqlitePrebuilt() {
   const matches = globSync(betterSqlitePattern.replace(/\\/g, '/'));
 
   if (matches.length === 0) {
-    console.log('  ⚠️  better-sqlite3-multiple-ciphers not found, skipping');
-    return;
+    return null;
   }
 
-  const betterSqliteDir = path.join(
+  return path.join(
     matches[0],
     'node_modules',
     'better-sqlite3-multiple-ciphers'
   );
+}
+
+/**
+ * Download Electron-compatible prebuilt for better-sqlite3-multiple-ciphers for a specific architecture.
+ *
+ * The issue: When using `pnpm install --ignore-scripts` or when prebuild-install
+ * runs without knowing about Electron, the wrong binary (Node.js ABI) gets installed.
+ * This causes "is not a valid Win32 application" errors at runtime.
+ *
+ * This function runs prebuild-install with the correct Electron runtime and version.
+ */
+function downloadBetterSqlitePrebuiltForArch(targetArch) {
+  console.log(`📥 Downloading Electron prebuilt for better-sqlite3-multiple-ciphers (${targetArch})...`);
+
+  const betterSqliteDir = findBetterSqliteDir();
+
+  if (!betterSqliteDir) {
+    console.log('  ⚠️  better-sqlite3-multiple-ciphers not found, skipping');
+    return;
+  }
 
   if (!fs.existsSync(betterSqliteDir)) {
     console.log('  ⚠️  better-sqlite3-multiple-ciphers directory not found, skipping');
@@ -212,9 +225,6 @@ function downloadBetterSqlitePrebuilt() {
   // Get Electron version from package.json
   const packageJson = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8'));
   const electronVersion = packageJson.devDependencies?.electron?.replace('^', '') || '37.6.0';
-
-  // Determine architecture
-  const targetArch = arch === 'both' ? 'x64' : arch;
 
   console.log(`  📦 Electron version: ${electronVersion}, arch: ${targetArch}`);
 
@@ -227,11 +237,22 @@ function downloadBetterSqlitePrebuilt() {
         shell: true
       }
     );
-    console.log('  ✅ Downloaded Electron prebuilt for better-sqlite3');
+    console.log(`  ✅ Downloaded Electron prebuilt for better-sqlite3 (${targetArch})`);
   } catch (error) {
-    console.error('  ❌ Failed to download prebuilt, will try to use existing binary');
+    console.error(`  ❌ Failed to download ${targetArch} prebuilt, will try to use existing binary`);
     console.error(`     Error: ${error.message}`);
   }
+}
+
+/**
+ * Download Electron-compatible prebuilts for better-sqlite3-multiple-ciphers.
+ * When building 'both' architectures, only downloads for the initial build (x64).
+ * ARM64 prebuilt is downloaded separately before the ARM64 build.
+ */
+function downloadBetterSqlitePrebuilt() {
+  // For 'both', we'll download x64 first, then download arm64 before the arm64 build
+  const targetArch = arch === 'both' ? 'x64' : arch;
+  downloadBetterSqlitePrebuiltForArch(targetArch);
 }
 
 /**
@@ -326,12 +347,24 @@ async function build() {
 
   console.log('\n🔧 Step 6: Running electron-builder...\n');
 
-  // npmRebuild=false is required when cross-compiling from non-Windows hosts (node-gyp can't cross-compile).
-  // When building ON Windows, better-sqlite3-multiple-ciphers ships Electron prebuilds so rebuild will work,
-  // but node-pty still needs native compilation. The flag is safe because pnpm install already built the
-  // native modules for the host platform.
-  const archFlag = arch === 'both' ? '' : `--${arch}`;
-  run(`pnpm exec electron-builder --win ${archFlag} --publish never --config.npmRebuild=false`);
+  const publishFlag = shouldPublish ? '--publish always' : '--publish never';
+
+  if (arch === 'both') {
+    // Build each architecture separately to ensure correct native modules for each.
+    // We must rebuild native modules between builds since they're architecture-specific.
+    console.log('Building x64...');
+    run(`pnpm exec electron-builder --win --x64 ${publishFlag} --config.npmRebuild=false`);
+
+    // Download ARM64 prebuilt before building ARM64
+    console.log('\n📥 Preparing ARM64 native modules...');
+    downloadBetterSqlitePrebuiltForArch('arm64');
+
+    console.log('\nBuilding arm64...');
+    run(`pnpm exec electron-builder --win --arm64 ${publishFlag} --config.npmRebuild=false`);
+  } else {
+    const archFlag = `--${arch}`;
+    run(`pnpm exec electron-builder --win ${archFlag} ${publishFlag} --config.npmRebuild=false`);
+  }
 
   console.log('\n✅ Build complete!\n');
   console.log('Output files are in: dist-electron/');

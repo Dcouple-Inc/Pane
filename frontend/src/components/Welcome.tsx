@@ -43,15 +43,13 @@ export default function Welcome({ isOpen, onClose }: WelcomeProps) {
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="lg">
-      {/* Header with gradient */}
-      <div className="bg-gradient-to-r from-interactive to-interactive-active p-6 text-on-interactive rounded-t-lg">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <img src={foozolLogo} alt="foozol" className="h-10 w-10 mr-3" />
-            <div>
-              <h1 className="text-2xl font-bold">Welcome to foozol</h1>
-              <p className="text-interactive-text/80">Multi-Session Claude Code Manager</p>
-            </div>
+      {/* Header */}
+      <div className="p-6 border-b border-border-primary">
+        <div className="flex items-center">
+          <img src={foozolLogo} alt="foozol" className="h-10 w-10 mr-3" />
+          <div>
+            <h1 className="text-xl font-semibold text-text-primary">Welcome to foozol</h1>
+            <p className="text-sm text-text-tertiary">Multi-Session Claude Code Manager</p>
           </div>
         </div>
       </div>

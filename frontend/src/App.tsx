@@ -63,9 +63,9 @@ function App() {
   const { fetchConfig } = useConfigStore();
   
   const { width: sidebarWidth, startResize } = useResizable({
-    defaultWidth: 500,  // Increased to show git status labels without truncation
+    defaultWidth: 320,  // ~20% of screen width
     minWidth: 200,
-    maxWidth: 600,
+    maxWidth: 500,
     storageKey: 'foozol-sidebar-width'
   });
 

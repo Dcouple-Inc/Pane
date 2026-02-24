@@ -2,7 +2,7 @@ import React from 'react';
 import { cn } from '../../utils/cn';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'warning';
   size?: 'sm' | 'md' | 'lg';
   fullWidth?: boolean;
   loading?: boolean;
@@ -31,6 +31,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       secondary: 'bg-surface-secondary text-text-secondary hover:bg-surface-hover focus:ring-border-primary',
       ghost: 'text-text-tertiary hover:text-text-secondary hover:bg-bg-hover focus:ring-border-primary',
       danger: 'bg-status-error text-white hover:bg-status-error-hover focus:ring-status-error',
+      warning: 'bg-amber-500 text-white hover:bg-amber-600 focus:ring-amber-400',
     };
     
     const sizes = {
@@ -106,14 +107,15 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
       secondary: 'bg-surface-secondary text-text-secondary hover:bg-surface-hover focus:ring-border-primary',
       ghost: 'text-text-tertiary hover:text-text-secondary hover:bg-bg-hover focus:ring-border-primary',
       danger: 'bg-status-error text-white hover:bg-status-error-hover focus:ring-status-error',
+      warning: 'bg-amber-500 text-white hover:bg-amber-600 focus:ring-amber-400',
     };
-    
+
     const sizes = {
       sm: 'p-1 rounded',
       md: 'p-2 rounded-md',
       lg: 'p-3 rounded-lg',
     };
-    
+
     return (
       <button
         ref={ref}

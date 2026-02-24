@@ -118,6 +118,9 @@ interface ElectronAPI {
     gitStashPop: (sessionId: string) => Promise<IPCResponse>;
     gitStageAndCommit: (sessionId: string, message: string) => Promise<IPCResponse>;
     hasStash: (sessionId: string) => Promise<IPCResponse>;
+    setUpstream: (sessionId: string, remoteBranch: string) => Promise<IPCResponse>;
+    getUpstream: (sessionId: string) => Promise<IPCResponse>;
+    getRemoteBranches: (sessionId: string) => Promise<IPCResponse>;
     getGitStatus: (sessionId: string, nonBlocking?: boolean, isInitialLoad?: boolean) => Promise<IPCResponse>;
     getLastCommits: (sessionId: string, count: number) => Promise<IPCResponse>;
 
@@ -185,6 +188,7 @@ interface ElectronAPI {
     update: (updates: Record<string, unknown>) => Promise<IPCResponse>;
     getSessionPreferences: () => Promise<IPCResponse>;
     updateSessionPreferences: (preferences: SessionCreationPreferences) => Promise<IPCResponse>;
+    getAvailableShells: () => Promise<IPCResponse>;
   };
 
   // Prompts

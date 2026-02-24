@@ -19,6 +19,7 @@ import type { AbstractCliManager } from './services/panels/cli/AbstractCliManage
 import type { GitCommit } from './services/gitDiffManager';
 import type { Project } from './database/models';
 import type { GitStatus } from './types/session';
+import { getWSLContextFromProject } from './utils/wslUtils';
 
 export function setupEventListeners(services: AppServices, getMainWindow: () => BrowserWindow | null): void {
   const {
@@ -1049,11 +1050,15 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
         const timestamp = new Date().toLocaleTimeString();
         let commitInfo = `\r\n\x1b[36m[${timestamp}]\x1b[0m \x1b[1m\x1b[44m\x1b[37m 📊 SESSION SUMMARY \x1b[0m\r\n\r\n`;
 
+        // Get WSL context for this session's project
+        const summaryProject = sessionManager.getProjectForSession(session.id);
+        const summaryWslContext = summaryProject ? getWSLContextFromProject(summaryProject) : null;
+
         // Check for uncommitted changes
         const statusOutput = execSync('git status --porcelain', {
           cwd: session.worktreePath,
           encoding: 'utf8'
-        }).trim();
+        }, summaryWslContext).trim();
 
         if (statusOutput) {
           const uncommittedFiles = statusOutput.split('\n').length;
@@ -1078,20 +1083,21 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
         if (!project?.path) {
           throw new Error('Project path not found for session');
         }
-        const mainBranch = await worktreeManager.getProjectMainBranch(project.path);
+        const wslContext = getWSLContextFromProject(project);
+        const mainBranch = await worktreeManager.getProjectMainBranch(project.path, wslContext);
 
         // Verbose commit logging removed - details are in error cases if needed
 
         let commits: GitCommit[] = [];
         try {
-          commits = gitDiffManager.getCommitHistory(session.worktreePath, 10, mainBranch);
+          commits = gitDiffManager.getCommitHistory(session.worktreePath, 10, mainBranch, wslContext);
           // Commit count logging removed - shown in session summary
         } catch (error) {
           console.error(`[Events] Error getting commit history:`, error);
           // If there's an error, try without specifying main branch (get all commits)
           try {
             const fallbackCommand = `git log --format="%H|%s|%ai|%an" --numstat -n 10`;
-            const logOutput = execSync(fallbackCommand, { cwd: session.worktreePath, encoding: 'utf8' });
+            const logOutput = execSync(fallbackCommand, { cwd: session.worktreePath, encoding: 'utf8' }, wslContext);
             // Fallback output logging removed - only errors are logged
           } catch (fallbackError) {
             console.error(`[Events] Fallback also failed:`, fallbackError);
@@ -1189,11 +1195,15 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
         const timestamp = new Date().toLocaleTimeString();
         let commitInfo = `\r\n\x1b[36m[${timestamp}]\x1b[0m \x1b[1m\x1b[41m\x1b[37m 📊 SESSION SUMMARY (ERROR) \x1b[0m\r\n\r\n`;
 
+        // Get WSL context for this session's project
+        const errorProject = sessionManager.getProjectForSession(session.id);
+        const errorWslContext = errorProject ? getWSLContextFromProject(errorProject) : null;
+
         // Check for uncommitted changes
         const statusOutput = execSync('git status --porcelain', {
           cwd: session.worktreePath,
           encoding: 'utf8'
-        }).trim();
+        }, errorWslContext).trim();
 
         if (statusOutput) {
           const uncommittedFiles = statusOutput.split('\n').length;
@@ -1218,20 +1228,21 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
         if (!project?.path) {
           throw new Error('Project path not found for session');
         }
-        const mainBranch = await worktreeManager.getProjectMainBranch(project.path);
-        
+        const wslCtx = getWSLContextFromProject(project);
+        const mainBranch = await worktreeManager.getProjectMainBranch(project.path, wslCtx);
+
         // Verbose commit logging removed - details are in error cases if needed
-        
+
         let commits: GitCommit[] = [];
         try {
-          commits = gitDiffManager.getCommitHistory(session.worktreePath, 10, mainBranch);
+          commits = gitDiffManager.getCommitHistory(session.worktreePath, 10, mainBranch, wslCtx);
           // Commit count logging removed - shown in session summary
         } catch (error) {
           console.error(`[Events] Error getting commit history:`, error);
           // If there's an error, try without specifying main branch (get all commits)
           try {
             const fallbackCommand = `git log --format="%H|%s|%ai|%an" --numstat -n 10`;
-            const logOutput = execSync(fallbackCommand, { cwd: session.worktreePath, encoding: 'utf8' });
+            const logOutput = execSync(fallbackCommand, { cwd: session.worktreePath, encoding: 'utf8' }, wslCtx);
             // Fallback output logging removed - only errors are logged
           } catch (fallbackError) {
             console.error(`[Events] Fallback also failed:`, fallbackError);

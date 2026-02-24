@@ -1,10 +1,11 @@
 {
   "name": "foozol",
-  "version": "0.0.1",
+  "version": "0.0.5",
   "private": true,
   "description": "foozol - Terminal-first AI code assistant manager with Windows support",
   "author": {
     "name": "Dcouple Inc",
+    "email": "hello@dcouple.ai",
     "url": "https://dcouple.ai"
   },
   "license": "AGPL-3.0",
@@ -23,7 +24,7 @@
     ]
   },
   "scripts": {
-    "dev": "pnpm run electron-dev",
+    "dev": "node scripts/foozol-run-script.js",
     "electron-dev": "pnpm run build:main && concurrently \"pnpm run --filter main dev\" \"pnpm run --filter frontend dev\" \"wait-on http://localhost:4521 && electron .\"",
     "electron-dev:custom": "concurrently \"pnpm run --filter frontend dev\" \"wait-on http://localhost:4521 && electron .\"",
     "build": "pnpm run build:frontend && pnpm run build:main && pnpm run build:electron",
@@ -42,6 +43,11 @@
     "build:win": "node scripts/build-win.js both",
     "build:win:x64": "node scripts/build-win.js x64",
     "build:win:arm64": "node scripts/build-win.js arm64",
+    "release:win": "node scripts/build-win.js both --publish",
+    "release:win:x64": "node scripts/build-win.js x64 --publish",
+    "release:win:arm64": "node scripts/build-win.js arm64 --publish",
+    "canary:win": "node scripts/prepare-canary.js && node scripts/build-win.js both --publish",
+    "release": "node scripts/release.js",
     "inject-build-info": "node scripts/inject-build-info.js",
     "release:mac": "pnpm run build:frontend && pnpm run build:main && pnpm run inject-build-info && pnpm run generate-notices && node scripts/configure-build.js && electron-builder --mac --publish always",
     "release:mac:universal": "pnpm run build:frontend && pnpm run build:main && pnpm run inject-build-info && pnpm run generate-notices && node scripts/configure-build.js && electron-builder --mac --universal --publish always",
@@ -135,7 +141,7 @@
         }
       ],
       "artifactName": "${productName}-${version}-macOS-universal.${ext}",
-      "x64ArchFiles": "Contents/Resources/app.asar.unpacked/node_modules/{**/*.node,**/*.dylib,@anthropic-ai/claude-code/vendor/**/*}"
+      "x64ArchFiles": "Contents/Resources/app.asar.unpacked/node_modules/{**/*.node,**/*.dylib,**/spawn-helper,@anthropic-ai/claude-code/vendor/**/*}"
     },
     "linux": {
       "target": [

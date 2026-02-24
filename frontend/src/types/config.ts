@@ -60,4 +60,6 @@ export interface AppConfig {
   };
   // User-defined custom commands for the Add Tool picker
   customCommands?: CustomCommand[];
+  // Preferred shell for terminal sessions on Windows
+  preferredShell?: 'auto' | 'gitbash' | 'powershell' | 'pwsh' | 'cmd';
 }

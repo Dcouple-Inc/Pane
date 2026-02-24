@@ -566,7 +566,7 @@ export const SessionListItem = memo(function SessionListItem({ session, isNested
         title={`Archive Session`}
         message={`Archive session "${session.name}"? This will:\n\n• Move the session to the archived sessions list\n• Preserve all session history and outputs\n${session.isMainRepo ? '• Close the active Claude Code connection' : `• Remove the git worktree locally (${session.worktreePath?.split('/').pop() || 'worktree'})`}`}
         confirmText="Archive"
-        confirmButtonClass="bg-amber-600 hover:bg-amber-700 text-white"
+        variant="warning"
         icon={<Archive className="w-6 h-6 text-amber-500 flex-shrink-0" />}
       />
       

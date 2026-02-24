@@ -28,6 +28,24 @@ export function registerAppHandlers(ipcMain: IpcMain, services: AppServices): vo
     }
   });
 
+  ipcMain.handle('app:showItemInFolder', async (_event, filePath: string) => {
+    try {
+      // Validate path exists before showing
+      const fs = await import('fs/promises');
+      const exists = await fs.access(filePath).then(() => true).catch(() => false);
+
+      if (!exists) {
+        return { success: false, error: 'File does not exist' };
+      }
+
+      shell.showItemInFolder(filePath);
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to show item in folder:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to show item' };
+    }
+  });
+
   // Welcome tracking handler (for compatibility)
   ipcMain.handle('track-welcome-dismissed', () => {
     // This handler exists for compatibility with other parts of the codebase

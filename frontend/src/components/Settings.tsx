@@ -16,7 +16,10 @@ import {
   FileText,
   Eye,
   BarChart3,
-  Activity
+  Activity,
+  ChevronUp,
+  ChevronDown,
+  Terminal
 } from 'lucide-react';
 import { Input, Textarea, Checkbox } from './ui/Input';
 import { Button } from './ui/Button';
@@ -56,19 +59,23 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
   const [activeTab, setActiveTab] = useState<'general' | 'notifications' | 'analytics'>('general');
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
   const [previousAnalyticsEnabled, setPreviousAnalyticsEnabled] = useState(true);
+  const [preferredShell, setPreferredShell] = useState<string>('auto');
+  const [availableShells, setAvailableShells] = useState<Array<{id: string; name: string; path: string}>>([]);
   const { updateSettings } = useNotifications();
   const { theme, toggleTheme } = useTheme();
   const { fetchConfig: refreshConfigStore } = useConfigStore();
 
   useEffect(() => {
     if (isOpen) {
-      fetchConfig();
-      // Get platform for PATH help text
-      window.electronAPI.getPlatform().then(setPlatform);
+      // Get platform first, then fetch config (needed for Windows shell detection)
+      window.electronAPI.getPlatform().then((p) => {
+        setPlatform(p);
+        fetchConfig(p);
+      });
     }
   }, [isOpen]);
 
-  const fetchConfig = async () => {
+  const fetchConfig = async (currentPlatform?: string) => {
     try {
       const response = await API.config.get();
       if (!response.success) throw new Error(response.error || 'Failed to fetch config');
@@ -84,11 +91,11 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
       setEnableCommitFooter(data.enableCommitFooter !== false); // Default to true
       setDisableAutoContext(data.disableAutoContext || false);
       setUiScale(data.uiScale || 1.0);
-      
+
       // Load additional paths
       const paths = data.additionalPaths || [];
       setAdditionalPathsText(paths.join('\n'));
-      
+
       // Load notification settings
       if (data.notifications) {
         setNotificationSettings(data.notifications);
@@ -102,6 +109,16 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
         setAnalyticsEnabled(enabled);
         setPreviousAnalyticsEnabled(enabled);
       }
+
+      // Fetch available shells on Windows
+      const platformToCheck = currentPlatform || platform;
+      if (platformToCheck === 'win32') {
+        const shellsResponse = await API.config.getAvailableShells();
+        if (shellsResponse.success) {
+          setAvailableShells(shellsResponse.data);
+        }
+      }
+      setPreferredShell(data.preferredShell || 'auto');
     } catch (err) {
       setError('Failed to load configuration');
     }
@@ -151,7 +168,8 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
         notifications: notificationSettings,
         analytics: {
           enabled: analyticsEnabled
-        }
+        },
+        preferredShell
       });
 
       if (!response.success) {
@@ -259,26 +277,41 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                 icon={<Eye className="w-4 h-4" />}
               >
                 <div className="space-y-3">
-                  <div className="flex items-center gap-4">
-                    <input
-                      type="range"
-                      min="0.75"
-                      max="1.5"
-                      step="0.05"
-                      value={uiScale}
-                      onChange={(e) => {
-                        const value = parseFloat(e.target.value);
-                        setUiScale(value);
-                        API.config.update({ uiScale: value });
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newScale = Math.round((uiScale - 0.1) * 10) / 10;
+                        if (newScale >= 0.8) {
+                          setUiScale(newScale);
+                          API.config.update({ uiScale: newScale });
+                        }
                       }}
-                      className="flex-1 accent-interactive"
-                    />
-                    <span className="text-sm font-medium text-text-primary w-12 text-right">
-                      {Math.round(uiScale * 100)}%
+                      disabled={uiScale <= 0.8}
+                      className="p-1.5 rounded-md bg-surface-tertiary hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+                    <span className="text-sm font-medium text-text-primary w-12 text-center">
+                      {uiScale.toFixed(1)}x
                     </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newScale = Math.round((uiScale + 0.1) * 10) / 10;
+                        if (newScale <= 1.5) {
+                          setUiScale(newScale);
+                          API.config.update({ uiScale: newScale });
+                        }
+                      }}
+                      disabled={uiScale >= 1.5}
+                      className="p-1.5 rounded-md bg-surface-tertiary hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <ChevronUp className="w-4 h-4" />
+                    </button>
                   </div>
                   <div className="flex gap-2">
-                    {[0.75, 1.0, 1.25, 1.5].map((preset) => (
+                    {[0.8, 1.0, 1.2, 1.5].map((preset) => (
                       <button
                         key={preset}
                         type="button"
@@ -292,7 +325,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                             : 'bg-surface-secondary text-text-secondary border-border-secondary hover:bg-surface-hover'
                         }`}
                       >
-                        {Math.round(preset * 100)}%
+                        {preset.toFixed(1)}x
                       </button>
                     ))}
                   </div>
@@ -530,6 +563,25 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                   }
                 />
               </SettingsSection>
+
+              {platform === 'win32' && (
+                <SettingsSection
+                  title="Terminal Shell"
+                  description="Default shell for terminal panels"
+                  icon={<Terminal className="w-4 h-4" />}
+                >
+                  <select
+                    value={preferredShell}
+                    onChange={(e) => setPreferredShell(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-border-primary bg-surface-secondary text-text-primary focus:ring-2 focus:ring-interactive focus:border-interactive"
+                  >
+                    <option value="auto">Auto-detect (Git Bash preferred)</option>
+                    {availableShells.map(shell => (
+                      <option key={shell.id} value={shell.id}>{shell.name}</option>
+                    ))}
+                  </select>
+                </SettingsSection>
+              )}
 
               <SettingsSection
                 title="Custom Claude Installation"

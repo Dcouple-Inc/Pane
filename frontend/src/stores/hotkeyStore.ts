@@ -1,3 +1,33 @@
+/**
+ * Global hotkey registry store using Zustand.
+ *
+ * Manages application-wide keyboard shortcuts with features:
+ * - Centralized registration/unregistration via `register()` and `unregister()`
+ * - Automatic conflict detection with console warnings in dev mode
+ * - Category-based organization for Help dialog grouping
+ * - Search/filter functionality for Command Palette
+ * - Conditional enabling via `enabled` callbacks checked on every keypress
+ * - Platform-aware key normalization (Ctrl/Cmd → 'mod')
+ * - Support for hiding alternative shortcuts from UI via `showInPalette`
+ *
+ * @example
+ * ```tsx
+ * const { register, unregister } = useHotkeyStore();
+ *
+ * useEffect(() => {
+ *   register({
+ *     id: 'my-action',
+ *     label: 'Do Something',
+ *     keys: 'mod+k',
+ *     category: 'navigation',
+ *     action: () => console.log('triggered'),
+ *   });
+ *   return () => unregister('my-action');
+ * }, [register, unregister]);
+ * ```
+ *
+ * @module hotkeyStore
+ */
 import { create } from 'zustand';
 
 export interface HotkeyDefinition {
@@ -8,22 +38,28 @@ export interface HotkeyDefinition {
   /** Key combination string, e.g. 'mod+p', 'mod+shift+n', 'mod+alt+ArrowLeft' */
   keys: string;
   /** Grouping for help dialog display */
-  category: 'navigation' | 'session' | 'tabs' | 'view' | 'debug';
+  category: 'navigation' | 'session' | 'tabs' | 'view' | 'tools' | 'debug';
   /** The function to execute */
   action: () => void;
   /** Only register in development mode? */
   devOnly?: boolean;
   /** Is this hotkey currently enabled? Checked on every keypress. */
   enabled?: () => boolean;
+  /** If false, hotkey works but doesn't appear in Command Palette/Help. Defaults to true. */
+  showInPalette?: boolean;
+}
+
+interface GetAllOptions {
+  paletteOnly?: boolean;
 }
 
 interface HotkeyStore {
   hotkeys: Map<string, HotkeyDefinition>;
   register: (def: HotkeyDefinition) => void;
   unregister: (id: string) => void;
-  getAll: () => HotkeyDefinition[];
+  getAll: (options?: GetAllOptions) => HotkeyDefinition[];
   getByCategory: (category: HotkeyDefinition['category']) => HotkeyDefinition[];
-  search: (query: string) => HotkeyDefinition[];
+  search: (query: string, options?: GetAllOptions) => HotkeyDefinition[];
 }
 
 // --- Key matching logic (module-level, not in store) ---
@@ -96,6 +132,7 @@ function handleKeyDown(e: KeyboardEvent) {
 function rebuildIndex(hotkeys: Map<string, HotkeyDefinition>) {
   lookupIndex = new Map();
   for (const [id, def] of hotkeys) {
+    if (!def.keys) continue; // Skip palette-only commands with no keybinding
     const normalized = normalizeHotkeyString(def.keys);
     if (process.env.NODE_ENV === 'development' && lookupIndex.has(normalized)) {
       const existingId = lookupIndex.get(normalized);
@@ -144,11 +181,15 @@ export const useHotkeyStore = create<HotkeyStore>((set, get) => ({
     });
   },
 
-  getAll: () => {
+  getAll: (options?: GetAllOptions) => {
     const state = get();
-    return Array.from(state.hotkeys.values()).filter(
+    let results = Array.from(state.hotkeys.values()).filter(
       (def) => !def.devOnly || process.env.NODE_ENV === 'development'
     );
+    if (options?.paletteOnly) {
+      results = results.filter((def) => def.showInPalette !== false);
+    }
+    return results;
   },
 
   getByCategory: (category) => {
@@ -157,10 +198,10 @@ export const useHotkeyStore = create<HotkeyStore>((set, get) => ({
       .filter((def) => def.category === category);
   },
 
-  search: (query) => {
+  search: (query, options?: GetAllOptions) => {
     const lower = query.toLowerCase();
     return get()
-      .getAll()
+      .getAll(options)
       .filter(
         (def) =>
           def.label.toLowerCase().includes(lower) ||

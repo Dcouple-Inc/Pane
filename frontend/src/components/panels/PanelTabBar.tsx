@@ -1,5 +1,5 @@
 import React, { useCallback, memo, useState, useRef, useEffect, useMemo } from 'react';
-import { Plus, X, Terminal, ChevronDown, MessageSquare, GitBranch, FileCode, MoreVertical, BarChart3, Code2, Edit2, PanelRight, FolderTree, TerminalSquare, Trash2 } from 'lucide-react';
+import { Plus, X, Terminal, ChevronDown, MessageSquare, GitBranch, FileCode, MoreVertical, BarChart3, Code2, Edit2, PanelRight, FolderTree, TerminalSquare, Wrench, Play } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { PanelTabBarProps, PanelCreateOptions } from '../../types/panelComponents';
 import { ToolPanel, ToolPanelType, PANEL_CAPABILITIES, LogsPanelState, BaseAIPanelState, PanelStatus } from '../../../../shared/types/panels';
@@ -11,6 +11,27 @@ import { StatusIndicator } from '../StatusIndicator';
 import { useConfigStore } from '../../stores/configStore';
 import { formatKeyDisplay } from '../../utils/hotkeyUtils';
 import { Tooltip } from '../ui/Tooltip';
+
+// Prompt for setting up intelligent dev command
+export const SETUP_RUN_SCRIPT_PROMPT = `I use foozol to manage multiple AI coding sessions with git worktrees.
+Each worktree needs its own dev server on a unique port.
+
+Create scripts/foozol-run-script.js (Node.js, cross-platform) that:
+1. Auto-detects git worktrees vs main repo
+2. Assigns unique ports using hash(cwd) % 1000 + base_port
+3. Checks port availability, auto-increments if in use
+4. Auto-detects if deps need installing (package.json mtime > node_modules mtime)
+5. Auto-detects if build is stale (src mtime > dist mtime)
+6. Clean Ctrl+C termination (taskkill on Windows, SIGTERM on Unix)
+
+PITFALLS TO WATCH OUT FOR:
+- Port collisions between main repo and worktrees - use separate port ranges
+- Electron apps need native module rebuilding after install (electron-rebuild)
+- Cross-platform compatibility (Windows vs Unix process management)
+
+Analyze this project and create the complete foozol-run-script.js.
+
+IMPORTANT: After creating the script, test it by running 'node scripts/foozol-run-script.js' to ensure it works seamlessly. Then commit and merge to main so all future worktrees have it.`;
 
 export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
   panels,
@@ -34,6 +55,8 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customCommand, setCustomCommand] = useState('');
   const customInputRef = useRef<HTMLInputElement>(null);
+  const [, setFocusedDropdownIndex] = useState(-1);
+  const dropdownItemsRef = useRef<(HTMLButtonElement | HTMLInputElement | null)[]>([]);
 
   const customCommands = config?.customCommands ?? [];
 
@@ -150,6 +173,55 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
       customInputRef.current.focus();
     }
   }, [showCustomInput]);
+
+  // Reset focus index when dropdown closes, focus first item when opens
+  useEffect(() => {
+    if (showDropdown) {
+      setFocusedDropdownIndex(0);
+      // Focus first item after render
+      requestAnimationFrame(() => {
+        dropdownItemsRef.current[0]?.focus();
+      });
+    } else {
+      setFocusedDropdownIndex(-1);
+      dropdownItemsRef.current = [];
+    }
+  }, [showDropdown]);
+
+  // Handle keyboard navigation in dropdown
+  const handleDropdownKeyDown = useCallback((e: React.KeyboardEvent) => {
+    const items = dropdownItemsRef.current.filter(Boolean);
+    const itemCount = items.length;
+
+    if (itemCount === 0) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setFocusedDropdownIndex(prev => {
+          const next = prev < itemCount - 1 ? prev + 1 : 0;
+          items[next]?.focus();
+          return next;
+        });
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setFocusedDropdownIndex(prev => {
+          const next = prev > 0 ? prev - 1 : itemCount - 1;
+          items[next]?.focus();
+          return next;
+        });
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setShowDropdown(false);
+        break;
+      case 'Tab':
+        // Allow tab to close dropdown and move to next element
+        setShowDropdown(false);
+        break;
+    }
+  }, []);
   
   // Focus input when editing starts
   useEffect(() => {
@@ -376,8 +448,14 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
         {/* Add Panel dropdown button - outside overflow container so dropdown isn't clipped */}
         <div className="relative h-9 flex items-center ml-1 flex-shrink-0" ref={dropdownRef}>
           <button
-            className="inline-flex items-center h-9 px-3 text-sm text-text-tertiary hover:text-text-primary hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring-subtle"
+            className="inline-flex items-center h-9 px-3 text-sm text-text-tertiary hover:text-text-primary hover:bg-surface-hover rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring-subtle"
             onClick={() => setShowDropdown(!showDropdown)}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown' && !showDropdown) {
+                e.preventDefault();
+                setShowDropdown(true);
+              }
+            }}
             aria-haspopup="menu"
             aria-expanded={showDropdown}
           >
@@ -386,12 +464,23 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
             <ChevronDown className="w-3 h-3 ml-1" />
           </button>
 
-          {showDropdown && (
-            <div className="absolute top-full left-0 mt-1 bg-surface-primary border border-border-primary rounded shadow-dropdown z-50 animate-dropdown-enter">
+          {showDropdown && (() => {
+            // Track ref index for keyboard navigation
+            let refIndex = 0;
+            const menuItemClass = "flex items-center w-full px-4 py-2 text-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary focus:bg-surface-hover focus:text-text-primary focus:outline-none text-left";
+
+            return (
+            <div
+              className="absolute top-full left-0 mt-1 bg-surface-primary border border-border-primary rounded shadow-dropdown z-50 animate-dropdown-enter"
+              role="menu"
+              onKeyDown={handleDropdownKeyDown}
+            >
               {/* Terminal with Claude CLI - first option */}
               {availablePanelTypes.includes('terminal') && (
                 <button
-                  className="flex items-center w-full px-4 py-2 text-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary text-left"
+                  ref={(el) => { dropdownItemsRef.current[refIndex++] = el; }}
+                  role="menuitem"
+                  className={menuItemClass}
                   onClick={() => handleAddPanel('terminal', {
                     initialCommand: 'claude --dangerously-skip-permissions',
                     title: 'Claude CLI'
@@ -404,7 +493,9 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
               {/* Terminal with Codex CLI - second option */}
               {availablePanelTypes.includes('terminal') && (
                 <button
-                  className="flex items-center w-full px-4 py-2 text-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary text-left"
+                  ref={(el) => { dropdownItemsRef.current[refIndex++] = el; }}
+                  role="menuitem"
+                  className={menuItemClass}
                   onClick={() => handleAddPanel('terminal', {
                     initialCommand: 'codex',
                     title: 'Codex CLI'
@@ -414,38 +505,56 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
                   <span className="ml-2">Terminal (Codex)</span>
                 </button>
               )}
+              {/* Setup Run Script - creates intelligent dev command */}
+              {availablePanelTypes.includes('terminal') && (
+                <button
+                  ref={(el) => { dropdownItemsRef.current[refIndex++] = el; }}
+                  role="menuitem"
+                  className={menuItemClass}
+                  onClick={() => handleAddPanel('terminal', {
+                    initialCommand: `claude --dangerously-skip-permissions "${SETUP_RUN_SCRIPT_PROMPT.replace(/\n/g, ' ')}"`,
+                    title: 'Setup Run Script'
+                  })}
+                >
+                  <Wrench className="w-4 h-4" />
+                  <span className="ml-2">Setup Run Script</span>
+                </button>
+              )}
               {/* Saved custom commands */}
-              {availablePanelTypes.includes('terminal') && customCommands.map((cmd, index) => (
-                <div key={`custom-${index}`} className="group/cmd flex items-center w-full text-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary">
+              {availablePanelTypes.includes('terminal') && customCommands.map((cmd, index) => {
+                const currentRefIndex = refIndex++;
+                return (
+                <div key={`custom-${index}`} className="group/cmd flex items-center w-full text-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary focus-within:bg-surface-hover focus-within:text-text-primary">
                   <button
-                    className="flex items-center flex-1 px-4 py-2 text-left min-w-0"
+                    ref={(el) => { dropdownItemsRef.current[currentRefIndex] = el; }}
+                    role="menuitem"
+                    className="flex items-center flex-1 px-4 py-2 text-left min-w-0 focus:outline-none"
                     onClick={() => handleAddPanel('terminal', {
                       initialCommand: cmd.command,
                       title: cmd.name
                     })}
+                    onKeyDown={(e) => {
+                      // Delete or Backspace removes the custom command
+                      if (e.key === 'Delete' || e.key === 'Backspace') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        deleteCustomCommand(index);
+                      }
+                    }}
+                    title={`${cmd.name} (Delete/Backspace to remove)`}
                   >
                     <TerminalSquare className="w-4 h-4 flex-shrink-0" />
                     <span className="ml-2 truncate">{cmd.name}</span>
                   </button>
-                  <button
-                    className="p-1.5 mr-2 rounded opacity-0 group-hover/cmd:opacity-100 transition-opacity text-text-muted hover:text-status-error"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteCustomCommand(index);
-                    }}
-                    title={`Remove "${cmd.name}"`}
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
                 </div>
-              ))}
+              );})}
               {/* Add Custom Command input */}
               {availablePanelTypes.includes('terminal') && (
                 showCustomInput ? (
                   <div className="px-3 py-2 border-b border-border-primary">
                     <label className="text-xs text-text-tertiary mb-1 block">Command to run:</label>
                     <input
-                      ref={customInputRef}
+                      ref={(el) => { customInputRef.current = el; dropdownItemsRef.current[refIndex++] = el; }}
                       type="text"
                       className="w-full px-2 py-1.5 text-sm bg-surface-secondary border border-border-primary rounded text-text-primary placeholder:text-text-muted focus:outline-none focus:border-border-focus focus:ring-1 focus:ring-border-focus"
                       placeholder="e.g. aider, npm run dev, bash"
@@ -467,12 +576,15 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
                           setShowCustomInput(false);
                           setCustomCommand('');
                         }
+                        // Let arrow keys propagate for dropdown navigation
                       }}
                     />
                   </div>
                 ) : (
                   <button
-                    className="flex items-center w-full px-4 py-2 text-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary text-left border-b border-border-primary"
+                    ref={(el) => { dropdownItemsRef.current[refIndex++] = el; }}
+                    role="menuitem"
+                    className={`${menuItemClass} border-b border-border-primary`}
                     onClick={() => setShowCustomInput(true)}
                   >
                     <Plus className="w-4 h-4" />
@@ -481,19 +593,57 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
                 )
               )}
               {/* Other panel types */}
-              {availablePanelTypes.map((type) => (
+              {availablePanelTypes.map((type) => {
+                const currentRefIndex = refIndex++;
+                return (
                 <button
                   key={type}
-                  className="flex items-center w-full px-4 py-2 text-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary text-left"
+                  ref={(el) => { dropdownItemsRef.current[currentRefIndex] = el; }}
+                  role="menuitem"
+                  className={menuItemClass}
                   onClick={() => handleAddPanel(type)}
                 >
                   {getPanelIcon(type)}
                   <span className="ml-2 capitalize">{type}</span>
                 </button>
-              ))}
+              );})}
             </div>
-          )}
+            );
+          })()}
         </div>
+
+        {/* Run Dev Server button */}
+        {session && (
+          <Tooltip content="Run Dev Server" side="bottom">
+            <button
+              className="inline-flex items-center h-9 px-2 text-text-tertiary hover:text-status-success hover:bg-surface-hover transition-colors flex-shrink-0"
+              onClick={async () => {
+                // Check if foozol-run-script.js exists in this session's worktree
+                const scriptExists = await window.electronAPI?.invoke('file:exists', {
+                  sessionId: session.id,
+                  filePath: 'scripts/foozol-run-script.js'
+                });
+
+                if (scriptExists) {
+                  // Script exists - run it
+                  handleAddPanel('terminal', {
+                    initialCommand: 'node scripts/foozol-run-script.js',
+                    title: 'Dev Server'
+                  });
+                } else {
+                  // Script doesn't exist - trigger Claude to create it
+                  handleAddPanel('terminal', {
+                    initialCommand: `claude --dangerously-skip-permissions "${SETUP_RUN_SCRIPT_PROMPT.replace(/\n/g, ' ')}"`,
+                    title: 'Setup Run Script'
+                  });
+                }
+              }}
+              title="Run Dev Server"
+            >
+              <Play className="w-4 h-4" />
+            </button>
+          </Tooltip>
+        )}
 
         {/* Right side actions */}
         <div className="flex items-center gap-1 flex-shrink-0 ml-auto">

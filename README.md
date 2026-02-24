@@ -9,6 +9,12 @@
 </p>
 
 <p align="center">
+  <a href="https://foozol.com">
+    <img src="https://img.shields.io/badge/website-foozol.com-blue?style=flat-square" alt="Website">
+  </a>
+  <a href="https://discord.gg/BdMyubeAZn">
+    <img src="https://img.shields.io/badge/discord-join-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord">
+  </a>
   <a href="https://github.com/parsakhaz/foozol/releases/latest">
     <img src="https://img.shields.io/github/v/release/parsakhaz/foozol?style=flat-square&color=blue" alt="Latest Release">
   </a>
@@ -19,6 +25,8 @@
 </p>
 
 <p align="center">
+  <a href="https://foozol.com">Website</a> •
+  <a href="https://discord.gg/BdMyubeAZn">Discord</a> •
   <a href="#installation">Installation</a> •
   <a href="#features">Features</a> •
   <a href="#keyboard-shortcuts">Shortcuts</a> •
@@ -85,8 +93,9 @@ Stop waiting for AI agents to finish. Run Claude Code and Codex in parallel acro
 |----------|------|
 | Windows (x64) | `foozol-x.x.x-Windows-x64.exe` |
 | Windows (ARM) | `foozol-x.x.x-Windows-arm64.exe` |
-| macOS | `foozol-x.x.x.dmg` |
-| Linux | `foozol-x.x.x.AppImage` |
+| macOS (Universal) | `foozol-x.x.x-macOS-universal.dmg` |
+| Linux (x64) | `foozol-x.x.x-linux-x86_64.AppImage` or `.deb` |
+| Linux (ARM64) | `foozol-x.x.x-linux-arm64.AppImage` or `.deb` |
 
 ### Requirements
 
@@ -119,10 +128,20 @@ pnpm run electron-dev
 ### Production
 
 ```bash
-pnpm build:win    # Windows
-pnpm build:mac    # macOS
-pnpm build:linux  # Linux
+pnpm build:win    # Windows (x64 + ARM64)
+pnpm build:mac    # macOS (universal)
+pnpm build:linux  # Linux (x64 + ARM64)
 ```
+
+### Releasing
+
+```bash
+pnpm run release patch   # 0.0.2 -> 0.0.3
+pnpm run release minor   # 0.0.2 -> 0.1.0
+pnpm run release major   # 0.0.2 -> 1.0.0
+```
+
+Bumps the version, tags, pushes, and triggers GitHub Actions to build and publish installers for all platforms to [GitHub Releases](https://github.com/parsakhaz/foozol/releases).
 
 ---
 

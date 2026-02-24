@@ -2,20 +2,19 @@ name: Build and Publish Canary
 
 on:
   push:
-    branches: [ main, 'release/**' ]
-  pull_request:
-    branches: [ main ]
+    branches: [ release ]
   workflow_dispatch:
 
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         # Build both platforms for validation, but use different commands for speed
         os: [macos-latest, ubuntu-latest]
         include:
           - os: macos-latest
-            build_cmd: build:mac:universal
+            build_cmd: canary:mac
             artifact_name: foozol-macos-canary
             artifact_path: |
               dist-electron/*.dmg
@@ -103,17 +102,9 @@ jobs:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         # Mark this as a canary build
         CANARY_BUILD: true
-        # macOS code signing (optional for CI builds)
-        CSC_LINK: ${{ matrix.os == 'macos-latest' && secrets.APPLE_CERTIFICATE || '' }}
-        CSC_KEY_PASSWORD: ${{ matrix.os == 'macos-latest' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
-        # macOS notarization (optional for CI builds)
-        APPLE_ID: ${{ matrix.os == 'macos-latest' && secrets.APPLE_ID || '' }}
-        APPLE_APP_SPECIFIC_PASSWORD: ${{ matrix.os == 'macos-latest' && secrets.APPLE_APP_PASSWORD || '' }}
-        APPLE_TEAM_ID: ${{ matrix.os == 'macos-latest' && secrets.APPLE_TEAM_ID || '' }}
-        # Only enable signing when certificates are available
-        CSC_IDENTITY_AUTO_DISCOVERY: ${{ matrix.os == 'macos-latest' && 'true' || 'false' }}
-        # Disable signing entirely when no certificates are present
-        CSC_DISABLE: ${{ (matrix.os == 'macos-latest' && !secrets.APPLE_CERTIFICATE) && 'true' || 'false' }}
+        # Disable code signing for CI builds (no certificates configured)
+        CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        CSC_DISABLE: 'true'
 
     - name: List build artifacts
       run: ls -la dist-electron/
@@ -129,6 +120,41 @@ jobs:
       with:
         name: ${{ matrix.artifact_name }}
         path: ${{ matrix.artifact_path }}
+        if-no-files-found: error
+        retention-days: 30
+
+  build-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v4
+    - uses: pnpm/action-setup@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22.15.1'
+        cache: 'pnpm'
+    - name: Cache Electron binaries
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/AppData/Local/electron/Cache
+          ~/AppData/Local/electron-builder/Cache
+        key: windows-electron-${{ hashFiles('**/pnpm-lock.yaml') }}
+        restore-keys: windows-electron-
+    - run: pnpm install
+    - name: Build Windows (x64 + ARM64)
+      run: pnpm run canary:win
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        CANARY_BUILD: 'true'
+    - run: dir dist-electron
+    - uses: actions/upload-artifact@v4
+      with:
+        name: foozol-windows-canary
+        path: |
+          dist-electron/*.exe
+          dist-electron/latest.yml
         if-no-files-found: error
         retention-days: 30
 

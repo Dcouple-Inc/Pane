@@ -346,7 +346,25 @@ pnpm build:mac         # Build for macOS (universal)
 pnpm build:mac:x64     # Build for macOS (Intel only)
 pnpm build:mac:arm64   # Build for macOS (Apple Silicon only)
 pnpm build:linux       # Build for Linux
+pnpm build:win         # Build for Windows (x64 + ARM64)
+pnpm build:win:x64     # Build for Windows (x64 only)
+pnpm build:win:arm64   # Build for Windows (ARM64 only)
 ```
+
+### Releasing
+```bash
+pnpm run release patch   # Bump patch version (0.0.2 -> 0.0.3) and trigger release
+pnpm run release minor   # Bump minor version (0.0.2 -> 0.1.0) and trigger release
+pnpm run release major   # Bump major version (0.0.2 -> 1.0.0) and trigger release
+pnpm run release 1.2.3   # Set explicit version and trigger release
+```
+
+The release script (`scripts/release.js`) bumps the version in `package.json`, commits, creates a git tag, and pushes. The tag push triggers the GitHub Actions release workflow which builds and publishes installers for all platforms (macOS universal, Linux x64+arm64, Windows x64+arm64) to GitHub Releases.
+
+### CI/CD Workflows
+- **`build.yml`** (canary): Builds macOS, Linux, and Windows on push to main. Uploads artifacts.
+- **`release.yml`**: Triggered by `v*` tags. Builds all platforms and publishes to GitHub Releases.
+- **`quality.yml`**: Runs linting and type checking on PRs.
 
 ### Testing
 ```bash

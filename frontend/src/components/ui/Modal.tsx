@@ -106,7 +106,7 @@ export const Modal: React.FC<ModalProps> = ({
       onClick={handleOverlayClick}
     >
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-modal-overlay pointer-events-none" aria-hidden="true" />
+      <div className="fixed inset-0 bg-modal-overlay backdrop-blur-sm pointer-events-none" aria-hidden="true" />
       
       {/* Modal */}
       <div

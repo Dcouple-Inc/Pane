@@ -13,6 +13,10 @@
   --gray-800: rgb(31 41 55);
   --gray-900: rgb(17 24 39);
 
+  --blue-50: rgb(239 246 255);
+  --blue-100: rgb(219 234 254);
+  --blue-200: rgb(191 219 254);
+  --blue-300: rgb(147 197 253);
   --blue-400: rgb(96 165 250);
   --blue-500: rgb(59 130 246);
   --blue-600: rgb(37 99 235);
@@ -22,21 +26,6 @@
   --amber-500: rgb(245 158 11);
   --red-500: rgb(239 68 68);
   --red-600: rgb(220 38 38);
-
-  /* Brand Colors */
-  --discord-primary: #5865F2;
-  --discord-hover: #4752C4;
-  --discord-secondary: #7289DA;
-
-  /* Light Theme Brand Colors - Soft Lilac/Purple Accent */
-  --lilac-50: rgb(250 248 255);   /* Very light lilac for backgrounds */
-  --lilac-100: rgb(243 239 255);  /* Light lilac for surface */
-  --lilac-200: rgb(229 219 255);  /* Soft lilac for hover states */
-  --lilac-300: rgb(202 182 255);  /* Medium lilac for borders */
-  --lilac-400: rgb(167 139 250);  /* Vibrant lilac for interactive */
-  --lilac-500: rgb(139 103 246);  /* Primary brand lilac */
-  --lilac-600: rgb(124 79 243);   /* Hover state */
-  --lilac-700: rgb(104 56 235);   /* Active/pressed state */
 
   /* GitHub Dark palette - rich OLED blacks */
   --gh-black: rgb(1 4 9);         /* True OLED black */
@@ -236,15 +225,15 @@
   --color-border-secondary: rgba(31, 35, 40, 0.10);
   --color-border-tertiary: rgba(31, 35, 40, 0.06);
   --color-border-hover: rgba(31, 35, 40, 0.22);
-  --color-border-focus: var(--lilac-500);
+  --color-border-focus: var(--blue-500);
 
   /* Semantic Tokens - Interactive Elements */
-  --color-interactive: var(--lilac-500);
-  --color-interactive-primary: var(--lilac-500);
-  --color-interactive-hover: var(--lilac-600);
-  --color-interactive-active: var(--lilac-700);
-  --color-interactive-text: var(--lilac-600);
-  --color-interactive-rgb: 139 103 246;
+  --color-interactive: var(--blue-300);
+  --color-interactive-primary: var(--blue-300);
+  --color-interactive-hover: var(--blue-400);
+  --color-interactive-active: var(--blue-500);
+  --color-interactive-text: var(--blue-700);
+  --color-interactive-rgb: 147 197 253;
 
   /* Semantic Tokens - Status Colors */
   --color-status-success: rgb(26 127 55);         /* GitHub #1a7f37 */
@@ -253,22 +242,22 @@
   --color-status-warning-hover: rgb(128 84 0);
   --color-status-error: rgb(207 34 46);           /* GitHub #cf222e */
   --color-status-error-hover: rgb(164 14 38);
-  --color-status-info: var(--lilac-500);
+  --color-status-info: var(--blue-600);
   --color-status-neutral: var(--gray-400);
 
   /* Semantic Tokens - Special UI States */
   --color-modal-overlay: rgba(31, 35, 40, 0.5);
-  --color-focus-ring: var(--lilac-400);
+  --color-focus-ring: var(--blue-400);
 
   /* Light mode interactive tokens */
   --color-surface-interactive: var(--gh-light-50);
   --color-surface-interactive-hover: var(--gh-light-100);
-  --color-interactive-surface: var(--lilac-100);
-  --color-interactive-surface-hover: var(--lilac-200);
+  --color-interactive-surface: var(--blue-100);
+  --color-interactive-surface-hover: var(--blue-200);
   --color-border-interactive-subtle: rgba(31, 35, 40, 0.08);
   --color-border-interactive: rgba(31, 35, 40, 0.15);
-  --color-interactive-border: var(--lilac-400);
-  --color-interactive-border-hover: var(--lilac-500);
+  --color-interactive-border: var(--blue-400);
+  --color-interactive-border-hover: var(--blue-500);
   --color-text-interactive-muted: var(--gray-500);
   --color-focus-ring-subtle: rgba(var(--color-interactive-rgb), 0.4);
 
@@ -277,7 +266,7 @@
   --color-text-on-secondary: rgb(31 35 40);
   --color-text-on-tertiary: rgb(101 109 118);
   --color-text-on-surface: rgb(31 35 40);
-  --color-text-on-interactive: rgb(255 255 255);
+  --color-text-on-interactive: rgb(31 35 40);
   --color-text-on-status-success: rgb(255 255 255);
   --color-text-on-status-warning: rgb(255 255 255);
   --color-text-on-status-error: rgb(255 255 255);
@@ -285,8 +274,8 @@
   --color-text-on-navigation: rgb(31 35 40);
 
   /* Component-Specific Tokens - Buttons */
-  --color-button-primary-bg: var(--lilac-500);
-  --color-button-primary-hover: var(--lilac-600);
+  --color-button-primary-bg: var(--blue-300);
+  --color-button-primary-hover: var(--blue-400);
   --color-button-primary-text: rgb(255 255 255);
 
   --color-button-secondary-bg: var(--gh-light-50);
@@ -304,7 +293,7 @@
   /* Component-Specific Tokens - Forms */
   --color-input-bg: var(--gh-white);
   --color-input-border: rgba(31, 35, 40, 0.15);
-  --color-input-focus: var(--lilac-400);
+  --color-input-focus: var(--blue-400);
   --color-input-text: var(--color-text-primary);
   --color-input-placeholder: var(--color-text-muted);
 
@@ -316,16 +305,16 @@
   --color-surface-navigation: var(--gh-light-50);
   --color-surface-navigation-hover: var(--gh-light-100);
   --color-surface-navigation-active: var(--gh-light-200);
-  --color-surface-navigation-selected: var(--lilac-100);
-  --color-surface-navigation-selected-hover: var(--lilac-200);
+  --color-surface-navigation-selected: var(--blue-100);
+  --color-surface-navigation-selected-hover: var(--blue-200);
 
   --color-text-navigation-primary: rgb(31 35 40);
   --color-text-navigation-secondary: rgb(101 109 118);
   --color-text-navigation-muted: rgb(156 163 175);
-  --color-text-navigation-selected: var(--lilac-700);
+  --color-text-navigation-selected: var(--gray-800);
   --color-text-navigation-hover: rgb(31 35 40);
   --color-text-navigation-section: rgb(101 109 118);
-  --color-text-navigation-brand: var(--lilac-600);
+  --color-text-navigation-brand: var(--gray-600);
 
   --color-border-navigation: rgba(31, 35, 40, 0.12);
   --color-divider-navigation: rgba(31, 35, 40, 0.10);
@@ -339,7 +328,7 @@
   /* Terminal Colors - Light Theme */
   --color-terminal-bg: rgb(255 255 255);
   --color-terminal-fg: rgb(31 35 40);
-  --color-terminal-cursor: var(--lilac-500);
+  --color-terminal-cursor: var(--gray-600);
   --color-terminal-black: rgb(31 35 40);
   --color-terminal-red: rgb(207 34 46);
   --color-terminal-green: rgb(26 127 55);

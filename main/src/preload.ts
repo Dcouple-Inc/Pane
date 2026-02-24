@@ -263,6 +263,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     gitStashPop: (sessionId: string): Promise<IPCResponse> => ipcRenderer.invoke('sessions:git-stash-pop', sessionId),
     gitStageAndCommit: (sessionId: string, message: string): Promise<IPCResponse> => ipcRenderer.invoke('sessions:git-stage-and-commit', sessionId, message),
     hasStash: (sessionId: string): Promise<IPCResponse> => ipcRenderer.invoke('sessions:has-stash', sessionId),
+    setUpstream: (sessionId: string, remoteBranch: string): Promise<IPCResponse> => ipcRenderer.invoke('sessions:set-upstream', sessionId, remoteBranch),
+    getUpstream: (sessionId: string): Promise<IPCResponse> => ipcRenderer.invoke('sessions:get-upstream', sessionId),
+    getRemoteBranches: (sessionId: string): Promise<IPCResponse> => ipcRenderer.invoke('sessions:get-remote-branches', sessionId),
     getGitStatus: (sessionId: string, nonBlocking?: boolean, isInitialLoad?: boolean): Promise<IPCResponse> => ipcRenderer.invoke('sessions:get-git-status', sessionId, nonBlocking, isInitialLoad),
     getLastCommits: (sessionId: string, count: number): Promise<IPCResponse> => ipcRenderer.invoke('sessions:get-last-commits', sessionId, count),
 
@@ -338,6 +341,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     update: (updates: UpdateConfigRequest): Promise<IPCResponse> => ipcRenderer.invoke('config:update', updates),
     getSessionPreferences: (): Promise<IPCResponse> => ipcRenderer.invoke('config:get-session-preferences'),
     updateSessionPreferences: (preferences: AppConfig['sessionCreationPreferences']): Promise<IPCResponse> => ipcRenderer.invoke('config:update-session-preferences', preferences),
+    getAvailableShells: (): Promise<IPCResponse> => ipcRenderer.invoke('config:get-available-shells'),
   },
 
   // Prompts

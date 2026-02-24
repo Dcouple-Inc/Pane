@@ -1388,7 +1388,23 @@ export const useSessionView = (
       console.error('Error toggling auto-commit:', error);
     }
   };
-  
+
+  const handleSetUpstream = async (remoteBranch: string) => {
+    if (!activeSession) return;
+    setIsMerging(true);
+    setMergeError(null);
+    try {
+      const response = await API.sessions.setUpstream(activeSession.id, remoteBranch);
+      if (!response.success) {
+        setMergeError(response.error || 'Failed to set tracking branch');
+      }
+    } catch (error) {
+      setMergeError(error instanceof Error ? error.message : 'Failed to set tracking branch');
+    } finally {
+      setIsMerging(false);
+    }
+  };
+
   const handleRebaseMainIntoWorktree = async () => {
     if (!activeSession) return;
     setIsMerging(true);
@@ -1886,6 +1902,7 @@ export const useSessionView = (
     handleGitStashPop,
     handleGitStageAndCommit,
     handleToggleAutoCommit,
+    handleSetUpstream,
     handleRebaseMainIntoWorktree,
     handleAbortRebaseAndUseClaude,
     handleSquashAndRebaseToMain,

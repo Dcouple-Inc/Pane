@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
-import { X } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { Modal } from './ui/Modal';
+import { Button } from './ui/Button';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -9,8 +11,8 @@ interface ConfirmDialogProps {
   message: string;
   confirmText?: string;
   cancelText?: string;
-  confirmButtonClass?: string;
-  icon?: React.ReactNode;
+  variant?: 'danger' | 'warning' | 'primary';
+  icon?: ReactNode;
 }
 
 export function ConfirmDialog({
@@ -21,22 +23,18 @@ export function ConfirmDialog({
   message,
   confirmText = 'Confirm',
   cancelText = 'Cancel',
-  confirmButtonClass = 'bg-red-600 hover:bg-red-700 text-white',
+  variant = 'danger',
   icon
 }: ConfirmDialogProps) {
-  // Handle keyboard events
+  // Enter key handler only (no Escape - Modal handles it)
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Enter') {
         event.preventDefault();
         onConfirm();
         onClose();
-      } else if (event.key === 'Escape') {
-        event.preventDefault();
-        onClose();
       }
     };
-
     if (isOpen) {
       document.addEventListener('keydown', handleKeyDown);
       return () => document.removeEventListener('keydown', handleKeyDown);
@@ -51,52 +49,20 @@ export function ConfirmDialog({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center space-x-3">
-            {icon && (
-              <div className="flex-shrink-0">
-                {icon}
-              </div>
-            )}
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-              {title}
-            </h3>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+    <Modal isOpen={isOpen} onClose={onClose} size="sm">
+      <div className="p-6 pt-2">
+        <div className="flex items-start gap-3 mb-4">
+          {icon && <div className="flex-shrink-0">{icon}</div>}
+          <h3 className="text-lg font-medium text-text-primary">{title}</h3>
         </div>
-        
-        <div className="mb-6">
-          <p className="text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">
-            {message}
-          </p>
-        </div>
-        
-        <div className="flex justify-end space-x-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
-          >
-            {cancelText}
-          </button>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${confirmButtonClass}`}
-            autoFocus
-          >
-            {confirmText}
-          </button>
+        <p className="text-text-secondary whitespace-pre-line leading-relaxed mb-6">
+          {message}
+        </p>
+        <div className="flex justify-end gap-3">
+          <Button variant="secondary" onClick={onClose}>{cancelText}</Button>
+          <Button variant={variant} onClick={handleConfirm} autoFocus>{confirmText}</Button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

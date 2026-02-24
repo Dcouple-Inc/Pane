@@ -3,9 +3,8 @@ import { useSessionStore } from '../stores/sessionStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import { useSessionHistoryStore } from '../stores/sessionHistoryStore';
 import { useHotkey } from '../hooks/useHotkey';
-import { EmptyState } from './EmptyState';
+import { HomePage } from './HomePage';
 // import CombinedDiffView from './panels/diff/CombinedDiffView'; // Removed - now in panels
-import { Inbox } from 'lucide-react';
 import '@xterm/xterm/css/xterm.css';
 import { useSessionView } from '../hooks/useSessionView';
 import { DetailPanel } from './DetailPanel';
@@ -24,14 +23,15 @@ import { useResizableHeight } from '../hooks/useResizableHeight';
 // import { MessagesView } from './panels/claude/MessagesView'; // Removed - now in panels
 import { usePanelStore } from '../stores/panelStore';
 import { panelApi } from '../services/panelApi';
-import { PanelTabBar } from './panels/PanelTabBar';
+import { PanelTabBar, SETUP_RUN_SCRIPT_PROMPT } from './panels/PanelTabBar';
 import { PanelContainer } from './panels/PanelContainer';
 import { SessionProvider } from '../contexts/SessionContext';
 import { ToolPanel, ToolPanelType, PANEL_CAPABILITIES } from '../../../shared/types/panels';
 import { PanelCreateOptions } from '../types/panelComponents';
-import { Download, Upload, GitMerge, Code2, Terminal, GripHorizontal, ChevronDown, ChevronUp, RefreshCw, Archive, ArchiveRestore, GitCommitHorizontal } from 'lucide-react';
+import { Download, Upload, GitMerge, Code2, Terminal, GripHorizontal, ChevronDown, ChevronUp, RefreshCw, Archive, ArchiveRestore, GitCommitHorizontal, Link } from 'lucide-react';
 import type { Project } from '../types/project';
 import { devLog, renderLog } from '../utils/console';
+import { cycleIndex } from '../utils/arrayUtils';
 
 export const SessionView = memo(() => {
   const { activeView, activeProjectId } = useNavigationStore();
@@ -39,6 +39,9 @@ export const SessionView = memo(() => {
   const [isProjectLoading, setIsProjectLoading] = useState(false);
   const [isMergingProject, setIsMergingProject] = useState(false);
   const [sessionProject, setSessionProject] = useState<Project | null>(null);
+  const [showSetTrackingDialog, setShowSetTrackingDialog] = useState(false);
+  const [remoteBranches, setRemoteBranches] = useState<string[]>([]);
+  const [currentUpstream, setCurrentUpstream] = useState<string | null>(null);
 
   // Get active session by subscribing directly to store state
   // This ensures the component re-renders when git status or other session properties update
@@ -51,8 +54,6 @@ export const SessionView = memo(() => {
     // Otherwise look in regular sessions
     return state.sessions.find(session => session.id === state.activeSessionId);
   });
-  
-  const setActiveSession = useSessionStore(state => state.setActiveSession);
 
   // Panel store state and actions
   const {
@@ -66,7 +67,7 @@ export const SessionView = memo(() => {
   } = usePanelStore();
   
   // History store for navigation
-  const { addToHistory, navigateBack, navigateForward } = useSessionHistoryStore();
+  const { addToHistory } = useSessionHistoryStore();
 
   // Load panels when session changes
   useEffect(() => {
@@ -193,41 +194,6 @@ export const SessionView = memo(() => {
     }
   }, [activeSession?.id, currentActivePanel?.id, addToHistory]);
 
-  // Keyboard shortcuts for navigating history
-  useHotkey({
-    id: 'navigate-back',
-    label: 'Navigate Back in Session History',
-    keys: 'alt+ArrowLeft',
-    category: 'navigation',
-    action: () => {
-      const previousEntry = navigateBack();
-      if (previousEntry) {
-        setActiveSession(previousEntry.sessionId);
-        setTimeout(() => {
-          setActivePanelInStore(previousEntry.sessionId, previousEntry.panelId);
-          panelApi.setActivePanel(previousEntry.sessionId, previousEntry.panelId);
-        }, 50);
-      }
-    },
-  });
-
-  useHotkey({
-    id: 'navigate-forward',
-    label: 'Navigate Forward in Session History',
-    keys: 'alt+ArrowRight',
-    category: 'navigation',
-    action: () => {
-      const nextEntry = navigateForward();
-      if (nextEntry) {
-        setActiveSession(nextEntry.sessionId);
-        setTimeout(() => {
-          setActivePanelInStore(nextEntry.sessionId, nextEntry.panelId);
-          panelApi.setActivePanel(nextEntry.sessionId, nextEntry.panelId);
-        }, 50);
-      }
-    },
-  });
-
   // Debug logging - only in development with verbose enabled
   renderLog('[SessionView] Session panels:', sessionPanels);
   renderLog('[SessionView] Active panel ID:', activePanels[activeSession?.id || '']);
@@ -260,28 +226,123 @@ export const SessionView = memo(() => {
     [activeSession, setActivePanelInStore, addToHistory]
   );
 
-  // Alt+1 through Alt+9 to switch between panel tabs
+  // Tab cycling: navigates between panels in the current session using
+  // keyboard shortcuts. Supports wrap-around (last → first). Only enabled
+  // when there are 2+ panels. Uses sortedSessionPanels to match tab bar order.
+  const cycleTab = useCallback((direction: 'next' | 'prev') => {
+    if (!activeSession || sortedSessionPanels.length < 2) return;
+
+    const currentIndex = sortedSessionPanels.findIndex(
+      p => p.id === currentActivePanel?.id
+    );
+    const nextIndex = cycleIndex(currentIndex, sortedSessionPanels.length, direction);
+    if (nextIndex === -1) return;
+
+    const nextPanel = sortedSessionPanels[nextIndex];
+    handlePanelSelect(nextPanel);
+  }, [activeSession, sortedSessionPanels, currentActivePanel, handlePanelSelect]);
+
+  // Tab cycling hotkeys
+  useHotkey({
+    id: 'cycle-tab-prev-a',
+    label: 'Previous Tab',
+    keys: 'mod+a',
+    category: 'tabs',
+    enabled: () => sortedSessionPanels.length > 1,
+    action: () => cycleTab('prev'),
+    showInPalette: true,
+  });
+
+  useHotkey({
+    id: 'cycle-tab-next-d',
+    label: 'Next Tab',
+    keys: 'mod+d',
+    category: 'tabs',
+    enabled: () => sortedSessionPanels.length > 1,
+    action: () => cycleTab('next'),
+    showInPalette: true,
+  });
+
+  // Ctrl+Alt+1 through Ctrl+Alt+9 to switch between panel tabs
   const panelLabel = (i: number) => {
     const p = sortedSessionPanels[i];
     if (!p) return `Switch to tab ${i + 1}`;
     const name = p.type === 'diff' ? 'Diff' : p.title;
     return `Switch to ${name}`;
   };
-  useHotkey({ id: 'panel-tab-1', label: panelLabel(0), keys: 'alt+1', category: 'tabs', enabled: () => !!sortedSessionPanels[0], action: () => { const p = sortedSessionPanels[0]; if (p) handlePanelSelect(p); } });
-  useHotkey({ id: 'panel-tab-2', label: panelLabel(1), keys: 'alt+2', category: 'tabs', enabled: () => !!sortedSessionPanels[1], action: () => { const p = sortedSessionPanels[1]; if (p) handlePanelSelect(p); } });
-  useHotkey({ id: 'panel-tab-3', label: panelLabel(2), keys: 'alt+3', category: 'tabs', enabled: () => !!sortedSessionPanels[2], action: () => { const p = sortedSessionPanels[2]; if (p) handlePanelSelect(p); } });
-  useHotkey({ id: 'panel-tab-4', label: panelLabel(3), keys: 'alt+4', category: 'tabs', enabled: () => !!sortedSessionPanels[3], action: () => { const p = sortedSessionPanels[3]; if (p) handlePanelSelect(p); } });
-  useHotkey({ id: 'panel-tab-5', label: panelLabel(4), keys: 'alt+5', category: 'tabs', enabled: () => !!sortedSessionPanels[4], action: () => { const p = sortedSessionPanels[4]; if (p) handlePanelSelect(p); } });
-  useHotkey({ id: 'panel-tab-6', label: panelLabel(5), keys: 'alt+6', category: 'tabs', enabled: () => !!sortedSessionPanels[5], action: () => { const p = sortedSessionPanels[5]; if (p) handlePanelSelect(p); } });
-  useHotkey({ id: 'panel-tab-7', label: panelLabel(6), keys: 'alt+7', category: 'tabs', enabled: () => !!sortedSessionPanels[6], action: () => { const p = sortedSessionPanels[6]; if (p) handlePanelSelect(p); } });
-  useHotkey({ id: 'panel-tab-8', label: panelLabel(7), keys: 'alt+8', category: 'tabs', enabled: () => !!sortedSessionPanels[7], action: () => { const p = sortedSessionPanels[7]; if (p) handlePanelSelect(p); } });
-  useHotkey({ id: 'panel-tab-9', label: panelLabel(8), keys: 'alt+9', category: 'tabs', enabled: () => !!sortedSessionPanels[8], action: () => { const p = sortedSessionPanels[8]; if (p) handlePanelSelect(p); } });
+  useHotkey({ id: 'panel-tab-1', label: panelLabel(0), keys: 'mod+alt+1', category: 'tabs', enabled: () => !!sortedSessionPanels[0], action: () => { const p = sortedSessionPanels[0]; if (p) handlePanelSelect(p); } });
+  useHotkey({ id: 'panel-tab-2', label: panelLabel(1), keys: 'mod+alt+2', category: 'tabs', enabled: () => !!sortedSessionPanels[1], action: () => { const p = sortedSessionPanels[1]; if (p) handlePanelSelect(p); } });
+  useHotkey({ id: 'panel-tab-3', label: panelLabel(2), keys: 'mod+alt+3', category: 'tabs', enabled: () => !!sortedSessionPanels[2], action: () => { const p = sortedSessionPanels[2]; if (p) handlePanelSelect(p); } });
+  useHotkey({ id: 'panel-tab-4', label: panelLabel(3), keys: 'mod+alt+4', category: 'tabs', enabled: () => !!sortedSessionPanels[3], action: () => { const p = sortedSessionPanels[3]; if (p) handlePanelSelect(p); } });
+  useHotkey({ id: 'panel-tab-5', label: panelLabel(4), keys: 'mod+alt+5', category: 'tabs', enabled: () => !!sortedSessionPanels[4], action: () => { const p = sortedSessionPanels[4]; if (p) handlePanelSelect(p); } });
+  useHotkey({ id: 'panel-tab-6', label: panelLabel(5), keys: 'mod+alt+6', category: 'tabs', enabled: () => !!sortedSessionPanels[5], action: () => { const p = sortedSessionPanels[5]; if (p) handlePanelSelect(p); } });
+  useHotkey({ id: 'panel-tab-7', label: panelLabel(6), keys: 'mod+alt+7', category: 'tabs', enabled: () => !!sortedSessionPanels[6], action: () => { const p = sortedSessionPanels[6]; if (p) handlePanelSelect(p); } });
+  useHotkey({ id: 'panel-tab-8', label: panelLabel(7), keys: 'mod+alt+8', category: 'tabs', enabled: () => !!sortedSessionPanels[7], action: () => { const p = sortedSessionPanels[7]; if (p) handlePanelSelect(p); } });
+  useHotkey({ id: 'panel-tab-9', label: panelLabel(8), keys: 'mod+alt+9', category: 'tabs', enabled: () => !!sortedSessionPanels[8], action: () => { const p = sortedSessionPanels[8]; if (p) handlePanelSelect(p); } });
 
-  // Ctrl+W: close active panel tab (skip permanent panels like diff)
+  // --- Add Tool commands (palette-only, no keybindings) ---
+  // Only enabled in session view (not project view) to prevent hidden panel mutations
+  const isInSessionView = !!activeSession && activeView !== 'project';
+
+  useHotkey({
+    id: 'add-tool-terminal-claude',
+    label: 'Add Terminal (Claude)',
+    keys: '',
+    category: 'tools',
+    enabled: () => isInSessionView,
+    action: () => handlePanelCreate('terminal', {
+      initialCommand: 'claude --dangerously-skip-permissions',
+      title: 'Claude CLI'
+    }),
+  });
+
+  useHotkey({
+    id: 'add-tool-terminal-codex',
+    label: 'Add Terminal (Codex)',
+    keys: '',
+    category: 'tools',
+    enabled: () => isInSessionView,
+    action: () => handlePanelCreate('terminal', {
+      initialCommand: 'codex',
+      title: 'Codex CLI'
+    }),
+  });
+
+  useHotkey({
+    id: 'add-tool-setup-run-script',
+    label: 'Add Setup Run Script',
+    keys: '',
+    category: 'tools',
+    enabled: () => isInSessionView,
+    action: () => handlePanelCreate('terminal', {
+      initialCommand: `claude --dangerously-skip-permissions "${SETUP_RUN_SCRIPT_PROMPT.replace(/\n/g, ' ')}"`,
+      title: 'Setup Run Script'
+    }),
+  });
+
+  useHotkey({
+    id: 'add-tool-terminal',
+    label: 'Add Terminal',
+    keys: '',
+    category: 'tools',
+    enabled: () => isInSessionView,
+    action: () => handlePanelCreate('terminal'),
+  });
+
+  useHotkey({
+    id: 'add-tool-explorer',
+    label: 'Add Explorer',
+    keys: '',
+    category: 'tools',
+    enabled: () => isInSessionView && !sessionPanels.some(p => p.type === 'explorer'),
+    action: () => handlePanelCreate('explorer'),
+  });
+
+  // Ctrl+Q: close active panel tab (skip permanent panels like diff)
   useHotkey({
     id: 'close-active-tab',
     label: 'Close active tab',
-    keys: 'mod+w',
+    keys: 'mod+q',
     category: 'tabs',
     enabled: () => {
       if (!currentActivePanel) return false;
@@ -453,6 +514,35 @@ export const SessionView = memo(() => {
   // scriptTerminalRef removed - terminals now handled by panels
 
   const hook = useSessionView(activeSession, terminalRef);
+
+  // Handler to open set tracking dialog
+  const handleOpenSetTracking = async () => {
+    if (!activeSession) return;
+    const sessionIdAtStart = activeSession.id;
+    try {
+      const [branchesResponse, upstreamResponse] = await Promise.all([
+        API.sessions.getRemoteBranches(activeSession.id),
+        API.sessions.getUpstream(activeSession.id)
+      ]);
+      // Guard against stale responses if session changed during async call
+      if (activeSession.id !== sessionIdAtStart) return;
+      if (branchesResponse.success && branchesResponse.data) {
+        setRemoteBranches(branchesResponse.data);
+      }
+      if (upstreamResponse.success) {
+        setCurrentUpstream(upstreamResponse.data);
+      }
+      setShowSetTrackingDialog(true);
+    } catch (error) {
+      console.error('Failed to fetch remote branches:', error);
+    }
+  };
+
+  const handleSelectUpstream = async (branch: string) => {
+    if (!activeSession) return;
+    setShowSetTrackingDialog(false);
+    await hook.handleSetUpstream(branch);
+  };
 
   // Detail panel state
   const [detailVisible, setDetailVisible] = useState(() => {
@@ -636,6 +726,15 @@ export const SessionView = memo(() => {
                      (hook.gitCommands?.getSquashAndRebaseToMainCommand ? hook.gitCommands.getSquashAndRebaseToMainCommand() : `Merges all commits to ${hook.gitCommands?.mainBranch || 'main'} (with safety checks)`)
       },
       {
+        id: 'set-tracking',
+        label: 'Set Tracking',
+        icon: Link,
+        onClick: handleOpenSetTracking,
+        disabled: hook.isMerging || activeSession.status === 'running' || activeSession.status === 'initializing',
+        variant: 'default' as const,
+        description: 'Set upstream tracking branch for git pull/push'
+      },
+      {
         id: 'open-ide',
         label: hook.isOpeningIDE ? 'Opening...' : 'Open in IDE',
         icon: Code2,
@@ -645,7 +744,7 @@ export const SessionView = memo(() => {
         description: sessionProject?.open_ide_command ? 'Open the worktree in your default IDE' : 'No IDE command configured'
       }
     ];
-  }, [activeSession, hook.isMerging, hook.gitCommands, hook.hasChangesToRebase, hook.hasStash, hook.handleGitPull, hook.handleGitPush, hook.handleGitFetch, hook.handleGitStash, hook.handleGitStashPop, hook.setShowCommitMessageDialog, hook.setDialogType, hook.handleRebaseMainIntoWorktree, hook.handleSquashAndRebaseToMain, hook.handleOpenIDE, hook.isOpeningIDE, sessionProject?.open_ide_command, activeSession?.gitStatus]);
+  }, [activeSession, hook.isMerging, hook.gitCommands, hook.hasChangesToRebase, hook.hasStash, hook.handleGitPull, hook.handleGitPush, hook.handleGitFetch, hook.handleGitStash, hook.handleGitStashPop, hook.setShowCommitMessageDialog, hook.setDialogType, hook.handleRebaseMainIntoWorktree, hook.handleSquashAndRebaseToMain, hook.handleOpenIDE, hook.isOpeningIDE, sessionProject?.open_ide_command, activeSession?.gitStatus, handleOpenSetTracking]);
   
   // Removed unused variables - now handled by panels
 
@@ -676,16 +775,7 @@ export const SessionView = memo(() => {
   }
 
   if (!activeSession) {
-    return (
-      <div className="flex-1 flex flex-col overflow-hidden bg-bg-primary">
-        <EmptyState
-          icon={Inbox}
-          title="No Session Selected"
-          description="Select a session from the sidebar to view its output, or create a new session to get started."
-          className="flex-1"
-        />
-      </div>
-    );
+    return <HomePage />;
   }
   
   return (
@@ -839,6 +929,45 @@ export const SessionView = memo(() => {
         onArchiveEntireFolder={hook.handleArchiveEntireFolder}
         onCancel={hook.handleCancelFolderArchive}
       />
+
+      {/* Set Tracking Dialog */}
+      {showSetTrackingDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-bg-primary border border-border-primary rounded-lg shadow-lg p-4 w-80 max-h-96 overflow-hidden flex flex-col">
+            <h3 className="text-lg font-medium text-text-primary mb-2">Set Tracking Branch</h3>
+            {currentUpstream && (
+              <p className="text-sm text-text-secondary mb-3">
+                Currently tracking: <span className="text-text-primary font-mono">{currentUpstream}</span>
+              </p>
+            )}
+            <p className="text-sm text-text-secondary mb-3">Select a remote branch to track:</p>
+            <div className="flex-1 overflow-y-auto space-y-1 mb-4">
+              {remoteBranches.length === 0 ? (
+                <p className="text-sm text-text-tertiary italic">No remote branches found</p>
+              ) : (
+                remoteBranches.map((branch) => (
+                  <button
+                    key={branch}
+                    onClick={() => handleSelectUpstream(branch)}
+                    className={`w-full text-left px-3 py-2 rounded text-sm font-mono hover:bg-bg-secondary transition-colors ${
+                      branch === currentUpstream ? 'bg-bg-secondary text-accent-primary' : 'text-text-primary'
+                    }`}
+                  >
+                    {branch}
+                    {branch === currentUpstream && <span className="ml-2 text-xs">(current)</span>}
+                  </button>
+                ))
+              )}
+            </div>
+            <button
+              onClick={() => setShowSetTrackingDialog(false)}
+              className="w-full px-4 py-2 text-sm text-text-secondary hover:text-text-primary border border-border-primary rounded hover:bg-bg-secondary transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );

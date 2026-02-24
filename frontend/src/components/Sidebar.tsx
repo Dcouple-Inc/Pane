@@ -30,7 +30,7 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, width
   const [version, setVersion] = useState<string>('');
   const [gitCommit, setGitCommit] = useState<string>('');
   const [worktreeName, setWorktreeName] = useState<string>('');
-  const [sessionSortAscending, setSessionSortAscending] = useState<boolean>(false); // Default to descending (newest first)
+  const [sessionSortAscending, setSessionSortAscending] = useState<boolean>(true); // Default to ascending (newest at bottom)
 
   useEffect(() => {
     // Fetch version info and UI state on component mount
@@ -65,7 +65,7 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, width
       try {
         const result = await window.electronAPI.uiState.getExpanded();
         if (result.success && result.data) {
-          setSessionSortAscending(result.data.sessionSortAscending ?? false);
+          setSessionSortAscending(result.data.sessionSortAscending ?? true);
         }
       } catch (error) {
         console.error('Failed to load UI state:', error);

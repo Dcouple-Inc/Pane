@@ -116,6 +116,41 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
     }
   });
 
+  // Check if a file exists in a session's worktree
+  ipcMain.handle('file:exists', async (_, request: FilePathRequest) => {
+    try {
+      const session = sessionManager.getSession(request.sessionId);
+      if (!session) {
+        return false;
+      }
+
+      // Get WSL context from project
+      const project = sessionManager.getProjectForSession(request.sessionId);
+      const wslContext = project ? getWSLContextFromProject(project) : null;
+
+      // Ensure the file path is relative and safe
+      const normalizedPath = path.normalize(request.filePath);
+      if (normalizedPath.startsWith('..') || path.isAbsolute(normalizedPath)) {
+        return false;
+      }
+
+      const basePath = wslContext
+        ? linuxToUNCPath(session.worktreePath, wslContext.distribution)
+        : session.worktreePath;
+
+      const fullPath = path.join(basePath, normalizedPath);
+
+      try {
+        await fs.access(fullPath);
+        return true;
+      } catch {
+        return false;
+      }
+    } catch {
+      return false;
+    }
+  });
+
   // Write file contents to a session's worktree
   ipcMain.handle('file:write', async (_, request: FileWriteRequest) => {
     try {
@@ -265,9 +300,7 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
         // Create the commit with foozol signature if enabled
         const commitMessage = enableCommitFooter ? `${request.message}
 
-💎 Built using [foozol](https://github.com/parsakhaz/foozol)
-
-Co-Authored-By: ParsaKhaz <parsa@dcouple.ai>` : request.message;
+Co-Authored-By: foozol <noreply@foozol.com>` : request.message;
 
         // Use a temporary file to handle commit messages with special characters
         const tmpFile = path.join(os.tmpdir(), `foozol-commit-${Date.now()}.txt`);
@@ -303,9 +336,7 @@ Co-Authored-By: ParsaKhaz <parsa@dcouple.ai>` : request.message;
             
             const retryMessage = enableCommitFooter ? `${request.message}
 
-💎 Built using [foozol](https://github.com/parsakhaz/foozol)
-
-Co-Authored-By: ParsaKhaz <parsa@dcouple.ai>` : request.message;
+Co-Authored-By: foozol <noreply@foozol.com>` : request.message;
 
             // Use a temporary file for retry as well
             const tmpFile = path.join(os.tmpdir(), `foozol-commit-retry-${Date.now()}.txt`);
