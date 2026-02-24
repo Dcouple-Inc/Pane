@@ -236,10 +236,27 @@ export class TerminalPanelManager {
         panelManager.updatePanel(panel.id, { state: updatedState });
       }
 
-      // Small delay to ensure shell is ready
-      setTimeout(() => {
-        this.writeToTerminal(panel.id, commandToRun + '\r');
-      }, 500);
+      // Wait for the shell to actually emit output (prompt) before injecting the command.
+      // This avoids the race condition where the fixed 500ms delay was insufficient
+      // and the command was written before the shell was ready to accept input.
+      const panelId = panel.id;
+      let commandInjected = false;
+
+      const injectCommand = () => {
+        if (commandInjected) return;
+        commandInjected = true;
+        onShellReady.dispose();
+        this.writeToTerminal(panelId, commandToRun + '\r');
+      };
+
+      const onShellReady = ptyProcess.onData(() => {
+        // Shell emitted data (prompt), it's ready to accept input.
+        // Small additional delay to let the prompt fully render.
+        setTimeout(injectCommand, 300);
+      });
+
+      // Safety timeout: if the shell never emits data within 5s, inject anyway
+      setTimeout(injectCommand, 3000);
     }
 
   }
