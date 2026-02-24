@@ -230,6 +230,7 @@ export function CreateSessionDialog({
         break;
       case 'Escape':
         e.preventDefault();
+        e.stopPropagation();
         setIsBranchDropdownOpen(false);
         setBranchSearch('');
         setHighlightedBranchIndex(0);
