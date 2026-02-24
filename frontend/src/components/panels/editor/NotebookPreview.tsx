@@ -7,7 +7,7 @@ import { MarkdownPreview } from '../../MarkdownPreview';
 interface NotebookCellOutput {
   output_type: string;
   text?: string | string[];
-  data?: Record<string, string | string[]>;
+  data?: Record<string, string | string[] | unknown>;
   name?: string;
   ename?: string;
   evalue?: string;
@@ -59,10 +59,13 @@ function stripAnsi(str: string): string {
   return str.replace(/\x1b\[[0-9;]*m/g, '');
 }
 
-function getMimeData(data: Record<string, string | string[]>, mime: string): string | undefined {
+function getMimeData(data: Record<string, string | string[] | unknown>, mime: string): string | undefined {
   const val = data[mime];
   if (val === undefined) return undefined;
-  return Array.isArray(val) ? val.join('') : val;
+  if (typeof val === 'string') return val;
+  if (Array.isArray(val)) return val.map(String).join('');
+  // For non-string values (e.g. application/json stored as object), stringify
+  return JSON.stringify(val, null, 2);
 }
 
 // --- Sub-components ---
@@ -135,13 +138,17 @@ function CellOutputRenderer({ output, index }: { output: NotebookCellOutput; ind
       );
     }
 
-    const json = getMimeData(data, 'application/json');
-    if (json) {
+    const jsonVal = data['application/json'];
+    if (jsonVal !== undefined) {
       let formatted: string;
-      try {
-        formatted = JSON.stringify(JSON.parse(json), null, 2);
-      } catch {
-        formatted = json;
+      if (typeof jsonVal === 'string') {
+        try {
+          formatted = JSON.stringify(JSON.parse(jsonVal), null, 2);
+        } catch {
+          formatted = jsonVal;
+        }
+      } else {
+        formatted = JSON.stringify(jsonVal, null, 2);
       }
       return <pre className="nb-output-stream">{formatted}</pre>;
     }
