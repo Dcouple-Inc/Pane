@@ -7,6 +7,7 @@ import { MonacoErrorBoundary } from '../../MonacoErrorBoundary';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { debounce } from '../../../utils/debounce';
 import { MarkdownPreview } from '../../MarkdownPreview';
+import { NotebookPreview } from './NotebookPreview';
 import { useResizablePanel } from '../../../hooks/useResizablePanel';
 import { ExplorerPanelState } from '../../../../../shared/types/panels';
 
@@ -616,6 +617,13 @@ export function FileEditor({
     return ext === 'md' || ext === 'markdown';
   }, [selectedFile]);
 
+  // Check if this is a notebook file
+  const isNotebookFile = useMemo(() => {
+    if (!selectedFile) return false;
+    const ext = selectedFile.path.split('.').pop()?.toLowerCase();
+    return ext === 'ipynb';
+  }, [selectedFile]);
+
   const loadFile = useCallback(async (file: FileItem | null) => {
     if (!file || file.isDirectory) return;
     
@@ -900,8 +908,8 @@ export function FileEditor({
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                {/* Preview Toggle for Markdown Files */}
-                {isMarkdownFile && (
+                {/* Preview Toggle for Markdown/Notebook Files */}
+                {(isMarkdownFile || isNotebookFile) && (
                   <div className="flex items-center rounded-lg border border-border-primary bg-surface-tertiary">
                     <button
                       onClick={() => setViewMode('edit')}
@@ -958,6 +966,13 @@ export function FileEditor({
                     id={`file-editor-preview-${sessionId}-${selectedFile.path.replace(/[^a-zA-Z0-9]/g, '-')}`}
                   />
                 </div>
+              ) : viewMode === 'preview' && isNotebookFile ? (
+                <div className="h-full overflow-auto bg-bg-primary">
+                  <NotebookPreview
+                    content={fileContent}
+                    className="min-h-full"
+                  />
+                </div>
               ) : (
                 <MonacoErrorBoundary>
                   <Editor
@@ -996,6 +1011,7 @@ function getLanguageFromPath(filePath: string): string {
     ts: 'typescript',
     tsx: 'typescript',
     json: 'json',
+    ipynb: 'json',
     md: 'markdown',
     py: 'python',
     rb: 'ruby',

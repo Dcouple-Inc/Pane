@@ -5,6 +5,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
 import './styles/markdown-preview.css';
+import './styles/notebook-preview.css';
 
 // Global error handlers to catch errors that React error boundaries can't
 window.addEventListener('unhandledrejection', (event) => {

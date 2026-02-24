@@ -1,0 +1,241 @@
+/* Notebook Preview Styles */
+.nb-preview {
+  padding: 1rem;
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-y: auto;
+  color: var(--color-text-primary);
+}
+
+/* Header with kernel info */
+.nb-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  margin-bottom: 16px;
+  background-color: var(--color-surface-secondary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.nb-header-kernel {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.nb-header-format {
+  color: var(--color-text-tertiary);
+}
+
+/* Cell containers */
+.nb-cells {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nb-cell {
+  border: 1px solid var(--color-border-primary);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.nb-cell-code {
+  background-color: var(--color-surface-secondary);
+}
+
+.nb-cell-markdown {
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.nb-cell-markdown .markdown-preview {
+  padding: 8px 12px;
+}
+
+.nb-cell-raw {
+  background-color: var(--color-surface-secondary);
+}
+
+.nb-cell-unknown {
+  background-color: var(--color-surface-secondary);
+}
+
+/* Cell header with badge */
+.nb-cell-header {
+  display: flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--color-border-primary);
+}
+
+.nb-cell-badge {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+}
+
+.nb-badge-code {
+  color: var(--color-interactive);
+}
+
+/* Code source */
+.nb-code-source {
+  margin: 0;
+  padding: 12px;
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.45;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  color: var(--color-text-primary);
+  background-color: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+.nb-code-source code {
+  background-color: transparent;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+/* Raw cell source */
+.nb-raw-source {
+  margin: 0;
+  padding: 12px;
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.45;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  color: var(--color-text-primary);
+  background-color: transparent;
+  border: none;
+}
+
+/* Cell outputs area */
+.nb-cell-outputs {
+  border-top: 1px solid var(--color-border-primary);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Stream output (stdout/stderr) */
+.nb-output-stream {
+  margin: 0;
+  padding: 8px;
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.45;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+  border-radius: 4px;
+  border: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Error output */
+.nb-output-error {
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.nb-output-error-header {
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-status-error);
+  background-color: rgba(239, 68, 68, 0.12);
+  border-bottom: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.nb-output-error-traceback {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  color: var(--color-status-error);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background-color: transparent;
+  border: none;
+}
+
+/* Image output */
+.nb-output-image {
+  display: flex;
+  justify-content: flex-start;
+  padding: 4px 0;
+}
+
+.nb-output-image img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+.nb-output-image svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* HTML output */
+.nb-output-html {
+  padding: 4px 0;
+  overflow-x: auto;
+  color: var(--color-text-primary);
+}
+
+.nb-output-html table {
+  border-collapse: collapse;
+  border-spacing: 0;
+  font-size: 13px;
+}
+
+.nb-output-html th,
+.nb-output-html td {
+  padding: 4px 8px;
+  border: 1px solid var(--color-border-primary);
+  text-align: left;
+}
+
+.nb-output-html th {
+  background-color: var(--color-surface-tertiary);
+  font-weight: 600;
+}
+
+/* Error state */
+.nb-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.nb-error p {
+  margin: 0 0 8px 0;
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--color-text-primary);
+}
+
+.nb-error-hint {
+  font-size: 13px;
+  font-weight: 400 !important;
+  color: var(--color-text-tertiary) !important;
+}
