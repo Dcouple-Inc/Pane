@@ -10,6 +10,7 @@ import { Modal, ModalHeader, ModalBody, ModalFooter } from './ui/Modal';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { useSessionPreferencesStore, type SessionCreationPreferences } from '../stores/sessionPreferencesStore';
+import { useSessionStore } from '../stores/sessionStore';
 
 // Interface for branch information
 interface BranchInfo {
@@ -63,11 +64,13 @@ export function CreateSessionDialog({
   const [branchSearch, setBranchSearch] = useState('');
   const [isBranchDropdownOpen, setIsBranchDropdownOpen] = useState(false);
   const [highlightedBranchIndex, setHighlightedBranchIndex] = useState(0);
+  const [userEditedName, setUserEditedName] = useState(false);
   const branchDropdownRef = useRef<HTMLDivElement>(null);
   const branchInputRef = useRef<HTMLInputElement>(null);
   const branchListRef = useRef<HTMLDivElement>(null);
   const { showError } = useErrorStore();
   const { preferences, loadPreferences, updatePreferences } = useSessionPreferencesStore();
+  const existingSessions = useSessionStore(state => state.sessions);
 
   // Load session creation preferences when dialog opens
   useEffect(() => {
@@ -80,6 +83,7 @@ export function CreateSessionDialog({
         setSessionName(initialSessionName);
       }
       setSessionCount(1);
+      setUserEditedName(!!initialSessionName);
       setFormData(prev => ({ ...prev, count: 1, baseBranch: initialBaseBranch }));
     }
   }, [isOpen, loadPreferences, initialSessionName, initialBaseBranch]);
@@ -131,6 +135,20 @@ export function CreateSessionDialog({
               const defaultBranch = remoteMain || currentBranch;
               if (defaultBranch) {
                 setFormData(prev => ({ ...prev, baseBranch: defaultBranch.name }));
+                // Auto-populate session name from default branch if user hasn't edited
+                if (!initialSessionName) {
+                  const baseName = defaultBranch.name.replace(/^[^/]+\//, '');
+                  const existingNames = new Set(existingSessions.map(s => s.name));
+                  let autoName = baseName;
+                  if (existingNames.has(baseName)) {
+                    let suffix = 1;
+                    while (existingNames.has(`${baseName}-${suffix}`)) {
+                      suffix++;
+                    }
+                    autoName = `${baseName}-${suffix}`;
+                  }
+                  setSessionName(autoName);
+                }
               }
             }
           }
@@ -193,13 +211,38 @@ export function CreateSessionDialog({
     }
   }, [highlightedBranchIndex, isBranchDropdownOpen]);
 
+  const generateSessionName = useCallback((branchName: string): string => {
+    // Strip remote prefix (e.g. "origin/feature-x" -> "feature-x")
+    const baseName = branchName.replace(/^[^/]+\//, '');
+    const existingNames = new Set(existingSessions.map(s => s.name));
+
+    if (!existingNames.has(baseName)) {
+      return baseName;
+    }
+
+    // Find next available suffix
+    let suffix = 1;
+    while (existingNames.has(`${baseName}-${suffix}`)) {
+      suffix++;
+    }
+    return `${baseName}-${suffix}`;
+  }, [existingSessions]);
+
   const selectBranch = useCallback((branchName: string) => {
     setFormData(prev => ({ ...prev, baseBranch: branchName }));
     savePreferences({ baseBranch: branchName });
     setIsBranchDropdownOpen(false);
     setBranchSearch('');
     setHighlightedBranchIndex(0);
-  }, [savePreferences]);
+
+    // Auto-populate session name if user hasn't manually edited it
+    if (!userEditedName) {
+      const autoName = generateSessionName(branchName);
+      setSessionName(autoName);
+      setFormData(prev => ({ ...prev, baseBranch: branchName, worktreeTemplate: autoName }));
+      setWorktreeError(null);
+    }
+  }, [savePreferences, userEditedName, generateSessionName]);
 
   const handleBranchKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (!isBranchDropdownOpen) {
@@ -258,13 +301,18 @@ export function CreateSessionDialog({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
 
-  // Auto-focus session name input on dialog open
+  // Auto-focus branch input on dialog open (branch is now first)
   useEffect(() => {
     if (isOpen) {
       // Small delay to let the dialog render
       const timer = setTimeout(() => {
-        const input = document.getElementById('worktreeTemplate') as HTMLInputElement;
-        if (input) input.focus();
+        if (branchInputRef.current) {
+          branchInputRef.current.focus();
+        } else {
+          // Fall back to session name if no branches
+          const input = document.getElementById('worktreeTemplate') as HTMLInputElement;
+          if (input) input.focus();
+        }
       }, 100);
       return () => clearTimeout(timer);
     }
@@ -416,35 +464,7 @@ export function CreateSessionDialog({
       <ModalBody className="p-0">
         <div className="flex-1 overflow-y-auto">
           <form id="create-session-form" onSubmit={handleSubmit}>
-            {/* 1. Session Name (visible, required) */}
-            <div className="p-6 border-b border-border-primary">
-              <label className="block text-sm font-medium text-text-primary mb-1">
-                Session Name
-              </label>
-              <Input
-                id="worktreeTemplate"
-                type="text"
-                value={sessionName}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setSessionName(value);
-                  setFormData({ ...formData, worktreeTemplate: value });
-                  // Real-time validation
-                  const error = validateWorktreeName(value);
-                  setWorktreeError(error);
-                }}
-                error={worktreeError || undefined}
-                placeholder="Enter a name for your session"
-                className="w-full"
-              />
-              {!worktreeError && (
-                <p className="text-xs text-text-tertiary mt-1">
-                  The name for your session and worktree folder.
-                </p>
-              )}
-            </div>
-
-            {/* 2. Base Branch (always visible) */}
+            {/* 1. Base Branch (select first, auto-populates session name) */}
             {branches.length > 0 && (
               <div className="p-6 border-b border-border-primary">
                 <div className="flex items-center gap-2 mb-1">
@@ -598,6 +618,35 @@ export function CreateSessionDialog({
                 </p>
               </div>
             )}
+
+            {/* 2. Session Name (auto-populated from branch, editable) */}
+            <div className="p-6 border-b border-border-primary">
+              <label className="block text-sm font-medium text-text-primary mb-1">
+                Session Name
+              </label>
+              <Input
+                id="worktreeTemplate"
+                type="text"
+                value={sessionName}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSessionName(value);
+                  setFormData({ ...formData, worktreeTemplate: value });
+                  setUserEditedName(true);
+                  // Real-time validation
+                  const error = validateWorktreeName(value);
+                  setWorktreeError(error);
+                }}
+                error={worktreeError || undefined}
+                placeholder="Enter a name for your session"
+                className="w-full"
+              />
+              {!worktreeError && (
+                <p className="text-xs text-text-tertiary mt-1">
+                  Auto-filled from branch. Edit to customize.
+                </p>
+              )}
+            </div>
 
             {/* 3. Number of Sessions (compact with expand) */}
             <div className="px-6 py-4 border-b border-border-primary">
