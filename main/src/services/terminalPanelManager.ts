@@ -255,7 +255,7 @@ export class TerminalPanelManager {
         setTimeout(injectCommand, 300);
       });
 
-      // Safety timeout: if the shell never emits data within 5s, inject anyway
+      // Safety timeout: if the shell never emits data within 3s, inject anyway
       setTimeout(injectCommand, 3000);
     }
 
