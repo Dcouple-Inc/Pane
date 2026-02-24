@@ -19,7 +19,8 @@ import {
   Activity,
   ChevronUp,
   ChevronDown,
-  Terminal
+  Terminal,
+  Cloud
 } from 'lucide-react';
 import { Input, Textarea, Checkbox } from './ui/Input';
 import { Button } from './ui/Button';
@@ -61,6 +62,15 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
   const [previousAnalyticsEnabled, setPreviousAnalyticsEnabled] = useState(true);
   const [preferredShell, setPreferredShell] = useState<string>('auto');
   const [availableShells, setAvailableShells] = useState<Array<{id: string; name: string; path: string}>>([]);
+  const [cloudProvider] = useState<'gcp'>('gcp');
+  const [cloudApiToken, setCloudApiToken] = useState('');
+  const [cloudServerId, setCloudServerId] = useState('');
+  const [cloudServerIp, setCloudServerIp] = useState('');
+  const [cloudVncPassword, setCloudVncPassword] = useState('');
+  const [cloudRegion, setCloudRegion] = useState('');
+  const [cloudGcpProjectId, setCloudGcpProjectId] = useState('');
+  const [cloudGcpZone, setCloudGcpZone] = useState('');
+  const [cloudTunnelPort, setCloudTunnelPort] = useState('8080');
   const { updateSettings } = useNotifications();
   const { theme, toggleTheme } = useTheme();
   const { fetchConfig: refreshConfigStore } = useConfigStore();
@@ -119,6 +129,19 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
         }
       }
       setPreferredShell(data.preferredShell || 'auto');
+
+      // Load cloud settings
+      if (data.cloud) {
+        // Provider is always GCP (IAP-secured)
+        setCloudApiToken(data.cloud.apiToken || '');
+        setCloudServerId(data.cloud.serverId || '');
+        setCloudServerIp(data.cloud.serverIp || '');
+        setCloudVncPassword(data.cloud.vncPassword || '');
+        setCloudRegion(data.cloud.region || '');
+        setCloudGcpProjectId(data.cloud.projectId || '');
+        setCloudGcpZone(data.cloud.zone || '');
+        setCloudTunnelPort(String(data.cloud.tunnelPort || 8080));
+      }
     } catch (err) {
       setError('Failed to load configuration');
     }
@@ -169,7 +192,18 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
         analytics: {
           enabled: analyticsEnabled
         },
-        preferredShell
+        preferredShell,
+        cloud: cloudApiToken ? {
+          provider: cloudProvider,
+          apiToken: cloudApiToken,
+          serverId: cloudServerId || undefined,
+          serverIp: cloudServerIp || undefined,
+          vncPassword: cloudVncPassword || undefined,
+          region: cloudRegion || undefined,
+          projectId: cloudGcpProjectId || undefined,
+          zone: cloudGcpZone || undefined,
+          tunnelPort: parseInt(cloudTunnelPort, 10) || 8080,
+        } : undefined,
       });
 
       if (!response.success) {
@@ -450,6 +484,111 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                   Claude response. This reduces wait time and Claude quota usage.
                   You can still manually run /context when needed.
                 </p>
+              </SettingsSection>
+            </CollapsibleCard>
+
+            {/* Cloud VM */}
+            <CollapsibleCard
+              title="Cloud VM"
+              subtitle="Run foozol on a persistent cloud VM"
+              icon={<Cloud className="w-5 h-5" />}
+              defaultExpanded={false}
+            >
+              <SettingsSection
+                title="Cloud Provider"
+                description="Google Cloud Platform with IAP-secured access (no public IP)"
+                icon={<Cloud className="w-4 h-4" />}
+              >
+                <div className="p-3 rounded-lg bg-surface-secondary border border-border-secondary">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-text-primary">Google Cloud Platform</span>
+                    <span className="px-2 py-0.5 text-xs bg-status-success/20 text-status-success rounded-full">IAP Secured</span>
+                  </div>
+                  <p className="text-xs text-text-tertiary mt-1">e2-highmem-2 (2 vCPU, 16GB RAM) — access via IAP tunnel only, no public IP exposed</p>
+                </div>
+              </SettingsSection>
+
+              <SettingsSection
+                title="API Token"
+                description="Your GCP service account key or access token"
+                icon={<Shield className="w-4 h-4" />}
+              >
+                <Input
+                  label="API Token"
+                  type="password"
+                  value={cloudApiToken}
+                  onChange={(e) => setCloudApiToken(e.target.value)}
+                  placeholder="GCP access token..."
+                  fullWidth
+                  helperText="Required to manage your cloud VM. Never shared or logged."
+                />
+              </SettingsSection>
+
+              <SettingsSection
+                title="Server Details"
+                description="VM identifiers from your Terraform output"
+                icon={<FileText className="w-4 h-4" />}
+              >
+                <div className="space-y-3">
+                  <Input
+                    label="Server ID"
+                    value={cloudServerId}
+                    onChange={(e) => setCloudServerId(e.target.value)}
+                    placeholder="e.g. foozol-user123"
+                    fullWidth
+                    helperText="GCP instance name from terraform output"
+                  />
+                  <Input
+                    label="Server IP"
+                    value={cloudServerIp}
+                    onChange={(e) => setCloudServerIp(e.target.value)}
+                    placeholder="e.g. 203.0.113.42"
+                    fullWidth
+                    helperText="Public IPv4 address (auto-detected when VM starts)"
+                  />
+                  <Input
+                    label="VNC Password"
+                    type="password"
+                    value={cloudVncPassword}
+                    onChange={(e) => setCloudVncPassword(e.target.value)}
+                    placeholder="VNC password..."
+                    fullWidth
+                    helperText="Password for noVNC access (set during VM setup)"
+                  />
+                  <Input
+                    label="Region"
+                    value={cloudRegion}
+                    onChange={(e) => setCloudRegion(e.target.value)}
+                    placeholder="e.g. us-central1"
+                    fullWidth
+                  />
+                  {cloudProvider === 'gcp' && (
+                    <>
+                      <Input
+                        label="GCP Project ID"
+                        value={cloudGcpProjectId}
+                        onChange={(e) => setCloudGcpProjectId(e.target.value)}
+                        placeholder="e.g. my-gcp-project"
+                        fullWidth
+                      />
+                      <Input
+                        label="GCP Zone"
+                        value={cloudGcpZone}
+                        onChange={(e) => setCloudGcpZone(e.target.value)}
+                        placeholder="e.g. us-central1-a"
+                        fullWidth
+                      />
+                      <Input
+                        label="IAP Tunnel Port"
+                        value={cloudTunnelPort}
+                        onChange={(e) => setCloudTunnelPort(e.target.value)}
+                        placeholder="8080"
+                        fullWidth
+                        helperText="Local port for IAP tunnel (default 8080). Must match --local-host-port in your gcloud tunnel command."
+                      />
+                    </>
+                  )}
+                </div>
               </SettingsSection>
             </CollapsibleCard>
 

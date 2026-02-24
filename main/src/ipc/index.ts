@@ -22,6 +22,7 @@ import { registerEditorPanelHandlers } from './editorPanel';
 import { registerNimbalystHandlers } from './nimbalyst';
 import { registerAnalyticsHandlers } from './analytics';
 import { registerSpotlightHandlers } from './spotlight';
+import { registerCloudHandlers } from './cloud';
 
 
 export function registerIpcHandlers(services: AppServices): void {
@@ -47,4 +48,5 @@ export function registerIpcHandlers(services: AppServices): void {
   registerNimbalystHandlers(ipcMain, services);
   registerAnalyticsHandlers(ipcMain, services);
   registerSpotlightHandlers(ipcMain, services);
+  registerCloudHandlers(ipcMain, services);
 } 

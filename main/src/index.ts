@@ -37,6 +37,7 @@ import { registerIpcHandlers } from './ipc';
 import { setupAutoUpdater } from './autoUpdater';
 import { setupEventListeners } from './events';
 import { AppServices } from './ipc/types';
+import { getCloudVmManager } from './ipc/cloud';
 import { CliManagerFactory } from './services/cliManagerFactory';
 import { AbstractCliManager } from './services/panels/cli/AbstractCliManager';
 import { setupConsoleWrapper } from './utils/consoleWrapper';
@@ -957,6 +958,15 @@ app.on('before-quit', async (event) => {
       console.log('[Main] Stopping git status polling...');
       gitStatusManager.stopPolling();
       console.log('[Main] Git status polling stopped');
+    }
+
+    // Kill IAP tunnel if running
+    const cloudManager = getCloudVmManager();
+    if (cloudManager) {
+      console.log('[Main] Stopping cloud IAP tunnel...');
+      cloudManager.stopTunnel();
+      cloudManager.stopPolling();
+      console.log('[Main] Cloud tunnel stopped');
     }
 
     // Shutdown CLI manager factory and all CLI processes

@@ -367,6 +367,29 @@ interface ElectronAPI {
     disable: (sessionId: string) => Promise<IPCResponse>;
     getStatus: (projectId: number) => Promise<IPCResponse>;
   };
+
+  // Cloud VM management
+  cloud: {
+    getState: () => Promise<IPCResponse>;
+    startVm: () => Promise<IPCResponse>;
+    stopVm: () => Promise<IPCResponse>;
+    startTunnel: () => Promise<IPCResponse>;
+    stopTunnel: () => Promise<IPCResponse>;
+    startPolling: () => Promise<IPCResponse>;
+    stopPolling: () => Promise<IPCResponse>;
+    onStateChanged: (callback: (state: CloudVmState) => void) => () => void;
+  };
+}
+
+interface CloudVmState {
+  status: 'off' | 'starting' | 'running' | 'stopping' | 'unknown' | 'initializing' | 'not_provisioned';
+  ip: string | null;
+  noVncUrl: string | null;
+  provider: 'gcp' | null;
+  serverId: string | null;
+  lastChecked: string | null;
+  error: string | null;
+  tunnelStatus: 'off' | 'starting' | 'running' | 'error';
 }
 
 // Additional electron interface for IPC event listeners

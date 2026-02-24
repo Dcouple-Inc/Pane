@@ -84,6 +84,18 @@ export interface AppConfig {
   customCommands?: CustomCommand[];
   // Preferred shell for Windows terminals
   preferredShell?: 'auto' | 'gitbash' | 'powershell' | 'pwsh' | 'cmd';
+  // Cloud VM settings
+  cloud?: {
+    provider: 'gcp';
+    apiToken: string;
+    serverId?: string;
+    serverIp?: string;
+    vncPassword?: string;
+    region?: string;
+    projectId?: string;
+    zone?: string;
+    tunnelPort?: number;
+  };
 }
 
 export interface UpdateConfigRequest {
@@ -151,4 +163,16 @@ export interface UpdateConfigRequest {
   customCommands?: CustomCommand[];
   // Preferred shell for Windows terminals
   preferredShell?: 'auto' | 'gitbash' | 'powershell' | 'pwsh' | 'cmd';
+  // Cloud VM settings
+  cloud?: {
+    provider: 'gcp';
+    apiToken: string;
+    serverId?: string;
+    serverIp?: string;
+    vncPassword?: string;
+    region?: string;
+    projectId?: string;
+    zone?: string;
+    tunnelPort?: number;
+  };
 }

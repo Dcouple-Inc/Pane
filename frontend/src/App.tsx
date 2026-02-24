@@ -24,6 +24,8 @@ import { createVisibilityAwareInterval } from './utils/performanceUtils';
 import { ContextMenuProvider } from './contexts/ContextMenuContext';
 import { TokenTest } from './components/TokenTest';
 import { CommandPalette } from './components/CommandPalette';
+import { CloudOverlay } from './components/CloudOverlay';
+import { CloudWidget } from './components/CloudWidget';
 import type { VersionUpdateInfo, PermissionInput } from './types/session';
 import type { ResumableSession } from '../../shared/types/panels';
 
@@ -365,6 +367,8 @@ function App() {
           onToggleCollapse={toggleSidebarCollapsed}
         />
         <SessionView />
+        <CloudOverlay />
+        <CloudWidget />
         <Help isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
         <AnalyticsConsentDialog
           isOpen={isAnalyticsConsentOpen}

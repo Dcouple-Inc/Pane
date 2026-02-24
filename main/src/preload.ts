@@ -654,6 +654,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
     disable: (sessionId: string): Promise<IPCResponse> => ipcRenderer.invoke('spotlight:disable', sessionId),
     getStatus: (projectId: number): Promise<IPCResponse> => ipcRenderer.invoke('spotlight:get-status', projectId),
   },
+
+  // Cloud VM management
+  cloud: {
+    getState: (): Promise<IPCResponse> => ipcRenderer.invoke('cloud:get-state'),
+    startVm: (): Promise<IPCResponse> => ipcRenderer.invoke('cloud:start-vm'),
+    stopVm: (): Promise<IPCResponse> => ipcRenderer.invoke('cloud:stop-vm'),
+    startTunnel: (): Promise<IPCResponse> => ipcRenderer.invoke('cloud:start-tunnel'),
+    stopTunnel: (): Promise<IPCResponse> => ipcRenderer.invoke('cloud:stop-tunnel'),
+    startPolling: (): Promise<IPCResponse> => ipcRenderer.invoke('cloud:start-polling'),
+    stopPolling: (): Promise<IPCResponse> => ipcRenderer.invoke('cloud:stop-polling'),
+    onStateChanged: (callback: (state: unknown) => void): (() => void) => {
+      const wrappedCallback = (_event: unknown, state: unknown) => callback(state);
+      ipcRenderer.on('cloud:state-changed', wrappedCallback);
+      return () => ipcRenderer.removeListener('cloud:state-changed', wrappedCallback);
+    },
+  },
 });
 
 // Expose electron event listeners and utilities for permission requests
