@@ -5,7 +5,8 @@ import { ShellDetector } from '../utils/shellDetector';
 export function registerConfigHandlers(ipcMain: IpcMain, { configManager, claudeCodeManager, getMainWindow }: AppServices): void {
   ipcMain.handle('config:get', async () => {
     try {
-      const config = configManager.getConfig();
+      // Always reload from disk to pick up external changes (e.g., from setup scripts)
+      const config = await configManager.reloadFromDisk();
       return { success: true, data: config };
     } catch (error) {
       console.error('Failed to get config:', error);

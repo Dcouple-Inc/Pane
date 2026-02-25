@@ -20,7 +20,10 @@ import {
   ChevronUp,
   ChevronDown,
   Terminal,
-  Cloud
+  Cloud,
+  Trash2,
+  Copy,
+  Check
 } from 'lucide-react';
 import { Input, Textarea, Checkbox } from './ui/Input';
 import { Button } from './ui/Button';
@@ -67,6 +70,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
   const [cloudServerId, setCloudServerId] = useState('');
   const [cloudServerIp, setCloudServerIp] = useState('');
   const [cloudVncPassword, setCloudVncPassword] = useState('');
+  const [vncPasswordCopied, setVncPasswordCopied] = useState(false);
   const [cloudRegion, setCloudRegion] = useState('');
   const [cloudGcpProjectId, setCloudGcpProjectId] = useState('');
   const [cloudGcpZone, setCloudGcpZone] = useState('');
@@ -546,15 +550,35 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                     fullWidth
                     helperText="Public IPv4 address (auto-detected when VM starts)"
                   />
-                  <Input
-                    label="VNC Password"
-                    type="password"
-                    value={cloudVncPassword}
-                    onChange={(e) => setCloudVncPassword(e.target.value)}
-                    placeholder="VNC password..."
-                    fullWidth
-                    helperText="Password for noVNC access (set during VM setup)"
-                  />
+                  <div className="relative">
+                    <Input
+                      label="VNC Password"
+                      type="password"
+                      value={cloudVncPassword}
+                      onChange={(e) => setCloudVncPassword(e.target.value)}
+                      placeholder="VNC password..."
+                      fullWidth
+                      helperText="Password for noVNC access (set during VM setup)"
+                    />
+                    {cloudVncPassword && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(cloudVncPassword);
+                          setVncPasswordCopied(true);
+                          setTimeout(() => setVncPasswordCopied(false), 2000);
+                        }}
+                        className="absolute right-2 top-[30px] p-1.5 rounded hover:bg-surface-secondary transition-colors"
+                        title="Copy password"
+                      >
+                        {vncPasswordCopied ? (
+                          <Check className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <Copy className="w-4 h-4 text-text-secondary" />
+                        )}
+                      </button>
+                    )}
+                  </div>
                   <Input
                     label="Region"
                     value={cloudRegion}
@@ -588,6 +612,48 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                       />
                     </>
                   )}
+                </div>
+              </SettingsSection>
+
+              <SettingsSection
+                title="Reset Cloud Configuration"
+                description="Clear settings or destroy cloud infrastructure"
+                icon={<Trash2 className="w-4 h-4" />}
+              >
+                <div className="space-y-3">
+                  <div className="p-3 rounded-lg bg-surface-secondary border border-border-secondary">
+                    <p className="text-sm text-text-secondary mb-3">
+                      Clear local settings only. Use this if infrastructure was already destroyed or you want to re-configure.
+                    </p>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        setCloudApiToken('');
+                        setCloudServerId('');
+                        setCloudServerIp('');
+                        setCloudVncPassword('');
+                        setCloudRegion('');
+                        setCloudGcpProjectId('');
+                        setCloudGcpZone('');
+                        setCloudTunnelPort('8080');
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Clear Local Settings
+                    </Button>
+                  </div>
+                  <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/20">
+                    <p className="text-sm text-text-secondary mb-2">
+                      To fully destroy the cloud VM and clean up GCP resources, run:
+                    </p>
+                    <code className="block text-xs bg-surface-primary p-2 rounded border border-border-primary mb-2 font-mono">
+                      bash cloud/scripts/setup-cloud.sh --destroy
+                    </code>
+                    <p className="text-xs text-text-tertiary">
+                      This will run terraform destroy and delete the GCP project.
+                    </p>
+                  </div>
                 </div>
               </SettingsSection>
             </CollapsibleCard>

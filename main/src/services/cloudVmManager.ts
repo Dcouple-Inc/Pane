@@ -56,6 +56,17 @@ export class CloudVmManager extends EventEmitter {
     private logger?: Logger
   ) {
     super();
+
+    // Listen for config changes and immediately refresh state
+    this.configManager.on('config-updated', async () => {
+      this.logger?.info('[CloudVM] Config updated, refreshing state...');
+      try {
+        const state = await this.getState();
+        this.emit('state-changed', state);
+      } catch (err) {
+        this.logger?.error('[CloudVM] Error refreshing state after config update', err instanceof Error ? err : new Error(String(err)));
+      }
+    });
   }
 
   // ============================================================
@@ -74,15 +85,31 @@ export class CloudVmManager extends EventEmitter {
     try {
       const status = await this.fetchVmStatus(config);
       const tunnelPort = config.tunnelPort || 8080;
+
+      // Determine effective tunnel status:
+      // - If we have a managed tunnel process, use this.tunnelStatus
+      // - Otherwise, check config for external tunnel (e.g., started by setup script)
+      let effectiveTunnelStatus = this.tunnelStatus;
+      if (!this.tunnelProcess) {
+        // No managed tunnel — reload config from disk to check if external tunnel is running
+        // (setup script may have updated the config file)
+        const freshConfig = await this.configManager.reloadFromDisk();
+        const configTunnelStatus = freshConfig.cloud?.tunnelStatus as TunnelStatus | undefined;
+        if (configTunnelStatus === 'running') {
+          effectiveTunnelStatus = 'running';
+          this.logger?.info('[CloudVM] Detected external tunnel running via config.');
+        }
+      }
+
       this.cachedState = {
         status,
         ip: null,
-        noVncUrl: `http://localhost:${tunnelPort}/novnc/vnc.html?autoconnect=true&resize=scale&reconnect=true&reconnect_delay=1000`,
+        noVncUrl: this.buildNoVncUrl(tunnelPort, config.vncPassword),
         provider: config.provider,
         serverId: config.serverId || null,
         lastChecked: new Date().toISOString(),
         error: null,
-        tunnelStatus: this.tunnelStatus,
+        tunnelStatus: effectiveTunnelStatus,
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -484,6 +511,17 @@ export class CloudVmManager extends EventEmitter {
     return config.cloud;
   }
 
+  /**
+   * Build noVNC URL with password pre-filled if available
+   */
+  private buildNoVncUrl(tunnelPort: number, vncPassword?: string): string {
+    const baseUrl = `http://localhost:${tunnelPort}/novnc/vnc.html?autoconnect=true&resize=scale&reconnect=true&reconnect_delay=1000`;
+    if (vncPassword) {
+      return `${baseUrl}&password=${encodeURIComponent(vncPassword)}`;
+    }
+    return baseUrl;
+  }
+
   private async fetchVmStatus(config: CloudVmConfig): Promise<VmStatus> {
     return this.gcpGetStatus(config);
   }
@@ -505,7 +543,7 @@ export class CloudVmManager extends EventEmitter {
         status,
         ip: null,
         noVncUrl: status === 'running'
-          ? `http://localhost:${tunnelPort}/novnc/vnc.html?autoconnect=true&resize=scale&reconnect=true&reconnect_delay=1000`
+          ? this.buildNoVncUrl(tunnelPort, config.vncPassword)
           : null,
         provider: config.provider,
         serverId: config.serverId || null,

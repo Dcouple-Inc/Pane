@@ -110,3 +110,6 @@ shared/*.d.ts.map
 # Debug logs from dev mode
 frontend-debug.log
 backend-debug.log
+
+# Research docs (AI-generated planning/research)
+docs/research/

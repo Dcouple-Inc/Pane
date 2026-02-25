@@ -4,6 +4,7 @@
 #
 # Prerequisites: gcloud CLI, terraform CLI, bash
 # Usage: bash cloud/scripts/setup-cloud.sh
+#        bash cloud/scripts/setup-cloud.sh --destroy  # Destroy infrastructure
 
 # Bail immediately if not running under bash
 if [ -z "$BASH_VERSION" ]; then
@@ -69,159 +70,592 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TERRAFORM_DIR="${SCRIPT_DIR}/../terraform/gcp"
 
 # ============================================================
+# Parse command line arguments
+# ============================================================
+DESTROY_MODE=false
+for arg in "$@"; do
+  case $arg in
+    --destroy)
+      DESTROY_MODE=true
+      shift
+      ;;
+  esac
+done
+
+# ============================================================
+# Detect WSL and get correct foozol config path
+# ============================================================
+get_foozol_config_path() {
+  # Check if running in WSL
+  if grep -qi microsoft /proc/version 2>/dev/null; then
+    # Running in WSL - get Windows username and use Windows home dir
+    local win_user
+    win_user=$(cmd.exe /c "echo %USERNAME%" 2>/dev/null | tr -d '\r\n')
+    if [ -n "$win_user" ]; then
+      local win_home="/mnt/c/Users/${win_user}"
+      if [ -d "$win_home" ]; then
+        echo "${win_home}/.foozol/config.json"
+        return
+      fi
+    fi
+  fi
+  # Default: use $HOME (native Linux/macOS or Git Bash on Windows)
+  echo "$HOME/.foozol/config.json"
+}
+
+get_foozol_config_dir() {
+  local config_path
+  config_path=$(get_foozol_config_path)
+  dirname "$config_path"
+}
+
+# Set config path early so it's available throughout the script
+FOOZOL_CONFIG=$(get_foozol_config_path)
+FOOZOL_CONFIG_DIR=$(get_foozol_config_dir)
+
+# ============================================================
+# Incremental config save function
+# ============================================================
+# Saves current cloud config to foozol config file as we go
+# This ensures partial progress is preserved if setup fails
+save_cloud_config() {
+  local project_id="${1:-}"
+  local zone="${2:-}"
+  local server_id="${3:-}"
+  local vnc_password="${4:-}"
+  local tunnel_port="${5:-8080}"
+
+  # Skip if jq not available
+  if ! command -v jq &>/dev/null; then
+    return
+  fi
+
+  # Ensure config directory exists
+  mkdir -p "$FOOZOL_CONFIG_DIR"
+
+  # Create config file if it doesn't exist
+  if [ ! -f "$FOOZOL_CONFIG" ]; then
+    echo '{}' > "$FOOZOL_CONFIG"
+  fi
+
+  # Extract region from zone
+  local region=""
+  if [ -n "$zone" ]; then
+    region=$(echo "$zone" | sed 's/-[a-z]$//')
+  fi
+
+  # Update config with current values (only non-empty ones)
+  # Use canonical key names (projectId, zone) to match what the app reads
+  local tmp_config="${FOOZOL_CONFIG}.tmp"
+  jq --arg provider "gcp" \
+     --arg projectId "$project_id" \
+     --arg zone "$zone" \
+     --arg region "$region" \
+     --arg serverId "$server_id" \
+     --arg vncPassword "$vnc_password" \
+     --arg tunnelPort "$tunnel_port" \
+     '.cloud = (.cloud // {}) | .cloud.provider = $provider
+      | if $projectId != "" then .cloud.projectId = $projectId else . end
+      | if $zone != "" then .cloud.zone = $zone else . end
+      | if $region != "" then .cloud.region = $region else . end
+      | if $serverId != "" then .cloud.serverId = $serverId else . end
+      | if $vncPassword != "" then .cloud.vncPassword = $vncPassword else . end
+      | .cloud.tunnelPort = $tunnelPort
+      | .cloud.serverIp = ""' \
+     "$FOOZOL_CONFIG" > "$tmp_config" && mv "$tmp_config" "$FOOZOL_CONFIG"
+}
+
+# ============================================================
+# Platform detection
+# ============================================================
+detect_platform() {
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    echo "macos"
+  elif grep -qi microsoft /proc/version 2>/dev/null; then
+    echo "wsl"
+  elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "mingw"* ]] || [[ "$OSTYPE" == "cygwin"* ]]; then
+    echo "windows"  # Git Bash / MSYS2 / Cygwin
+  elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    echo "linux"
+  else
+    echo "unknown"
+  fi
+}
+
+PLATFORM=$(detect_platform)
+
+# ============================================================
+# Auto-install functions
+# ============================================================
+install_terraform() {
+  info "Installing Terraform..."
+
+  case "$PLATFORM" in
+    macos)
+      if command -v brew &>/dev/null; then
+        brew tap hashicorp/tap && brew install hashicorp/tap/terraform
+      else
+        error "Homebrew not found. Install Homebrew first: https://brew.sh"
+        return 1
+      fi
+      ;;
+    linux|wsl)
+      # Use HashiCorp's official APT repo for Debian/Ubuntu
+      if command -v apt-get &>/dev/null; then
+        sudo apt-get update && sudo apt-get install -y gnupg software-properties-common
+        wget -O- https://apt.releases.hashicorp.com/gpg | \
+          gpg --dearmor | \
+          sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg > /dev/null
+        echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] \
+          https://apt.releases.hashicorp.com $(lsb_release -cs) main" | \
+          sudo tee /etc/apt/sources.list.d/hashicorp.list
+        sudo apt-get update && sudo apt-get install -y terraform
+      else
+        error "apt-get not found. Please install Terraform manually."
+        return 1
+      fi
+      ;;
+    windows)
+      # Git Bash on Windows - use winget or choco
+      if command -v winget.exe &>/dev/null; then
+        winget.exe install --id Hashicorp.Terraform -e --source winget
+      elif command -v choco &>/dev/null; then
+        choco install terraform -y
+      else
+        error "Neither winget nor chocolatey found. Please install Terraform manually."
+        error "Download from: https://developer.hashicorp.com/terraform/install"
+        return 1
+      fi
+      ;;
+    *)
+      error "Unknown platform. Please install Terraform manually."
+      return 1
+      ;;
+  esac
+
+  # Verify installation
+  if command -v terraform &>/dev/null; then
+    success "Terraform installed successfully!"
+    return 0
+  else
+    error "Terraform installation failed."
+    return 1
+  fi
+}
+
+install_gcloud() {
+  info "Installing Google Cloud SDK..."
+
+  case "$PLATFORM" in
+    macos)
+      if command -v brew &>/dev/null; then
+        brew install --cask google-cloud-sdk
+      else
+        error "Homebrew not found. Install Homebrew first: https://brew.sh"
+        return 1
+      fi
+      ;;
+    linux|wsl)
+      # Use Google's official install script
+      if command -v apt-get &>/dev/null; then
+        sudo apt-get update && sudo apt-get install -y apt-transport-https ca-certificates gnupg curl
+        curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+        echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | \
+          sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+        sudo apt-get update && sudo apt-get install -y google-cloud-cli
+      else
+        # Fallback to interactive install script
+        curl https://sdk.cloud.google.com | bash
+        exec -l $SHELL  # Restart shell to pick up PATH changes
+      fi
+      ;;
+    windows)
+      # Git Bash on Windows - use winget or direct installer
+      if command -v winget.exe &>/dev/null; then
+        winget.exe install --id Google.CloudSDK -e --source winget
+      else
+        error "winget not found. Please install Google Cloud SDK manually."
+        error "Download from: https://cloud.google.com/sdk/docs/install"
+        return 1
+      fi
+      ;;
+    *)
+      error "Unknown platform. Please install Google Cloud SDK manually."
+      return 1
+      ;;
+  esac
+
+  # Verify installation
+  if command -v gcloud &>/dev/null; then
+    success "Google Cloud SDK installed successfully!"
+    return 0
+  else
+    warn "gcloud may require a new terminal session to be available in PATH."
+    return 1
+  fi
+}
+
+install_jq() {
+  info "Installing jq..."
+
+  case "$PLATFORM" in
+    macos)
+      brew install jq
+      ;;
+    linux|wsl)
+      if command -v apt-get &>/dev/null; then
+        sudo apt-get update && sudo apt-get install -y jq
+      elif command -v yum &>/dev/null; then
+        sudo yum install -y jq
+      else
+        error "Package manager not found. Please install jq manually."
+        return 1
+      fi
+      ;;
+    windows)
+      if command -v winget.exe &>/dev/null; then
+        winget.exe install --id jqlang.jq -e --source winget
+      elif command -v choco &>/dev/null; then
+        choco install jq -y
+      else
+        error "Neither winget nor chocolatey found. Please install jq manually."
+        return 1
+      fi
+      ;;
+    *)
+      error "Unknown platform. Please install jq manually."
+      return 1
+      ;;
+  esac
+
+  success "jq installed successfully!"
+  return 0
+}
+
+# ============================================================
+# Destroy mode handler
+# ============================================================
+if [ "$DESTROY_MODE" = true ]; then
+  header "foozol Cloud Destroy"
+  echo -e "This will destroy your foozol Cloud VM and clean up GCP resources.\n"
+
+  warn "This action is irreversible!"
+  echo ""
+
+  # Check if terraform state exists
+  if [ ! -f "$TERRAFORM_DIR/terraform.tfstate" ]; then
+    info "No terraform state found. Nothing to destroy."
+    info "Clearing local config..."
+
+    # Clear cloud config from foozol config
+    if [ -f "$FOOZOL_CONFIG" ] && command -v jq &>/dev/null; then
+      jq 'del(.cloud)' "$FOOZOL_CONFIG" > "${FOOZOL_CONFIG}.tmp" && mv "${FOOZOL_CONFIG}.tmp" "$FOOZOL_CONFIG"
+      success "Local cloud config cleared."
+    fi
+    exit 0
+  fi
+
+  # Get project ID from state for cleanup
+  PROJECT_ID=$(terraform -chdir="$TERRAFORM_DIR" output -raw project_id 2>/dev/null || echo "")
+
+  if ! prompt_yes_no "Are you sure you want to destroy the cloud infrastructure?" "n"; then
+    info "Aborted."
+    exit 0
+  fi
+
+  info "Running terraform destroy..."
+  cd "$TERRAFORM_DIR"
+  terraform init -input=false >/dev/null 2>&1
+  terraform destroy -auto-approve
+
+  success "Infrastructure destroyed."
+
+  # Optionally delete the GCP project
+  if [ -n "$PROJECT_ID" ]; then
+    echo ""
+    if prompt_yes_no "Also delete the GCP project '$PROJECT_ID'?" "n"; then
+      info "Deleting GCP project..."
+      gcloud projects delete "$PROJECT_ID" --quiet 2>&1 || warn "Failed to delete project (may already be deleted)"
+      success "Project deletion initiated."
+    fi
+  fi
+
+  # Clear local config
+  info "Clearing local cloud config..."
+  if [ -f "$FOOZOL_CONFIG" ] && command -v jq &>/dev/null; then
+    jq 'del(.cloud)' "$FOOZOL_CONFIG" > "${FOOZOL_CONFIG}.tmp" && mv "${FOOZOL_CONFIG}.tmp" "$FOOZOL_CONFIG"
+    success "Local cloud config cleared."
+  fi
+
+  # Remove terraform state
+  rm -f "$TERRAFORM_DIR/terraform.tfstate" "$TERRAFORM_DIR/terraform.tfstate.backup"
+  success "Terraform state cleaned up."
+
+  echo ""
+  success "Cloud cleanup complete!"
+  exit 0
+fi
+
+# ============================================================
 # Step 0: Check prerequisites
 # ============================================================
 header "foozol Cloud Setup"
 echo -e "This script will guide you through setting up a secure foozol Cloud VM"
 echo -e "on Google Cloud Platform with IAP-only access (no public IP).\n"
 
+info "Detected platform: ${BOLD}${PLATFORM}${NC}"
+info "Config will be saved to: ${FOOZOL_CONFIG}"
+echo ""
+
 info "Checking prerequisites..."
 
-missing=0
-for cmd in gcloud terraform; do
-  if ! command -v "$cmd" &>/dev/null; then
-    error "$cmd is not installed. Please install it first."
-    missing=1
-  else
-    success "$cmd found: $(command -v "$cmd")"
-  fi
-done
-
-if [ "$missing" -eq 1 ]; then
-  echo ""
-  error "Install missing tools and re-run this script."
-  echo "  gcloud: https://cloud.google.com/sdk/docs/install"
-  echo "  terraform: https://developer.hashicorp.com/terraform/install"
-  exit 1
+# Check and auto-install gcloud
+if ! command -v gcloud &>/dev/null; then
+  install_gcloud || exit 1
+else
+  success "gcloud found: $(command -v gcloud)"
 fi
+
+# Check and auto-install terraform
+if ! command -v terraform &>/dev/null; then
+  install_terraform || exit 1
+else
+  success "terraform found: $(command -v terraform)"
+fi
+
+# Check and auto-install jq (needed for config updates)
+if ! command -v jq &>/dev/null; then
+  install_jq || warn "jq installation failed. Config updates may not work."
+else
+  success "jq found: $(command -v jq)"
+fi
+
+# Install NumPy for gcloud IAP tunnel performance optimization
+# See: https://cloud.google.com/iap/docs/using-tcp-forwarding#increasing_the_tcp_upload_bandwidth
+GCLOUD_PYTHON=$(gcloud info --format="value(basic.python_location)" 2>/dev/null || echo "")
+if [ -n "$GCLOUD_PYTHON" ]; then
+  if "$GCLOUD_PYTHON" -c "import numpy" &>/dev/null; then
+    success "numpy installed (IAP tunnel optimization)"
+  else
+    info "Installing numpy for IAP tunnel performance..."
+    "$GCLOUD_PYTHON" -m pip install numpy --quiet 2>/dev/null && \
+      success "numpy installed (IAP tunnel optimization)" || \
+      warn "numpy install failed (optional, tunnel will still work)"
+  fi
+fi
+
+echo ""
 
 # ============================================================
 # Check if already provisioned — enter connect mode
 # ============================================================
-if [ -f "${TERRAFORM_DIR}/terraform.tfstate" ] && terraform -chdir="$TERRAFORM_DIR" output -raw instance_name &>/dev/null 2>&1; then
-  header "foozol Cloud — Connect Mode"
-  info "Existing deployment detected. Entering connect mode."
+if [ -f "${TERRAFORM_DIR}/terraform.tfstate" ]; then
+  # Try to read terraform outputs (may fail if state is corrupted)
+  INSTANCE_NAME=$(terraform -chdir="$TERRAFORM_DIR" output -raw instance_name 2>/dev/null || echo "")
 
-  # Read terraform outputs
-  INSTANCE_NAME=$(terraform -chdir="$TERRAFORM_DIR" output -raw instance_name 2>/dev/null)
-  PROJECT_ID=$(terraform -chdir="$TERRAFORM_DIR" output -raw project_id 2>/dev/null)
-  GCP_ZONE=$(terraform -chdir="$TERRAFORM_DIR" output -raw zone 2>/dev/null)
-  TUNNEL_PORT=8080
+  if [ -n "$INSTANCE_NAME" ]; then
+    header "foozol Cloud — Connect Mode"
+    info "Existing deployment detected. Entering connect mode."
+    echo ""
 
-  success "Instance: ${INSTANCE_NAME}"
-  success "Project:  ${PROJECT_ID}"
-  success "Zone:     ${GCP_ZONE}"
+    # Read remaining terraform outputs
+    PROJECT_ID=$(terraform -chdir="$TERRAFORM_DIR" output -raw project_id 2>/dev/null || echo "")
+    GCP_ZONE=$(terraform -chdir="$TERRAFORM_DIR" output -raw zone 2>/dev/null || echo "")
+    TUNNEL_PORT=8080
 
-  # Refresh GCP token
-  info "Refreshing GCP access token..."
-  GCP_TOKEN=$(gcloud auth print-access-token 2>/dev/null || echo "")
-  if [ -z "$GCP_TOKEN" ]; then
-    warn "Could not get GCP token. Running gcloud auth login..."
-    gcloud auth login --update-adc
+    # If project_id output doesn't exist (older state), extract from tunnel command
+    if [ -z "$PROJECT_ID" ]; then
+      TUNNEL_CMD=$(terraform -chdir="$TERRAFORM_DIR" output -raw novnc_tunnel_command 2>/dev/null || echo "")
+      # Extract project ID using sed (works on all platforms)
+      PROJECT_ID=$(echo "$TUNNEL_CMD" | sed -n 's/.*--project=\([^ ]*\).*/\1/p')
+    fi
+
+    # Validate we have required values
+    if [ -z "$PROJECT_ID" ] || [ -z "$GCP_ZONE" ]; then
+      error "Could not read terraform outputs. State may be corrupted."
+      error "Try running: cd ${TERRAFORM_DIR} && terraform refresh"
+      exit 1
+    fi
+
+    success "Instance: ${INSTANCE_NAME}"
+    success "Project:  ${PROJECT_ID}"
+    success "Zone:     ${GCP_ZONE}"
+    echo ""
+
+    # Step 1: Refresh GCP token (handles auth if needed)
+    info "Checking GCP authentication..."
     GCP_TOKEN=$(gcloud auth print-access-token 2>/dev/null || echo "")
-  fi
-  success "Token refreshed."
+    if [ -z "$GCP_TOKEN" ]; then
+      warn "Not authenticated with GCP. Launching login..."
+      echo ""
+      gcloud auth login --update-adc
+      GCP_TOKEN=$(gcloud auth print-access-token 2>/dev/null || echo "")
+      if [ -z "$GCP_TOKEN" ]; then
+        error "Failed to get GCP access token after login."
+        exit 1
+      fi
+    fi
+    success "GCP token acquired."
+    echo ""
 
-  # Retrieve VNC password
-  VNC_PASSWORD=$(gcloud compute ssh "$INSTANCE_NAME" \
-    --zone="$GCP_ZONE" \
-    --project="$PROJECT_ID" \
-    --tunnel-through-iap \
-    --command="cat /home/foozol/.vnc_password 2>/dev/null" \
-    2>/dev/null || echo "")
+    # Step 2: Check if VM exists and its status
+    info "Checking VM status..."
+    VM_STATUS=$(gcloud compute instances describe "$INSTANCE_NAME" \
+      --zone="$GCP_ZONE" \
+      --project="$PROJECT_ID" \
+      --format="value(status)" 2>/dev/null || echo "NOT_FOUND")
 
-  # Update foozol config with fresh token
-  FOOZOL_CONFIG="$HOME/.foozol/config.json"
-  mkdir -p "$HOME/.foozol"
+    if [ "$VM_STATUS" = "NOT_FOUND" ]; then
+      error "VM '${INSTANCE_NAME}' not found in project '${PROJECT_ID}'."
+      error "The infrastructure may have been destroyed. Run this script again to re-provision."
+      exit 1
+    fi
 
-  if command -v jq &>/dev/null && [ -f "$FOOZOL_CONFIG" ]; then
-    jq --arg provider "gcp" \
-       --arg token "$GCP_TOKEN" \
-       --arg serverId "$INSTANCE_NAME" \
-       --arg vncPw "$VNC_PASSWORD" \
-       --arg projectId "$PROJECT_ID" \
-       --arg zone "$GCP_ZONE" \
-       --argjson port "$TUNNEL_PORT" \
-       '.cloud = {
-          provider: $provider,
-          apiToken: $token,
-          serverId: $serverId,
-          vncPassword: $vncPw,
-          projectId: $projectId,
-          zone: $zone,
-          tunnelPort: $port
-        }' "$FOOZOL_CONFIG" > "${FOOZOL_CONFIG}.tmp" \
-      && mv "${FOOZOL_CONFIG}.tmp" "$FOOZOL_CONFIG"
-  elif command -v jq &>/dev/null; then
-    echo '{}' | jq --arg provider "gcp" \
-       --arg token "$GCP_TOKEN" \
-       --arg serverId "$INSTANCE_NAME" \
-       --arg vncPw "$VNC_PASSWORD" \
-       --arg projectId "$PROJECT_ID" \
-       --arg zone "$GCP_ZONE" \
-       --argjson port "$TUNNEL_PORT" \
-       '.cloud = {
-          provider: $provider,
-          apiToken: $token,
-          serverId: $serverId,
-          vncPassword: $vncPw,
-          projectId: $projectId,
-          zone: $zone,
-          tunnelPort: $port
-        }' > "$FOOZOL_CONFIG"
-  else
-    warn "jq not found — skipping foozol config update. Install jq for auto-config."
-  fi
-  success "foozol config updated with fresh token."
+    success "VM status: ${VM_STATUS}"
 
-  # Check if VM is running, start if not
-  info "Checking VM status..."
-  VM_STATUS=$(gcloud compute instances describe "$INSTANCE_NAME" \
-    --zone="$GCP_ZONE" \
-    --project="$PROJECT_ID" \
-    --format="value(status)" 2>/dev/null || echo "UNKNOWN")
+    # Step 3: Start VM if not running
+    if [ "$VM_STATUS" != "RUNNING" ]; then
+      echo ""
+      info "Starting VM..."
+      gcloud compute instances start "$INSTANCE_NAME" \
+        --zone="$GCP_ZONE" \
+        --project="$PROJECT_ID" \
+        --quiet
 
-  if [ "$VM_STATUS" != "RUNNING" ]; then
-    info "VM is ${VM_STATUS}. Starting..."
-    gcloud compute instances start "$INSTANCE_NAME" \
+      # Wait for running state
+      info "Waiting for VM to start..."
+      for i in $(seq 1 30); do
+        sleep 2
+        VM_STATUS=$(gcloud compute instances describe "$INSTANCE_NAME" \
+          --zone="$GCP_ZONE" \
+          --project="$PROJECT_ID" \
+          --format="value(status)" 2>/dev/null || echo "UNKNOWN")
+        echo -ne "\r  Status: ${VM_STATUS} (${i}/30)"
+        if [ "$VM_STATUS" = "RUNNING" ]; then
+          break
+        fi
+      done
+      echo ""
+
+      if [ "$VM_STATUS" != "RUNNING" ]; then
+        error "VM did not reach RUNNING state. Current status: ${VM_STATUS}"
+        exit 1
+      fi
+      success "VM is now running."
+    fi
+    echo ""
+
+    # Step 4: Get VNC password (from terraform state first, then VM as fallback)
+    info "Retrieving VNC password..."
+
+    # Try terraform state first (we now store it there)
+    VNC_PASSWORD=$(terraform -chdir="$TERRAFORM_DIR" output -raw vnc_password 2>/dev/null || echo "")
+
+    if [ -z "$VNC_PASSWORD" ]; then
+      # Fallback: try to get from VM (for older deployments)
+      info "Not in terraform state, checking VM..."
+      sleep 2
+
+      for attempt in $(seq 1 3); do
+        VNC_PASSWORD=$(gcloud compute ssh "$INSTANCE_NAME" \
+          --zone="$GCP_ZONE" \
+          --project="$PROJECT_ID" \
+          --tunnel-through-iap \
+          --command="cat /home/foozol/.vnc_password 2>/dev/null" \
+          2>/dev/null || echo "")
+
+        if [ -n "$VNC_PASSWORD" ]; then
+          break
+        fi
+
+        echo -ne "\r  Attempt ${attempt}/3 - waiting for VM services..."
+        sleep 3
+      done
+      echo ""
+    fi
+
+    if [ -n "$VNC_PASSWORD" ]; then
+      success "VNC password: ${BOLD}${VNC_PASSWORD}${NC}"
+    else
+      warn "Could not retrieve VNC password."
+      warn "You can get it later with:"
+      echo "  gcloud compute ssh ${INSTANCE_NAME} --zone=${GCP_ZONE} --project=${PROJECT_ID} --tunnel-through-iap --command='cat /home/foozol/.vnc_password'"
+    fi
+    echo ""
+
+    # Step 5: Update foozol config
+    info "Updating foozol config..."
+    mkdir -p "$FOOZOL_CONFIG_DIR"
+
+    if command -v jq &>/dev/null; then
+      # Read existing config or start with empty object
+      EXISTING_CONFIG='{}'
+      if [ -f "$FOOZOL_CONFIG" ]; then
+        EXISTING_CONFIG=$(cat "$FOOZOL_CONFIG" 2>/dev/null || echo '{}')
+      fi
+
+      # Update config using jq and capture to variable (avoids Windows path issues with temp files)
+      NEW_CONFIG=$(echo "$EXISTING_CONFIG" | jq --arg provider "gcp" \
+         --arg token "$GCP_TOKEN" \
+         --arg serverId "$INSTANCE_NAME" \
+         --arg vncPw "$VNC_PASSWORD" \
+         --arg projectId "$PROJECT_ID" \
+         --arg zone "$GCP_ZONE" \
+         --argjson port "$TUNNEL_PORT" \
+         '.cloud = {
+            provider: $provider,
+            apiToken: $token,
+            serverId: $serverId,
+            vncPassword: $vncPw,
+            projectId: $projectId,
+            zone: $zone,
+            tunnelPort: $port
+          }')
+
+      if [ -n "$NEW_CONFIG" ] && [ "$NEW_CONFIG" != "null" ]; then
+        printf '%s\n' "$NEW_CONFIG" > "$FOOZOL_CONFIG"
+        success "Config updated: ${FOOZOL_CONFIG}"
+      else
+        warn "jq produced empty output — config not updated."
+      fi
+    else
+      warn "jq not found — skipping config update."
+    fi
+    echo ""
+
+    # Step 6: Start IAP tunnel
+    header "Starting IAP Tunnel"
+
+    echo -e "The tunnel will connect your local port ${BOLD}${TUNNEL_PORT}${NC} to the VM."
+    echo -e "Once connected, open foozol and click the ${BOLD}Cloud${NC} button to view your VM."
+    echo ""
+    echo -e "${YELLOW}Press Ctrl+C to disconnect the tunnel.${NC}"
+    echo ""
+
+    # Update config to indicate tunnel is starting
+    if [ -f "$FOOZOL_CONFIG" ] && command -v jq &>/dev/null; then
+      jq '.cloud.tunnelStatus = "running"' "$FOOZOL_CONFIG" > "${FOOZOL_CONFIG}.tmp" \
+        && mv "${FOOZOL_CONFIG}.tmp" "$FOOZOL_CONFIG"
+    fi
+
+    # Set trap to update config when tunnel exits
+    cleanup_tunnel() {
+      if [ -f "$FOOZOL_CONFIG" ] && command -v jq &>/dev/null; then
+        jq '.cloud.tunnelStatus = "off"' "$FOOZOL_CONFIG" > "${FOOZOL_CONFIG}.tmp" \
+          && mv "${FOOZOL_CONFIG}.tmp" "$FOOZOL_CONFIG"
+      fi
+      exit 0
+    }
+    trap cleanup_tunnel EXIT INT TERM
+
+    # Run tunnel in foreground
+    gcloud compute start-iap-tunnel "$INSTANCE_NAME" 80 \
+      --local-host-port="localhost:${TUNNEL_PORT}" \
       --zone="$GCP_ZONE" \
       --project="$PROJECT_ID"
 
-    # Wait for running
-    info "Waiting for VM to reach RUNNING state..."
-    for i in $(seq 1 20); do
-      sleep 3
-      VM_STATUS=$(gcloud compute instances describe "$INSTANCE_NAME" \
-        --zone="$GCP_ZONE" \
-        --project="$PROJECT_ID" \
-        --format="value(status)" 2>/dev/null || echo "UNKNOWN")
-      if [ "$VM_STATUS" = "RUNNING" ]; then
-        break
-      fi
-      echo -ne "\r  Waiting... (${i})"
-    done
-    echo ""
-
-    if [ "$VM_STATUS" != "RUNNING" ]; then
-      error "VM did not reach RUNNING state. Current status: ${VM_STATUS}"
-      exit 1
-    fi
-    success "VM is running."
-  else
-    success "VM is already running."
+    exit 0
   fi
-
-  # Start IAP tunnel (foreground — Ctrl+C to stop)
-  echo ""
-  info "Starting IAP tunnel on localhost:${TUNNEL_PORT}..."
-  info "Press Ctrl+C to disconnect."
-  echo ""
-  gcloud compute start-iap-tunnel "$INSTANCE_NAME" 80 \
-    --local-host-port="localhost:${TUNNEL_PORT}" \
-    --zone="$GCP_ZONE" \
-    --project="$PROJECT_ID"
-
-  exit 0
 fi
 
 # ============================================================
@@ -266,8 +700,8 @@ while [ -z "$USER_ID" ]; do
   prompt_input USER_ID "Enter a unique user ID" ""
 done
 
-# Sanitize: lowercase, alphanumeric + hyphens only
-USER_ID=$(echo "$USER_ID" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')
+# Sanitize: lowercase, alphanumeric + hyphens only, strip carriage returns (WSL fix)
+USER_ID=$(echo "$USER_ID" | tr -d '\r' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')
 PROJECT_ID="foozol-cloud-${USER_ID}"
 
 info "Project ID will be: ${BOLD}${PROJECT_ID}${NC}"
@@ -279,7 +713,7 @@ if gcloud projects describe "$PROJECT_ID" &>/dev/null 2>&1; then
 else
   EXISTING_PROJECT=false
   info "Creating project ${PROJECT_ID}..."
-  if ! gcloud projects create "$PROJECT_ID" --name="foozol Cloud (${USER_ID})" 2>&1; then
+  if ! gcloud projects create "$PROJECT_ID" --name="Cloud VM ${USER_ID}" 2>&1; then
     error "Failed to create project. You may need to check your organization policies."
     exit 1
   fi
@@ -288,6 +722,10 @@ fi
 
 # Set as active project
 gcloud config set project "$PROJECT_ID" 2>/dev/null
+
+# Save progress: project ID is now known
+save_cloud_config "$PROJECT_ID" "" "" ""
+info "Progress saved to config."
 
 # ============================================================
 # Step 3: Billing — requires manual step
@@ -332,11 +770,13 @@ fi
 # ============================================================
 header "Step 4: Configuration"
 
+echo -e "${CYAN}Tip: Press Enter to accept the default value shown in brackets.${NC}\n"
+
 prompt_input GCP_ZONE "GCP zone" "us-central1-a"
 GCP_REGION=$(echo "$GCP_ZONE" | sed 's/-[a-z]$//')
 
 prompt_input MACHINE_TYPE "Machine type" "e2-highmem-2"
-prompt_input DISK_SIZE "Boot disk size (GB)" "64"
+prompt_input DISK_SIZE "Boot disk size (GB)" "128"
 
 echo ""
 info "Configuration summary:"
@@ -355,9 +795,24 @@ if ! prompt_yes_no "Proceed with Terraform apply?"; then
 fi
 
 # ============================================================
-# Step 5: Terraform init & apply
+# Step 5: Generate VNC password
 # ============================================================
-header "Step 5: Provisioning Infrastructure"
+header "Step 5: Generating VNC Password"
+
+# Generate password now so we have it immediately (no need to retrieve from VM later)
+VNC_PASSWORD=$(openssl rand -base64 12)
+success "VNC password generated."
+echo -e "\n  ${BOLD}VNC Password: ${YELLOW}${VNC_PASSWORD}${NC}\n"
+echo -e "  ${CYAN}Save this password — you'll need it to connect to the noVNC display.${NC}\n"
+
+# Save progress: zone and VNC password now known
+save_cloud_config "$PROJECT_ID" "$GCP_ZONE" "" "$VNC_PASSWORD"
+info "Progress saved to config."
+
+# ============================================================
+# Step 6: Terraform init & apply
+# ============================================================
+header "Step 6: Provisioning Infrastructure"
 
 if [ ! -d "$TERRAFORM_DIR" ]; then
   error "Terraform directory not found at: ${TERRAFORM_DIR}"
@@ -378,6 +833,7 @@ terraform apply \
   -var="region=${GCP_REGION}" \
   -var="machine_type=${MACHINE_TYPE}" \
   -var="disk_size_gb=${DISK_SIZE}" \
+  -var="vnc_password=${VNC_PASSWORD}" \
   -auto-approve
 
 success "Infrastructure provisioned!"
@@ -388,10 +844,14 @@ SSH_CMD=$(terraform output -raw ssh_command 2>/dev/null)
 TUNNEL_CMD=$(terraform output -raw novnc_tunnel_command 2>/dev/null)
 NOVNC_URL=$(terraform output -raw novnc_url 2>/dev/null)
 
+# Save progress: instance name now known - this is the critical save!
+save_cloud_config "$PROJECT_ID" "$GCP_ZONE" "$INSTANCE_NAME" "$VNC_PASSWORD"
+success "Config saved with all VM details."
+
 # ============================================================
-# Step 6: Wait for VM setup to complete
+# Step 7: Wait for VM setup to complete
 # ============================================================
-header "Step 6: Waiting for VM Setup"
+header "Step 7: Waiting for VM Setup"
 
 info "The VM is running the setup script (installs packages, Node.js, foozol, etc.)"
 info "This typically takes 3-5 minutes on a fresh VM.\n"
@@ -429,34 +889,12 @@ if [ $ELAPSED -ge $MAX_WAIT ]; then
 fi
 
 # ============================================================
-# Step 7: Retrieve VNC password
-# ============================================================
-header "Step 7: VNC Password"
-
-VNC_PASSWORD=$(gcloud compute ssh "$INSTANCE_NAME" \
-  --zone="$GCP_ZONE" \
-  --project="$PROJECT_ID" \
-  --tunnel-through-iap \
-  --command="cat /home/foozol/.vnc_password 2>/dev/null" \
-  2>/dev/null || echo "")
-
-if [ -n "$VNC_PASSWORD" ]; then
-  success "VNC password retrieved."
-  echo -e "\n  ${BOLD}VNC Password: ${YELLOW}${VNC_PASSWORD}${NC}\n"
-  echo -e "  Save this password — you'll need it to connect to the noVNC display.\n"
-else
-  warn "Could not retrieve VNC password. The setup script may still be running."
-  echo "  Retrieve it manually later with:"
-  echo "  ${SSH_CMD} --command='cat /home/foozol/.vnc_password'"
-fi
-
-# ============================================================
 # Step 8: Configure foozol
 # ============================================================
 header "Step 8: Configuring foozol"
 
-FOOZOL_CONFIG="$HOME/.foozol/config.json"
-mkdir -p "$HOME/.foozol"
+# FOOZOL_CONFIG is set at script start (handles WSL → Windows path)
+mkdir -p "$FOOZOL_CONFIG_DIR"
 
 # Get GCP access token for API calls
 GCP_TOKEN=$(gcloud auth print-access-token 2>/dev/null || echo "")

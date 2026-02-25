@@ -56,6 +56,12 @@ variable "disk_size_gb" {
   default     = 64
 }
 
+variable "vnc_password" {
+  description = "Pre-generated VNC password (passed to VM startup script)"
+  type        = string
+  sensitive   = true
+}
+
 # ============================================================
 # Provider
 # ============================================================
@@ -173,6 +179,11 @@ resource "google_compute_instance" "foozol" {
     # VM is only reachable via IAP tunnel
   }
 
+  # Pass VNC password via instance metadata so we have it immediately
+  metadata = {
+    vnc-password = var.vnc_password
+  }
+
   metadata_startup_script = file("${path.module}/../../scripts/setup-vm.sh")
 
   labels = {
@@ -232,8 +243,17 @@ output "instance_name" {
   value = google_compute_instance.foozol.name
 }
 
+output "project_id" {
+  value = var.project_id
+}
+
 output "zone" {
   value = var.zone
+}
+
+output "vnc_password" {
+  value     = var.vnc_password
+  sensitive = true
 }
 
 output "ssh_command" {

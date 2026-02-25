@@ -95,6 +95,8 @@ export interface AppConfig {
     projectId?: string;
     zone?: string;
     tunnelPort?: number;
+    // Tunnel status set by external scripts (setup-cloud.sh)
+    tunnelStatus?: 'off' | 'starting' | 'running' | 'error';
   };
 }
 
@@ -174,5 +176,7 @@ export interface UpdateConfigRequest {
     projectId?: string;
     zone?: string;
     tunnelPort?: number;
+    // Tunnel status set by external scripts (setup-cloud.sh)
+    tunnelStatus?: 'off' | 'starting' | 'running' | 'error';
   };
 }

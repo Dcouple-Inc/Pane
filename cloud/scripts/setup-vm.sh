@@ -80,19 +80,25 @@ hash -r
 # 2. Node.js 20 LTS
 # ============================================================
 echo "[2/8] Installing Node.js 20 LTS..."
-if ! command -v node &> /dev/null; then
-  /usr/bin/curl -fsSL https://deb.nodesource.com/setup_20.x -o /tmp/nodesource_setup.sh
-  /usr/bin/bash /tmp/nodesource_setup.sh
+
+# Always ensure we have Node 20+ (Ubuntu 24.04 ships with Node 18)
+NODE_MAJOR=$(node --version 2>/dev/null | sed 's/v\([0-9]*\).*/\1/' || echo "0")
+if [ "$NODE_MAJOR" -lt 20 ]; then
+  echo "  Current Node version: $(node --version 2>/dev/null || echo 'none'). Upgrading to Node 20..."
+  curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
   apt-get install -y -qq nodejs > /dev/null
-  rm -f /tmp/nodesource_setup.sh
 fi
 
-# pnpm
+# Rehash to pick up new node/npm paths
+hash -r
+
+# pnpm - use full path to npm since we're running as root
 if ! command -v pnpm &> /dev/null; then
-  npm install -g pnpm > /dev/null 2>&1
+  echo "  Installing pnpm..."
+  /usr/bin/npm install -g pnpm > /dev/null 2>&1 || npm install -g pnpm > /dev/null 2>&1
 fi
 
-echo "  Node $(node --version), pnpm $(pnpm --version)"
+echo "  Node $(node --version), pnpm $(pnpm --version 2>/dev/null || echo 'not installed')"
 
 # ============================================================
 # 3. GitHub CLI
@@ -172,12 +178,58 @@ sudo -u "${FOOZOL_USER}" mkdir -p \
 
 echo "  User: ${FOOZOL_USER}"
 
+# Configure fluxbox for clean kiosk-like experience
+FLUXBOX_DIR="/home/${FOOZOL_USER}/.fluxbox"
+sudo -u "${FOOZOL_USER}" mkdir -p "${FLUXBOX_DIR}"
+
+# Remove title bar from foozol/Electron windows
+# Match on both name and class since Electron apps may vary
+cat > "${FLUXBOX_DIR}/apps" << 'FLUXBOX_APPS_EOF'
+[app] (name=foozol)
+  [Deco] {NONE}
+  [Maximized] {yes}
+[end]
+[app] (class=foozol)
+  [Deco] {NONE}
+  [Maximized] {yes}
+[end]
+[app] (class=Electron)
+  [Deco] {NONE}
+  [Maximized] {yes}
+[end]
+FLUXBOX_APPS_EOF
+chown "${FOOZOL_USER}:${FOOZOL_USER}" "${FLUXBOX_DIR}/apps"
+
+# Hide the toolbar completely - must clear tools and set visible false
+# See: https://forums.linuxmint.com/viewtopic.php?t=40637
+cat > "${FLUXBOX_DIR}/init" << 'FLUXBOX_INIT_EOF'
+session.screen0.toolbar.visible: false
+session.screen0.toolbar.tools:
+session.screen0.workspaces: 1
+session.screen0.workspacewarping: false
+FLUXBOX_INIT_EOF
+chown "${FOOZOL_USER}:${FOOZOL_USER}" "${FLUXBOX_DIR}/init"
+
+echo "  Fluxbox configured (no title bar, no toolbar)"
+
 # ============================================================
-# 7. Generate VNC password
+# 7. Get or generate VNC password
 # ============================================================
-echo "[7/9] Generating VNC password..."
-VNC_PASSWORD=$(openssl rand -base64 12)
+echo "[7/9] Setting up VNC password..."
 VNC_PASSWORD_FILE="/home/${FOOZOL_USER}/.vnc_password"
+
+# Try to get VNC password from instance metadata (set by Terraform)
+VNC_PASSWORD=$(curl -sf -H "Metadata-Flavor: Google" \
+  "http://metadata.google.internal/computeMetadata/v1/instance/attributes/vnc-password" 2>/dev/null || echo "")
+
+if [ -z "$VNC_PASSWORD" ]; then
+  # Fallback: generate a random password
+  echo "  No password in metadata, generating random password..."
+  VNC_PASSWORD=$(openssl rand -base64 12)
+else
+  echo "  Using password from instance metadata."
+fi
+
 echo "${VNC_PASSWORD}" > "${VNC_PASSWORD_FILE}"
 chmod 600 "${VNC_PASSWORD_FILE}"
 chown "${FOOZOL_USER}:${FOOZOL_USER}" "${VNC_PASSWORD_FILE}"
@@ -210,7 +262,7 @@ stdout_logfile=/var/log/supervisor/fluxbox.log
 stderr_logfile=/var/log/supervisor/fluxbox-error.log
 
 [program:foozol]
-command=/usr/bin/foozol --no-sandbox
+command=/usr/bin/foozol --no-sandbox --start-fullscreen
 priority=30
 autorestart=true
 environment=DISPLAY=":99",HOME="/home/foozol",XDG_RUNTIME_DIR="/run/user/1000"

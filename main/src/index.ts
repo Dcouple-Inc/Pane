@@ -969,6 +969,11 @@ app.on('before-quit', async (event) => {
       console.log('[Main] Cloud tunnel stopped');
     }
 
+    // Stop config file watcher
+    if (configManager) {
+      configManager.stopWatching();
+    }
+
     // Shutdown CLI manager factory and all CLI processes
     if (cliManagerFactory) {
       console.log('[Main] Shutting down CLI manager factory and all CLI processes...');

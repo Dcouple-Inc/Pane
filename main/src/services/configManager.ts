@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import type { AppConfig } from '../types/config';
 import fs from 'fs/promises';
+import { watch, type FSWatcher } from 'fs';
 import path from 'path';
 import os from 'os';
 import { getAppDirectory } from '../utils/appDirectory';
@@ -10,6 +11,8 @@ export class ConfigManager extends EventEmitter {
   private config: AppConfig;
   private configPath: string;
   private configDir: string;
+  private fileWatcher: FSWatcher | null = null;
+  private lastConfigJson: string = '';
 
   constructor(defaultGitPath?: string) {
     super();
@@ -120,6 +123,84 @@ export class ConfigManager extends EventEmitter {
 
   getConfig(): AppConfig {
     return this.config;
+  }
+
+  /**
+   * Reload config from disk. Use this when external processes (like setup scripts)
+   * may have modified the config file.
+   */
+  async reloadFromDisk(): Promise<AppConfig> {
+    await this.initialize();
+    console.log('[ConfigManager] Reloaded config from disk');
+    return this.config;
+  }
+
+  /**
+   * Start watching config file for external changes (e.g., from setup scripts).
+   * Emits 'config-updated' when the file changes.
+   */
+  startWatching(): void {
+    if (this.fileWatcher) return; // Already watching
+
+    try {
+      this.lastConfigJson = JSON.stringify(this.config);
+
+      const handleFileChange = async () => {
+        try {
+          // Small delay to let the file finish writing
+          await new Promise(resolve => setTimeout(resolve, 100));
+
+          const data = await fs.readFile(this.configPath, 'utf-8');
+
+          // Only emit if content actually changed
+          if (data !== this.lastConfigJson) {
+            this.lastConfigJson = data;
+            await this.initialize();
+            console.log('[ConfigManager] Config file changed externally, reloaded');
+            this.emit('config-updated', this.config);
+          }
+        } catch (err) {
+          console.error('[ConfigManager] Error reloading config after file change:', err);
+        }
+      };
+
+      const setupWatcher = () => {
+        if (this.fileWatcher) {
+          this.fileWatcher.close();
+        }
+
+        this.fileWatcher = watch(this.configPath, { persistent: false }, async (eventType) => {
+          // Handle both 'change' and 'rename' events
+          // 'rename' occurs when using atomic writes (tmp + mv pattern)
+          if (eventType === 'change' || eventType === 'rename') {
+            await handleFileChange();
+
+            // On rename, the watched inode may have changed, so reattach the watcher
+            if (eventType === 'rename') {
+              console.log('[ConfigManager] Config file renamed/replaced, reattaching watcher');
+              // Small delay before reattaching to let filesystem settle
+              setTimeout(() => setupWatcher(), 200);
+            }
+          }
+        });
+      };
+
+      setupWatcher();
+      console.log('[ConfigManager] Watching config file for external changes');
+    } catch (err) {
+      console.error('[ConfigManager] Failed to start file watcher:', err);
+    }
+  }
+
+  /**
+   * Stop watching config file.
+   */
+  stopWatching(): void {
+    if (this.fileWatcher) {
+      this.fileWatcher.close();
+      this.fileWatcher = null;
+      console.log('[ConfigManager] Stopped watching config file');
+    }
   }
 
   async updateConfig(updates: Partial<AppConfig>): Promise<AppConfig> {

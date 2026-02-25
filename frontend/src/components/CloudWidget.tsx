@@ -1,6 +1,8 @@
-import { useEffect, useCallback } from 'react';
-import { Play, Square, Loader2, Cloud, Monitor, RefreshCw } from 'lucide-react';
+import { useEffect, useCallback, useState } from 'react';
+import { Play, Square, Loader2, Cloud, Monitor, Terminal, Settings } from 'lucide-react';
 import { useCloudStore } from '../stores/cloudStore';
+import { useSessionStore } from '../stores/sessionStore';
+import { panelApi } from '../services/panelApi';
 
 type VmStatus = 'off' | 'starting' | 'running' | 'stopping' | 'unknown' | 'initializing' | 'not_provisioned';
 type TunnelStatus = 'off' | 'starting' | 'running' | 'error';
@@ -18,6 +20,8 @@ interface CloudVmState {
 
 export function CloudWidget() {
   const { vmState, showCloudView, loading, setVmState, setLoading, setShowCloudView, toggleCloudView } = useCloudStore();
+  const activeSessionId = useSessionStore((state) => state.activeSessionId);
+  const [setupLoading, setSetupLoading] = useState(false);
 
   // Initialize: fetch state, start polling, subscribe to changes
   useEffect(() => {
@@ -45,7 +49,7 @@ export function CloudWidget() {
 
     return () => {
       cleanup?.();
-      window.electronAPI.cloud.stopPolling().catch(() => {});
+      window.electronAPI?.cloud?.stopPolling().catch(() => {});
     };
   }, [setVmState, setLoading]);
 
@@ -86,29 +90,75 @@ export function CloudWidget() {
     }
   }, [setLoading, setShowCloudView, setVmState]);
 
-  const handleRetryTunnel = useCallback(async () => {
-    setLoading(true);
-    try {
-      await window.electronAPI.cloud.startTunnel();
-    } catch {
-      // Error handled by state change event
-    } finally {
-      setLoading(false);
+  const handleOpenSetupTerminal = useCallback(async () => {
+    if (!activeSessionId) {
+      console.warn('[CloudWidget] No active session to create setup terminal');
+      return;
     }
-  }, [setLoading]);
 
-  // Don't render if cloud is not configured
-  if (!vmState || vmState.status === 'not_provisioned') {
-    return null;
+    setSetupLoading(true);
+    try {
+      // Create a terminal panel with the setup script command
+      // The script handles both first-time setup AND reconnection (with gcloud auth)
+      const panel = await panelApi.createPanel({
+        sessionId: activeSessionId,
+        type: 'terminal',
+        title: 'Cloud Setup',
+        initialState: {
+          customState: {
+            initialCommand: 'bash cloud/scripts/setup-cloud.sh'
+          }
+        }
+      });
+
+      // Set it as active so user sees it immediately
+      await panelApi.setActivePanel(activeSessionId, panel.id);
+    } catch (err) {
+      console.error('[CloudWidget] Failed to create setup terminal:', err);
+    } finally {
+      setSetupLoading(false);
+    }
+  }, [activeSessionId]);
+
+  // Show setup button if cloud is not provisioned
+  const isNotProvisioned = !vmState || vmState.status === 'not_provisioned';
+
+  if (isNotProvisioned) {
+    // Only show setup button if there's an active session to create the terminal in
+    if (!activeSessionId) {
+      return null;
+    }
+
+    return (
+      <div className="fixed bottom-4 right-4 flex items-center gap-1.5" style={{ zIndex: 1300 }}>
+        <button
+          onClick={handleOpenSetupTerminal}
+          disabled={setupLoading}
+          className="flex items-center gap-2 px-3 py-2 bg-bg-secondary/95 backdrop-blur-sm border border-border-primary rounded-xl shadow-lg hover:bg-bg-tertiary transition-colors disabled:opacity-50"
+          title="Set up foozol Cloud VM"
+        >
+          {setupLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin text-interactive" />
+          ) : (
+            <Settings className="w-4 h-4 text-interactive" />
+          )}
+          <span className="text-xs text-text-primary">Setup Cloud</span>
+        </button>
+      </div>
+    );
   }
 
   const isTransitioning = vmState.status === 'starting' || vmState.status === 'stopping' || vmState.status === 'initializing';
   const isRunning = vmState.status === 'running';
   const isOff = vmState.status === 'off';
+  const isUnknown = vmState.status === 'unknown'; // Usually means auth failed
   const tunnelConnecting = isRunning && vmState.tunnelStatus === 'starting';
   const tunnelReady = isRunning && vmState.tunnelStatus === 'running';
   const tunnelError = isRunning && vmState.tunnelStatus === 'error';
   const tunnelDisconnected = isRunning && vmState.tunnelStatus === 'off';
+
+  // Show reconnect button for: tunnel issues OR unknown status (auth failed)
+  const needsReconnect = (tunnelError || tunnelDisconnected || isUnknown) && !loading && activeSessionId;
 
   // Compute transitioning label
   const getTransitionLabel = () => {
@@ -149,25 +199,33 @@ export function CloudWidget() {
         </button>
       )}
 
-      {/* Tunnel disconnected or error — show reconnect/retry + stop */}
-      {(tunnelError || tunnelDisconnected) && !loading && (
+      {/* Tunnel disconnected, error, or unknown status — show reconnect (opens setup script which handles auth + tunnel) */}
+      {needsReconnect && (
         <>
+          {/* Only show stop button if VM is confirmed running */}
+          {isRunning && (
+            <button
+              onClick={handleStop}
+              className="flex items-center gap-1.5 px-2.5 py-2 bg-bg-secondary/95 backdrop-blur-sm border border-border-primary rounded-xl shadow-lg hover:bg-bg-tertiary transition-colors"
+              title="Stop Cloud VM"
+            >
+              <Square className="w-3.5 h-3.5 text-red-400 fill-red-400" />
+            </button>
+          )}
           <button
-            onClick={handleStop}
-            className="flex items-center gap-1.5 px-2.5 py-2 bg-bg-secondary/95 backdrop-blur-sm border border-border-primary rounded-xl shadow-lg hover:bg-bg-tertiary transition-colors"
-            title="Stop Cloud VM"
-          >
-            <Square className="w-3.5 h-3.5 text-red-400 fill-red-400" />
-          </button>
-          <button
-            onClick={handleRetryTunnel}
-            className={`flex items-center gap-2 px-3 py-2 bg-bg-secondary/95 backdrop-blur-sm border rounded-xl shadow-lg hover:bg-bg-tertiary transition-colors ${
-              tunnelError ? 'border-orange-500/30' : 'border-border-primary'
+            onClick={handleOpenSetupTerminal}
+            disabled={setupLoading}
+            className={`flex items-center gap-2 px-3 py-2 bg-bg-secondary/95 backdrop-blur-sm border rounded-xl shadow-lg hover:bg-bg-tertiary transition-colors disabled:opacity-50 ${
+              tunnelError || isUnknown ? 'border-orange-500/30' : 'border-border-primary'
             }`}
-            title={tunnelError ? 'Retry tunnel connection' : 'Connect tunnel to running VM'}
+            title="Open terminal to reconnect (handles authentication)"
           >
-            <RefreshCw className={`w-4 h-4 ${tunnelError ? 'text-orange-400' : 'text-green-400'}`} />
-            <span className="text-xs text-text-primary">{tunnelError ? 'Retry Tunnel' : 'Connect'}</span>
+            {setupLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin text-interactive" />
+            ) : (
+              <Terminal className={`w-4 h-4 ${tunnelError || isUnknown ? 'text-orange-400' : 'text-green-400'}`} />
+            )}
+            <span className="text-xs text-text-primary">Reconnect</span>
           </button>
         </>
       )}

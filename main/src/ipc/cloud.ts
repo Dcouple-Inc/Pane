@@ -20,6 +20,9 @@ export function registerCloudHandlers(ipcMain: IpcMain, services: AppServices): 
     if (!cloudVmManager) {
       cloudVmManager = new CloudVmManager(configManager, logger);
 
+      // Start watching config file for external changes (e.g., from setup scripts)
+      configManager.startWatching();
+
       // Forward state changes to the renderer
       cloudVmManager.on('state-changed', (state) => {
         const mainWindow = getMainWindow();
@@ -94,7 +97,7 @@ export function registerCloudHandlers(ipcMain: IpcMain, services: AppServices): 
   ipcMain.handle('cloud:start-polling', async () => {
     try {
       const manager = getManager();
-      manager.startPolling(15_000); // Poll every 15 seconds
+      manager.startPolling(30_000); // Poll every 30 seconds (GCP-friendly rate)
       return { success: true };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
