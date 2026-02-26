@@ -186,12 +186,74 @@ export class TerminalPanelManager {
     // Store in map
     this.terminals.set(panel.id, terminalProcess);
     
-    // Set up event handlers
-    this.setupTerminalHandlers(terminalProcess);
-    
     // Get initialCommand from existing state before updating
     const existingState = panel.state.customState as TerminalPanelState | undefined;
     const initialCommand = existingState?.initialCommand;
+
+    // If we have an initial command, set up the prompt detection listener BEFORE
+    // setupTerminalHandlers so we don't miss early shell output.
+    let commandToRun: string | undefined;
+    if (initialCommand) {
+      commandToRun = initialCommand;
+
+      // If this is a Claude CLI command, inject --session-id or --resume
+      if (
+        initialCommand.toLowerCase().includes('claude') &&
+        !initialCommand.includes('--session-id') &&
+        !initialCommand.includes('--resume')
+      ) {
+        const termState = existingState as TerminalPanelState | undefined;
+        if (termState?.hasClaudeSessionId) {
+          commandToRun = `claude --resume ${panel.id} --dangerously-skip-permissions`;
+        } else {
+          commandToRun = `${initialCommand} --session-id ${panel.id}`;
+        }
+
+        // Mark that we've assigned a session ID to this panel
+        const updatedState = panel.state;
+        const cs = (updatedState.customState || {}) as TerminalPanelState;
+        cs.hasClaudeSessionId = true;
+        updatedState.customState = cs;
+        panelManager.updatePanel(panel.id, { state: updatedState });
+      }
+
+      // Detect the interactive prompt before injecting the command.
+      // Previous approaches (fixed 500ms delay, then fire-on-any-data + 300ms) failed
+      // because shell init output (MINGW banner, .bashrc) fires before the prompt is ready.
+      // We check only the LAST line of the latest data chunk for a prompt pattern,
+      // so banner lines ending with % or > don't trigger a false positive.
+      const panelId = panel.id;
+      let commandInjected = false;
+      // Match prompt symbol allowing trailing ANSI escapes and whitespace
+      const promptPattern = /[$#%>]\s*(?:\x1b\[[0-9;]*[a-zA-Z])*\s*$/;
+
+      const injectCommand = () => {
+        if (commandInjected) return;
+        commandInjected = true;
+        onPromptReady.dispose();
+        this.writeToTerminal(panelId, commandToRun! + '\r');
+      };
+
+      const onPromptReady = ptyProcess.onData((data: string) => {
+        if (commandInjected) return;
+        // Only check the last line of the most recent chunk to avoid
+        // matching prompt-like characters in earlier banner/init output.
+        // Strip ANSI escape sequences before matching so colored prompts
+        // (e.g. "user@host:~$ \x1b[0m") are detected correctly.
+        const lastLine = data.split(/\r?\n/).filter(l => l.length > 0).pop() || '';
+        const cleanLine = lastLine.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+        if (promptPattern.test(cleanLine)) {
+          // Prompt detected — shell is interactive and ready for input.
+          setTimeout(injectCommand, 50);
+        }
+      });
+
+      // Safety timeout: if prompt is never detected within 5s, inject anyway
+      setTimeout(injectCommand, 5000);
+    }
+
+    // Set up event handlers
+    this.setupTerminalHandlers(terminalProcess);
 
     // Update panel state
     const state = panel.state;
@@ -204,60 +266,6 @@ export class TerminalPanelManager {
     } as TerminalPanelState;
 
     await panelManager.updatePanel(panel.id, { state });
-
-    // NOTE: terminal_panel_created analytics tracking has been moved to panelManager.createPanel()
-    // to ensure it only fires when users explicitly create new panels, not during app restoration
-    // or when panels are initialized for viewing.
-
-    // Execute initial command if provided (e.g., "claude --dangerously-skip-permissions")
-    if (initialCommand) {
-      let commandToRun = initialCommand;
-
-      // If this is a Claude CLI command, inject --session-id or --resume
-      if (
-        initialCommand.toLowerCase().includes('claude') &&
-        !initialCommand.includes('--session-id') &&
-        !initialCommand.includes('--resume')
-      ) {
-        const termState = existingState as TerminalPanelState | undefined;
-        if (termState?.hasClaudeSessionId) {
-          // Session ID was already used before — resume instead of creating new
-          commandToRun = `claude --resume ${panel.id} --dangerously-skip-permissions`;
-        } else {
-          // First time — create session with panel ID
-          commandToRun = `${initialCommand} --session-id ${panel.id}`;
-        }
-
-        // Mark that we've assigned a session ID to this panel
-        const updatedState = panel.state;
-        const cs = (updatedState.customState || {}) as TerminalPanelState;
-        cs.hasClaudeSessionId = true;
-        updatedState.customState = cs;
-        panelManager.updatePanel(panel.id, { state: updatedState });
-      }
-
-      // Wait for the shell to actually emit output (prompt) before injecting the command.
-      // This avoids the race condition where the fixed 500ms delay was insufficient
-      // and the command was written before the shell was ready to accept input.
-      const panelId = panel.id;
-      let commandInjected = false;
-
-      const injectCommand = () => {
-        if (commandInjected) return;
-        commandInjected = true;
-        onShellReady.dispose();
-        this.writeToTerminal(panelId, commandToRun + '\r');
-      };
-
-      const onShellReady = ptyProcess.onData(() => {
-        // Shell emitted data (prompt), it's ready to accept input.
-        // Small additional delay to let the prompt fully render.
-        setTimeout(injectCommand, 300);
-      });
-
-      // Safety timeout: if the shell never emits data within 3s, inject anyway
-      setTimeout(injectCommand, 3000);
-    }
 
   }
   
