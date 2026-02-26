@@ -133,22 +133,25 @@ export class VersionChecker {
   }
 
   private normalizeVersion(version: string): string {
-    // Remove 'v' prefix if present
-    return version.replace(/^v/, '');
+    // Remove 'v' prefix and any pre-release suffix (e.g., -canary.abc123)
+    return version.replace(/^v/, '').replace(/-.*$/, '');
   }
 
   private isNewerVersion(latest: string, current: string): boolean {
     try {
+      const normalizedLatest = this.normalizeVersion(latest);
+      const normalizedCurrent = this.normalizeVersion(current);
+
       const parseVersion = (v: string) => v.split('.').map(Number);
-      
-      const latestParts = parseVersion(latest);
-      const currentParts = parseVersion(current);
-      
+
+      const latestParts = parseVersion(normalizedLatest);
+      const currentParts = parseVersion(normalizedCurrent);
+
       // Pad arrays to same length
       const maxLength = Math.max(latestParts.length, currentParts.length);
       while (latestParts.length < maxLength) latestParts.push(0);
       while (currentParts.length < maxLength) currentParts.push(0);
-      
+
       // Compare version parts
       for (let i = 0; i < maxLength; i++) {
         if (latestParts[i] > currentParts[i]) {
@@ -157,7 +160,12 @@ export class VersionChecker {
           return false;
         }
       }
-      
+
+      // Same base version but current has pre-release suffix — latest is newer
+      if (current.includes('-') && !latest.includes('-')) {
+        return true;
+      }
+
       return false; // Versions are equal
     } catch (error) {
       this.logger.error(`[Version Checker] Failed to compare versions ${latest} vs ${current}:`, error as Error);
