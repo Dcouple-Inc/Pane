@@ -140,8 +140,8 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           if (ctrlOrMeta && e.key >= '1' && e.key <= '9') return false;
           // Ctrl+Alt+1-9: switch panel tabs
           if (ctrlOrMeta && e.altKey && e.key >= '1' && e.key <= '9') return false;
-          // Ctrl/Cmd+W: close active tab
-          if (ctrlOrMeta && e.key.toLowerCase() === 'w') return false;
+          // Ctrl/Cmd+W or Ctrl/Cmd+Q: close active tab
+          if (ctrlOrMeta && (e.key.toLowerCase() === 'w' || e.key.toLowerCase() === 'q')) return false;
           // Ctrl/Cmd+T: open Add Tool dropdown
           if (ctrlOrMeta && e.key.toLowerCase() === 't') return false;
           // Ctrl/Cmd+K: command palette
@@ -161,6 +161,16 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           if (ctrlOrMeta && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) return false;
           // Tab cycling - Ctrl+A/D
           if (ctrlOrMeta && (e.key.toLowerCase() === 'a' || e.key.toLowerCase() === 'd')) return false;
+          // Ctrl/Cmd+B: toggle sidebar
+          if (ctrlOrMeta && e.key.toLowerCase() === 'b') return false;
+          // Ctrl/Cmd+Shift+digit: add tool shortcuts (use e.code for layout independence)
+          if (ctrlOrMeta && e.shiftKey && /^Digit[1-5]$/.test(e.code)) return false;
+          // Ctrl/Cmd+`: toggle bottom terminal
+          if (ctrlOrMeta && e.key === '`') return false;
+          // Ctrl/Cmd+,: open settings
+          if (ctrlOrMeta && e.key === ',') return false;
+          // Ctrl/Cmd+Shift+E: focus sidebar
+          if (ctrlOrMeta && e.shiftKey && e.key.toLowerCase() === 'e') return false;
 
           return true; // Let terminal handle everything else
         });

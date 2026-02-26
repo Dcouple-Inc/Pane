@@ -18,14 +18,16 @@ interface SidebarProps {
   onHelpClick: () => void;
   onAboutClick: () => void;
   onPromptHistoryClick: () => void;
+  onSettingsClick: () => void;
+  isSettingsOpen: boolean;
+  onSettingsClose: () => void;
   width: number;
   onResize: (e: React.MouseEvent) => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
 }
 
-export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, width, onResize, collapsed, onToggleCollapse }: SidebarProps) {
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSettingsClick, isSettingsOpen, onSettingsClose, width, onResize, collapsed, onToggleCollapse }: SidebarProps) {
   const [showStatusGuide, setShowStatusGuide] = useState(false);
   const [version, setVersion] = useState<string>('');
   const [gitCommit, setGitCommit] = useState<string>('');
@@ -197,7 +199,7 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, width
           {/* Bottom actions */}
           <div className="flex-shrink-0 flex flex-col items-center gap-1 py-2 border-t border-border-primary">
             <IconButton
-              onClick={() => setIsSettingsOpen(true)}
+              onClick={onSettingsClick}
               aria-label="Settings"
               size="sm"
               icon={<SettingsIcon className="w-4 h-4" />}
@@ -211,7 +213,7 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, width
           </div>
         </div>
 
-        <Settings isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+        <Settings isOpen={isSettingsOpen} onClose={onSettingsClose} />
         {showCreateDialog && activeProject && (
           <CreateSessionDialog
             isOpen={showCreateDialog}
@@ -276,7 +278,7 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, width
               }
             />
             <IconButton
-              onClick={() => setIsSettingsOpen(true)}
+              onClick={onSettingsClick}
               aria-label="Settings"
               data-testid="settings-button"
               size="md"
@@ -354,7 +356,7 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, width
         </div>
     </div>
 
-      <Settings isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <Settings isOpen={isSettingsOpen} onClose={onSettingsClose} />
       
       {/* Status Guide Modal */}
       <Modal 

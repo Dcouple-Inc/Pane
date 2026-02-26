@@ -287,7 +287,7 @@ export const SessionView = memo(() => {
   useHotkey({
     id: 'add-tool-terminal-claude',
     label: 'Add Terminal (Claude)',
-    keys: '',
+    keys: 'mod+shift+1',
     category: 'tools',
     enabled: () => isInSessionView,
     action: () => handlePanelCreate('terminal', {
@@ -299,7 +299,7 @@ export const SessionView = memo(() => {
   useHotkey({
     id: 'add-tool-terminal-codex',
     label: 'Add Terminal (Codex)',
-    keys: '',
+    keys: 'mod+shift+2',
     category: 'tools',
     enabled: () => isInSessionView,
     action: () => handlePanelCreate('terminal', {
@@ -311,7 +311,7 @@ export const SessionView = memo(() => {
   useHotkey({
     id: 'add-tool-setup-run-script',
     label: 'Add Setup Run Script',
-    keys: '',
+    keys: 'mod+shift+3',
     category: 'tools',
     enabled: () => isInSessionView,
     action: () => handlePanelCreate('terminal', {
@@ -323,7 +323,7 @@ export const SessionView = memo(() => {
   useHotkey({
     id: 'add-tool-terminal',
     label: 'Add Terminal',
-    keys: '',
+    keys: 'mod+shift+4',
     category: 'tools',
     enabled: () => isInSessionView,
     action: () => handlePanelCreate('terminal'),
@@ -332,26 +332,39 @@ export const SessionView = memo(() => {
   useHotkey({
     id: 'add-tool-explorer',
     label: 'Add Explorer',
-    keys: '',
+    keys: 'mod+shift+5',
     category: 'tools',
     enabled: () => isInSessionView && !sessionPanels.some(p => p.type === 'explorer'),
     action: () => handlePanelCreate('explorer'),
   });
 
-  // Ctrl+Q: close active panel tab (skip permanent panels like diff)
+  // Close active panel tab (skip permanent panels like diff)
+  const closeTabEnabled = () => {
+    if (!currentActivePanel) return false;
+    const caps = PANEL_CAPABILITIES[currentActivePanel.type];
+    return !caps?.permanent && !currentActivePanel.metadata?.permanent;
+  };
+  const closeTabAction = () => {
+    if (currentActivePanel) handlePanelClose(currentActivePanel);
+  };
+
   useHotkey({
     id: 'close-active-tab',
     label: 'Close active tab',
     keys: 'mod+w',
     category: 'tabs',
-    enabled: () => {
-      if (!currentActivePanel) return false;
-      const caps = PANEL_CAPABILITIES[currentActivePanel.type];
-      return !caps?.permanent && !currentActivePanel.metadata?.permanent;
-    },
-    action: () => {
-      if (currentActivePanel) handlePanelClose(currentActivePanel);
-    },
+    enabled: closeTabEnabled,
+    action: closeTabAction,
+  });
+
+  useHotkey({
+    id: 'close-active-tab-alt',
+    label: 'Close active tab',
+    keys: 'mod+q',
+    category: 'tabs',
+    enabled: closeTabEnabled,
+    action: closeTabAction,
+    showInPalette: false,
   });
 
   const handlePanelClose = useCallback(
@@ -615,6 +628,16 @@ export const SessionView = memo(() => {
       return newValue;
     });
   }, []);
+
+  // Ctrl+`: toggle bottom terminal
+  useHotkey({
+    id: 'toggle-terminal',
+    label: 'Toggle Terminal',
+    keys: 'mod+`',
+    category: 'view',
+    enabled: () => isInSessionView,
+    action: toggleTerminalCollapse,
+  });
 
   // Create branch actions for the panel bar
   const branchActions = useMemo(() => {

@@ -58,6 +58,7 @@ function App() {
   const [isPromptHistoryOpen, setIsPromptHistoryOpen] = useState(false);
   const [isTokenTestOpen, setIsTokenTestOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [resumableSessions, setResumableSessions] = useState<ResumableSession[]>([]);
   const [isResumeDialogOpen, setIsResumeDialogOpen] = useState(false);
   const { currentError, clearError } = useErrorStore();
@@ -109,6 +110,32 @@ function App() {
     keys: 'mod+k',
     category: 'navigation',
     action: () => setIsCommandPaletteOpen(true),
+  });
+
+  useHotkey({
+    id: 'toggle-sidebar',
+    label: 'Toggle Sidebar',
+    keys: 'mod+b',
+    category: 'view',
+    action: toggleSidebarCollapsed,
+  });
+
+  useHotkey({
+    id: 'open-settings',
+    label: 'Open Settings',
+    keys: 'mod+,',
+    category: 'navigation',
+    action: () => setIsSettingsOpen(true),
+  });
+
+  useHotkey({
+    id: 'focus-sidebar',
+    label: 'Focus Sidebar',
+    keys: 'mod+shift+e',
+    category: 'navigation',
+    action: () => {
+      if (sidebarCollapsed) toggleSidebarCollapsed();
+    },
   });
 
   // Load config on app startup
@@ -361,6 +388,9 @@ function App() {
           onHelpClick={() => setIsHelpOpen(true)}
           onAboutClick={() => setIsAboutOpen(true)}
           onPromptHistoryClick={() => setIsPromptHistoryOpen(true)}
+          onSettingsClick={() => setIsSettingsOpen(true)}
+          isSettingsOpen={isSettingsOpen}
+          onSettingsClose={() => setIsSettingsOpen(false)}
           width={sidebarWidth}
           onResize={startResize}
           collapsed={sidebarCollapsed}
