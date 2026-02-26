@@ -293,7 +293,7 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, width
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
           <div className="px-3 py-2 text-sm uppercase flex items-center justify-between overflow-hidden">
-            <span className="truncate text-text-tertiary">Projects & Sessions</span>
+            <span className="truncate text-text-tertiary">Repos & Worktrees</span>
             <div className="flex items-center space-x-1">
               <IconButton
                 aria-label="View Prompt History (Cmd/Ctrl + P)"

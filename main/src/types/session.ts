@@ -51,6 +51,9 @@ export interface GitStatus {
   commitFilesChanged?: number;
   // Total commits in branch (not just ahead of main)
   totalCommits?: number;
+  // PR information (fetched lazily from GitHub)
+  prNumber?: number;
+  prUrl?: string;
 }
 
 export interface CreateSessionRequest {

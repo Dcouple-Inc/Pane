@@ -1,6 +1,6 @@
 import { IpcMain } from 'electron';
 import type { AppServices } from './types';
-import { execSync } from '../utils/commandExecutor';
+import { execSync, execAsync } from '../utils/commandExecutor';
 import { buildGitCommitCommand } from '../utils/shellEscape';
 import { panelManager } from '../services/panelManager';
 import { mainWindow } from '../index';
@@ -52,6 +52,44 @@ interface RawCommitData {
   filesChanged?: number;
 }
 
+
+// Module-level cache for PR data keyed by "projectPath:branchName"
+const prCache = new Map<string, { prNumber?: number; prUrl?: string; fetchedAt: number }>();
+const PR_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+async function fetchPrForSession(
+  branchName: string,
+  projectPath: string,
+  wslContext?: WSLContext | null
+): Promise<{ prNumber?: number; prUrl?: string }> {
+  const cacheKey = `${projectPath}:${branchName}`;
+  const cached = prCache.get(cacheKey);
+  if (cached && Date.now() - cached.fetchedAt < PR_CACHE_TTL) {
+    return { prNumber: cached.prNumber, prUrl: cached.prUrl };
+  }
+
+  try {
+    // Branch name quoted to handle slashes in branch names
+    const result = await execAsync(
+      `gh pr list --head "${branchName}" --json number,url --limit 1`,
+      { cwd: projectPath, timeout: 5000 },
+      wslContext
+    );
+    const prs = JSON.parse(result.stdout.trim() || '[]') as Array<{ number?: number; url?: string }>;
+    const pr = prs[0];
+    const entry = {
+      prNumber: pr?.number,
+      prUrl: pr?.url,
+      fetchedAt: Date.now()
+    };
+    prCache.set(cacheKey, entry);
+    return { prNumber: entry.prNumber, prUrl: entry.prUrl };
+  } catch {
+    // gh not installed or network error — cache the miss so we don't retry immediately
+    prCache.set(cacheKey, { fetchedAt: Date.now() });
+    return {};
+  }
+}
 
 export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): void {
   const { sessionManager, gitDiffManager, worktreeManager, claudeCodeManager, gitStatusManager, databaseService } = services;
@@ -1701,6 +1739,42 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
     }
   });
 
+  // Background PR enrichment helper — fire-and-forget, best-effort
+  const enrichWithPrData = (sid: string) => {
+    setImmediate(async () => {
+      try {
+        const session = sessionManager.getSession(sid);
+        if (!session?.worktreePath) return;
+
+        // Derive branch name from the worktree path (last path segment)
+        const branchName = session.worktreePath.replace(/\\/g, '/').split('/').pop();
+        if (!branchName) return;
+
+        const project = sessionManager.getProjectForSession(sid);
+        if (!project?.path) return;
+
+        const wslCtx = getWSLContextForSession(sid);
+        const prData = await fetchPrForSession(branchName, project.path, wslCtx);
+
+        if (prData.prNumber !== undefined) {
+          // Get the current cached status to enrich it
+          const currentStatus = await gitStatusManager.getGitStatus(sid);
+          if (currentStatus && currentStatus.prNumber !== prData.prNumber) {
+            const enrichedStatus = {
+              ...currentStatus,
+              prNumber: prData.prNumber,
+              prUrl: prData.prUrl
+            };
+            // Emit through gitStatusManager's EventEmitter so events.ts forwards it to the renderer
+            gitStatusManager.emit('git-status-updated', sid, enrichedStatus);
+          }
+        }
+      } catch {
+        // Silent — PR enrichment is best-effort
+      }
+    });
+  };
+
   ipcMain.handle('sessions:get-git-status', async (_event, sessionId: string, nonBlocking?: boolean, isInitialLoad?: boolean) => {
     try {
       const session = await sessionManager.getSession(sessionId);
@@ -1715,10 +1789,11 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       // For initial loads, use the queued approach to prevent UI lock
       if (isInitialLoad) {
         const cachedStatus = await gitStatusManager.queueInitialLoad(sessionId);
-        return { 
-          success: true, 
+        enrichWithPrData(sessionId);
+        return {
+          success: true,
           gitStatus: cachedStatus,
-          backgroundRefresh: true 
+          backgroundRefresh: true
         };
       }
 
@@ -1730,18 +1805,20 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
             console.error(`[Git] Background git status refresh failed for session ${sessionId}:`, error);
           });
         });
-        
+
         // Return the cached status if available, or indicate background refresh started
         const cachedStatus = await gitStatusManager.getGitStatus(sessionId);
-        return { 
-          success: true, 
+        enrichWithPrData(sessionId);
+        return {
+          success: true,
           gitStatus: cachedStatus,
-          backgroundRefresh: true 
+          backgroundRefresh: true
         };
       } else {
         // Use refreshSessionGitStatus with user-initiated flag
         // This is called when user clicks on a session, so show loading state
         const gitStatus = await gitStatusManager.refreshSessionGitStatus(sessionId, true);
+        enrichWithPrData(sessionId);
         return { success: true, gitStatus };
       }
     } catch (error) {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { ChevronDown, ChevronRight, Plus, GitBranch, MoreHorizontal, Home, Archive, ArchiveRestore, Pencil, Play, Trash2, Settings as SettingsIcon, FolderPlus, Loader2, Brain, Code2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, GitBranch, GitFork, MoreHorizontal, Home, Archive, ArchiveRestore, Pencil, Play, Trash2, Settings as SettingsIcon, FolderPlus, Loader2, Brain, Code2 } from 'lucide-react';
 import { useSessionStore } from '../stores/sessionStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import { useHotkeyStore } from '../stores/hotkeyStore';
@@ -444,6 +444,10 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
             },
           ];
 
+          const pathParts = project.path.replace(/\\/g, '/').split('/').filter(Boolean);
+          const repoName = pathParts[pathParts.length - 1] || project.name;
+          const parentFolder = pathParts[pathParts.length - 2] || '';
+
           return (
             <div key={project.id} className="mt-3 first:mt-2">
               {/* Project header */}
@@ -451,7 +455,13 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
                 onClick={() => toggleProject(project.id)}
                 className="w-full flex items-center justify-between px-4 py-1.5 hover:bg-surface-hover transition-colors"
               >
-                <span className="text-sm font-semibold text-text-primary truncate">{project.name}</span>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <GitFork className="w-3.5 h-3.5 text-text-tertiary flex-shrink-0" />
+                  {parentFolder && (
+                    <span className="text-[10px] text-text-tertiary truncate">{parentFolder} /</span>
+                  )}
+                  <span className="text-xs font-semibold text-text-primary truncate">{repoName}</span>
+                </div>
                 {isExpanded ? (
                   <ChevronDown className="w-3.5 h-3.5 text-text-tertiary flex-shrink-0" />
                 ) : (
@@ -461,48 +471,62 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
 
               {isExpanded && (
                 <div className="mt-0.5">
-                  {/* Sessions */}
-                  {projectSessions.map((session) => (
-                    <SessionRow
-                      key={session.id}
-                      session={session}
-                      isActive={session.id === activeSessionId}
-                      globalIndex={globalSessionIndex.get(session.id) ?? -1}
-                      onClick={() => handleSessionClick(session.id)}
-                      onArchive={() => handleArchiveSession(session.id)}
-                      onContinue={() => handleContinueSession(session.id)}
-                      onStartRename={() => {
-                        setEditingSessionId(session.id);
-                        setEditingName(session.name || '');
-                      }}
-                      isEditing={editingSessionId === session.id}
-                      editingName={editingName}
-                      onEditingNameChange={setEditingName}
-                      onRenameSubmit={() => handleRenameSession(session.id, editingName)}
-                      onRenameCancel={() => { setEditingSessionId(null); setEditingName(''); }}
-                    />
-                  ))}
+                  {projectSessions.length === 0 ? (
+                    <div className="px-4 py-1">
+                      <button
+                        onClick={() => handleNewSession(project)}
+                        className="w-full flex items-center justify-center gap-2 py-2 text-xs text-text-tertiary hover:text-text-primary hover:bg-surface-hover rounded transition-colors border border-dashed border-border-primary hover:border-interactive/50"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>New workspace</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Sessions */}
+                      {projectSessions.map((session) => (
+                        <SessionRow
+                          key={session.id}
+                          session={session}
+                          isActive={session.id === activeSessionId}
+                          globalIndex={globalSessionIndex.get(session.id) ?? -1}
+                          onClick={() => handleSessionClick(session.id)}
+                          onArchive={() => handleArchiveSession(session.id)}
+                          onContinue={() => handleContinueSession(session.id)}
+                          onStartRename={() => {
+                            setEditingSessionId(session.id);
+                            setEditingName(session.name || '');
+                          }}
+                          isEditing={editingSessionId === session.id}
+                          editingName={editingName}
+                          onEditingNameChange={setEditingName}
+                          onRenameSubmit={() => handleRenameSession(session.id, editingName)}
+                          onRenameCancel={() => { setEditingSessionId(null); setEditingName(''); }}
+                        />
+                      ))}
 
-                  {/* + New workspace + project menu */}
-                  <div className="flex items-center justify-between pl-6 pr-3">
-                    <button
-                      onClick={() => handleNewSession(project)}
-                      className="flex items-center gap-1.5 py-1.5 text-xs text-text-tertiary hover:text-text-primary transition-colors"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>New workspace</span>
-                    </button>
-                    <Dropdown
-                      trigger={
-                        <button className="p-1 rounded text-text-muted hover:text-text-tertiary hover:bg-surface-hover transition-colors">
-                          <MoreHorizontal className="w-3.5 h-3.5" />
+                      {/* + New workspace + project menu */}
+                      <div className="flex items-center justify-between pl-6 pr-3">
+                        <button
+                          onClick={() => handleNewSession(project)}
+                          className="flex items-center gap-1.5 py-1 px-2 rounded text-xs text-text-secondary hover:text-text-primary hover:bg-surface-hover transition-colors"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>New workspace</span>
                         </button>
-                      }
-                      items={projectMenuItems}
-                      position="auto"
-                      width="sm"
-                    />
-                  </div>
+                        <Dropdown
+                          trigger={
+                            <button className="p-1 rounded text-text-muted hover:text-text-tertiary hover:bg-surface-hover transition-colors">
+                              <MoreHorizontal className="w-3.5 h-3.5" />
+                            </button>
+                          }
+                          items={projectMenuItems}
+                          position="auto"
+                          width="sm"
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -758,8 +782,20 @@ function SessionRow({
     if (session.gitStatus) setLocalGitStatus(session.gitStatus);
   }, [session.gitStatus]);
 
+  // Listen for background git status updates (e.g., PR enrichment)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ sessionId: string; gitStatus: GitStatus }>).detail;
+      if (detail?.sessionId === session.id && detail?.gitStatus) {
+        setLocalGitStatus(detail.gitStatus);
+      }
+    };
+    window.addEventListener('git-status-updated', handler);
+    return () => window.removeEventListener('git-status-updated', handler);
+  }, [session.id]);
+
   const gs = localGitStatus;
-  const branch = session.worktreePath?.split('/').pop() || '';
+  const branch = session.worktreePath?.replace(/\\/g, '/').split('/').pop() || '';
 
   // Status text + color
   let statusText = '';
@@ -832,7 +868,7 @@ function SessionRow({
 
   return (
     <div
-      className={`group/session w-full text-left pl-6 pr-1 py-2 transition-colors flex items-start gap-1 ${
+      className={`group/session w-full text-left pl-6 pr-1 py-1.5 transition-colors flex items-start gap-1 ${
         isActive
           ? 'bg-interactive/10 border-l-2 border-interactive'
           : 'hover:bg-surface-hover border-l-2 border-transparent'
@@ -868,10 +904,14 @@ function SessionRow({
             </span>
           )}
         </div>
-        {/* Row 2: branch · status + shortcut */}
-        <div className="flex items-center gap-1 mt-0.5 pl-[22px] text-xs text-text-tertiary min-w-0">
+        {/* Row 2: branch · PR# · status + shortcut */}
+        <div className="flex items-center gap-1 mt-0.5 pl-[22px] text-[11px] text-text-tertiary min-w-0">
           {branch && <span className="truncate max-w-[120px]">{branch}</span>}
-          {branch && statusText && <span className="flex-shrink-0">·</span>}
+          {branch && (gs?.prNumber || statusText) && <span className="flex-shrink-0">·</span>}
+          {gs?.prNumber && (
+            <span className="text-text-secondary flex-shrink-0">#{gs.prNumber}</span>
+          )}
+          {gs?.prNumber && statusText && <span className="flex-shrink-0">·</span>}
           {statusText && (
             <span className={`truncate ${statusColor}`}>{statusText}</span>
           )}
