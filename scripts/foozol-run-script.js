@@ -326,25 +326,54 @@ async function main() {
   console.log('\n🎬 Starting dev server...\n');
   console.log('─'.repeat(50));
 
-  // Spawn the dev server
   const isWindows = process.platform === 'win32';
-  const devProcess = spawn('pnpm', ['electron-dev'], {
+  const children = [];
+
+  // 1. Start TypeScript watcher for main process
+  const tscWatch = spawn('pnpm', ['run', '--filter', 'main', 'dev'], {
     cwd: projectRoot,
     env,
-    stdio: 'inherit',
-    shell: true,
-    // Create new process group on Unix for proper cleanup
-    ...(isWindows ? {} : { detached: true })
+    stdio: ['ignore', 'inherit', 'inherit'],
+    shell: true
   });
+  children.push(tscWatch);
+  console.log('[tsc] TypeScript watch started');
+
+  // 2. Start Vite dev server with the correct port
+  const vite = spawn('pnpm', ['run', '--filter', 'frontend', 'dev', '--', '--port', port.toString()], {
+    cwd: projectRoot,
+    env,
+    stdio: ['ignore', 'inherit', 'inherit'],
+    shell: true
+  });
+  children.push(vite);
+  console.log(`[vite] Frontend dev server starting on port ${port}`);
+
+  // 3. Wait for Vite to be ready, then launch Electron
+  const waitAndLaunch = spawn('npx', ['wait-on', `http://localhost:${port}`, '&&', 'npx', 'electron', '.'], {
+    cwd: projectRoot,
+    env,
+    stdio: ['ignore', 'inherit', 'inherit'],
+    shell: true
+  });
+  children.push(waitAndLaunch);
+  console.log(`[electron] Waiting for http://localhost:${port} then launching Electron`);
 
   // Handle cleanup on exit
+  let cleanedUp = false;
   const cleanup = () => {
+    if (cleanedUp) return;
+    cleanedUp = true;
     console.log('\n\n🛑 Shutting down dev server...');
 
-    if (isWindows) {
-      killProcessWindows(devProcess.pid);
-    } else {
-      killProcessUnix(devProcess.pid);
+    for (const child of children) {
+      if (child.pid) {
+        if (isWindows) {
+          killProcessWindows(child.pid);
+        } else {
+          killProcessUnix(child.pid);
+        }
+      }
     }
 
     process.exit(0);
@@ -353,12 +382,17 @@ async function main() {
   // Register cleanup handlers
   process.on('SIGINT', cleanup);  // Ctrl+C
   process.on('SIGTERM', cleanup); // Kill command
-  process.on('exit', cleanup);    // Process exit
 
-  // Handle dev process exit
-  devProcess.on('exit', (code) => {
-    console.log(`\n📋 Dev server exited with code ${code}`);
-    process.exit(code || 0);
+  // If any critical process exits, shut everything down
+  vite.on('exit', (code) => {
+    if (code !== 0) {
+      console.log(`\n📋 Vite exited with code ${code}`);
+      cleanup();
+    }
+  });
+  waitAndLaunch.on('exit', (code) => {
+    console.log(`\n📋 Electron exited with code ${code}`);
+    cleanup();
   });
 }
 
