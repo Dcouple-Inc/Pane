@@ -1,124 +1,83 @@
-name: Build and Publish Canary
+name: Build & Release
 
 on:
   push:
-    branches: [ release ]
+    branches: [release]
+    tags: ['v*']
   workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish to GitHub Releases'
+        type: boolean
+        default: false
 
 jobs:
   build:
     strategy:
       fail-fast: false
       matrix:
-        # Build both platforms for validation, but use different commands for speed
         os: [macos-latest, ubuntu-latest]
         include:
           - os: macos-latest
-            build_cmd: canary:mac
-            artifact_name: foozol-macos-canary
+            release_cmd: release:mac:universal
+            ci_cmd: build:mac:ci
             artifact_path: |
               dist-electron/*.dmg
               dist-electron/*.zip
               dist-electron/latest-mac.yml
           - os: ubuntu-latest
-            build_cmd: canary:linux
-            artifact_name: foozol-linux-canary
+            release_cmd: release:linux
+            ci_cmd: build:linux:ci
             artifact_path: |
               dist-electron/*.deb
               dist-electron/*.AppImage
               dist-electron/latest-linux.yml
-    
+              dist-electron/latest-linux-arm64.yml
+
     runs-on: ${{ matrix.os }}
-    
     permissions:
-      contents: write  # Required for creating releases and accessing repository contents
+      contents: write
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup Python
-      uses: actions/setup-python@v5
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-
-    - name: Setup pnpm
-      uses: pnpm/action-setup@v4
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
+    - uses: pnpm/action-setup@v4
+    - uses: actions/setup-node@v4
       with:
         node-version: '22.15.1'
         cache: 'pnpm'
 
-    # Cache electron binaries to speed up builds
-    - name: Cache Electron binaries
-      uses: actions/cache@v4
+    - uses: actions/cache@v4
       with:
         path: |
           ~/.cache/electron
           ~/.cache/electron-builder
-          ~/AppData/Local/electron/Cache
-          ~/AppData/Local/electron-builder/Cache
         key: ${{ runner.os }}-electron-${{ hashFiles('**/pnpm-lock.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-electron-
+        restore-keys: ${{ runner.os }}-electron-
 
-    # Cache built frontend and main process to avoid rebuilds
-    - name: Cache built components
-      uses: actions/cache@v4
-      with:
-        path: |
-          frontend/dist
-          main/dist
-        key: ${{ runner.os }}-build-${{ hashFiles('frontend/**', 'main/**', '**/pnpm-lock.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-build-
+    - run: pnpm install
 
-    - name: Install dependencies
-      run: pnpm install
-
-    # Build frontend and main process in parallel for faster builds (skip if cached)
-    - name: Build frontend and main process
+    - name: Build and optionally publish
       run: |
-        # Check if builds exist from cache
-        if [ ! -d "frontend/dist" ] || [ ! -d "main/dist" ]; then
-          echo "Building frontend and main process..."
-          # Build both frontend and main process concurrently
-          pnpm run build:frontend &
-          pnpm run build:main &
-          wait
+        if [[ "${{ github.ref_type }}" == "tag" ]] || [[ "${{ inputs.publish }}" == "true" ]]; then
+          echo "Release build — publishing to GitHub Releases"
+          pnpm run ${{ matrix.release_cmd }}
         else
-          echo "Using cached frontend and main builds"
+          echo "CI build — artifacts only"
+          pnpm run ${{ matrix.ci_cmd }}
         fi
-
-    - name: Generate NOTICES file
-      run: pnpm run generate-notices
-
-    - name: Build and publish canary release
-      run: pnpm run ${{ matrix.build_cmd }}
       env:
-        # GitHub token (required by electron-builder for publishing)
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # Mark this as a canary build
-        CANARY_BUILD: true
-        # Disable code signing for CI builds (no certificates configured)
         CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         CSC_DISABLE: 'true'
 
-    - name: List build artifacts
-      run: ls -la dist-electron/
+    - run: ls -la dist-electron/
 
-    # Skip Flatpak build for CI speed - saves 4+ minutes
-    # Flatpak is built separately in release workflow
-    - name: Skip Flatpak build (CI optimization)
-      if: matrix.os == 'ubuntu-latest'
-      run: echo "Skipping Flatpak build for faster CI - will be built in release workflow"
-
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v4
       with:
-        name: ${{ matrix.artifact_name }}
+        name: foozol-${{ matrix.os }}-${{ github.ref_name }}
         path: ${{ matrix.artifact_path }}
         if-no-files-found: error
         retention-days: 30
@@ -134,8 +93,7 @@ jobs:
       with:
         node-version: '22.15.1'
         cache: 'pnpm'
-    - name: Cache Electron binaries
-      uses: actions/cache@v4
+    - uses: actions/cache@v4
       with:
         path: |
           ~/AppData/Local/electron/Cache
@@ -143,18 +101,26 @@ jobs:
         key: windows-electron-${{ hashFiles('**/pnpm-lock.yaml') }}
         restore-keys: windows-electron-
     - run: pnpm install
-    - name: Build Windows (x64 + ARM64)
-      run: pnpm run canary:win
+
+    - name: Build and optionally publish
+      run: |
+        if ("${{ github.ref_type }}" -eq "tag" -or "${{ inputs.publish }}" -eq "true") {
+          Write-Host "Release build — publishing to GitHub Releases"
+          pnpm run release:win
+        } else {
+          Write-Host "CI build — artifacts only"
+          node scripts/build-win.js both
+        }
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        CANARY_BUILD: 'true'
+
     - run: dir dist-electron
+
     - uses: actions/upload-artifact@v4
       with:
-        name: foozol-windows-canary
+        name: foozol-windows-${{ github.ref_name }}
         path: |
           dist-electron/*.exe
           dist-electron/latest.yml
         if-no-files-found: error
         retention-days: 30
-

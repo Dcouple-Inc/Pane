@@ -362,8 +362,8 @@ pnpm run release 1.2.3   # Set explicit version and trigger release
 The release script (`scripts/release.js`) bumps the version in `package.json`, commits, creates a git tag, and pushes. The tag push triggers the GitHub Actions release workflow which builds and publishes installers for all platforms (macOS universal, Linux x64+arm64, Windows x64+arm64) to GitHub Releases.
 
 ### CI/CD Workflows
-- **`build.yml`** (canary): Builds macOS, Linux, and Windows on push to main. Uploads artifacts.
-- **`release.yml`**: Triggered by `v*` tags. Builds all platforms and publishes to GitHub Releases.
+- **`build.yml`**: CI validation on push to `release` branch. Builds all platforms, uploads artifacts.
+- **`build.yml`** (release mode): Triggered by `v*` tags. Builds all platforms and publishes to GitHub Releases.
 - **`quality.yml`**: Runs linting and type checking on PRs.
 
 ### Testing
