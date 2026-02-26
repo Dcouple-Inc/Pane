@@ -140,8 +140,10 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           if (ctrlOrMeta && e.key >= '1' && e.key <= '9') return false;
           // Ctrl+Alt+1-9: switch panel tabs
           if (ctrlOrMeta && e.altKey && e.key >= '1' && e.key <= '9') return false;
-          // Ctrl/Cmd+Q: close active tab
-          if (ctrlOrMeta && e.key.toLowerCase() === 'q') return false;
+          // Ctrl/Cmd+W: close active tab
+          if (ctrlOrMeta && e.key.toLowerCase() === 'w') return false;
+          // Ctrl/Cmd+T: open Add Tool dropdown
+          if (ctrlOrMeta && e.key.toLowerCase() === 't') return false;
           // Ctrl/Cmd+K: command palette
           if (ctrlOrMeta && e.key.toLowerCase() === 'k') return false;
           // Ctrl/Cmd+P: prompt history

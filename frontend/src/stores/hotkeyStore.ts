@@ -108,6 +108,10 @@ function handleKeyDown(e: KeyboardEvent) {
     target.tagName === 'TEXTAREA' ||
     target.isContentEditable;
 
+  // Suppress all hotkeys when a modal dialog is open (settings, create session, etc.)
+  const isInsideModal = target.closest('[aria-modal="true"]') !== null;
+  if (isInsideModal) return;
+
   const pressed = normalizeKeyEvent(e);
   const hotkeyId = lookupIndex.get(pressed);
   if (!hotkeyId) return;

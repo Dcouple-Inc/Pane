@@ -342,7 +342,7 @@ export const SessionView = memo(() => {
   useHotkey({
     id: 'close-active-tab',
     label: 'Close active tab',
-    keys: 'mod+q',
+    keys: 'mod+w',
     category: 'tabs',
     enabled: () => {
       if (!currentActivePanel) return false;

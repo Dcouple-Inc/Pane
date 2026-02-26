@@ -1,6 +1,7 @@
 import React, { useCallback, memo, useState, useRef, useEffect, useMemo } from 'react';
 import { Plus, X, Terminal, ChevronDown, MessageSquare, GitBranch, FileCode, MoreVertical, BarChart3, Code2, Edit2, PanelRight, FolderTree, TerminalSquare, Wrench, Play } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import { useHotkey } from '../../hooks/useHotkey';
 import { PanelTabBarProps, PanelCreateOptions } from '../../types/panelComponents';
 import { ToolPanel, ToolPanelType, PANEL_CAPABILITIES, LogsPanelState, BaseAIPanelState, PanelStatus } from '../../../../shared/types/panels';
 import { Button } from '../ui/Button';
@@ -231,6 +232,15 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
     }
   }, [editingPanelId]);
   
+  // Ctrl+T: open Add Tool dropdown
+  useHotkey({
+    id: 'open-add-tool',
+    label: 'Open Add Tool menu',
+    keys: 'mod+t',
+    category: 'tabs',
+    action: () => setShowDropdown(true),
+  });
+
   // Get available panel types (excluding permanent panels, logs, and enforcing singleton)
   const availablePanelTypes = (Object.keys(PANEL_CAPABILITIES) as ToolPanelType[])
     .filter(type => {
