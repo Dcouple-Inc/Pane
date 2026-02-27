@@ -65,6 +65,10 @@ AI coding agents are incredible. Claude Code can work autonomously for hours. Co
 
 Managing AI agents right now feels like air traffic control with a walkie-talkie. You're juggling terminal windows. Copy-pasting between tabs. Losing track of which agent is on which branch. Alt-tabbing between your diff viewer, your terminal, your git client, and your editor. The agents are fast — but your tools make you slow.
 
+And then there's git worktrees. Everyone agrees worktrees are the right way to run parallel agents — isolated branches, no conflicts, clean separation. But actually using them? It's miserable. `git worktree add`, `git worktree remove`, remembering paths, tracking which worktree is on which branch, cleaning up stale ones, rebasing back to main, squashing commits before merging. Even experienced developers fumble the workflow. It's powerful infrastructure with terrible UX.
+
+Pane makes worktrees invisible. You create a session, Pane creates the worktree. You delete a session, Pane cleans it up. You hit a shortcut, Pane rebases from main. You never type `git worktree` again. All the isolation benefits, none of the pain.
+
 Pane fixes the interaction layer. It gives you a single, keyboard-driven surface to run multiple agents in parallel, each in its own isolated workspace, with git workflow built in. You see what every agent is doing. You switch between them instantly. You review diffs, commit, push, and rebase without leaving the app.
 
 ## How Pane Is Different
