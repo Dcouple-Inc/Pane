@@ -89,9 +89,14 @@ export function getWSLShellSpawn(distro: string, cwd?: string): {
   name: string;
   args: string[];
 } {
-  const args = ['-d', distro];
+  // Use bash -c "cd ... && exec bash" instead of --cd flag.
+  // The --cd flag is broken on many WSL versions (e.g., 2.5.9.0) for Linux paths.
+  const args = ['-d', distro, '--'];
   if (cwd) {
-    args.push('--cd', cwd);
+    const escapedCwd = escapeForBashDoubleQuote(cwd);
+    args.push('bash', '-c', `cd '${escapedCwd}' && exec bash --login`);
+  } else {
+    args.push('bash', '--login');
   }
   return { path: 'wsl.exe', name: 'wsl', args };
 }
