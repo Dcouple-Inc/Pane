@@ -870,6 +870,22 @@ export class DatabaseService {
       );
     }
 
+    // Add pr_renamed column to sessions table if it doesn't exist
+    const hasPrRenamedColumn = sessionTableInfoFavorite.some(
+      (col: SqliteTableInfo) => col.name === "pr_renamed",
+    );
+
+    if (!hasPrRenamedColumn) {
+      this.db
+        .prepare(
+          "ALTER TABLE sessions ADD COLUMN pr_renamed BOOLEAN DEFAULT 0",
+        )
+        .run();
+      console.log(
+        "[Database] Added pr_renamed column to sessions table",
+      );
+    }
+
     // Add closed_panel_types column to sessions table if it doesn't exist
     // This tracks panel types (terminal, claude, codex) that the user has explicitly closed
     const hasClosedPanelTypesColumn = sessionTableInfoFavorite.some(
@@ -2886,6 +2902,10 @@ export class DatabaseService {
       updates.push("commit_mode_settings = ?");
       values.push(data.commit_mode_settings);
     }
+    if (data.pr_renamed !== undefined) {
+      updates.push("pr_renamed = ?");
+      values.push(data.pr_renamed ? 1 : 0);
+    }
 
     if (updates.length === 0) {
       return this.getSession(id);
@@ -2899,7 +2919,8 @@ export class DatabaseService {
         updates[0] === "auto_commit = ?" ||
         updates[0] === "skip_continue_next = ?" ||
         updates[0] === "commit_mode = ?" ||
-        updates[0] === "commit_mode_settings = ?");
+        updates[0] === "commit_mode_settings = ?" ||
+        updates[0] === "pr_renamed = ?");
     if (!isOnlyToggleUpdate) {
       updates.push("updated_at = CURRENT_TIMESTAMP");
     }

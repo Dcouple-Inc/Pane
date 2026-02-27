@@ -176,7 +176,7 @@ export class GitStatusManager extends EventEmitter {
   /**
    * Get cached status without fetching
    */
-  private getCachedStatus(sessionId: string): { status: GitStatus; lastChecked: number } | null {
+  getCachedStatus(sessionId: string): { status: GitStatus; lastChecked: number } | null {
     return this.cache[sessionId] || null;
   }
 

@@ -3,7 +3,7 @@ import { Settings } from './Settings';
 import { CreateSessionDialog } from './CreateSessionDialog';
 import { ProjectSessionList, ArchivedSessions } from './ProjectSessionList';
 import { ArchiveProgress } from './ArchiveProgress';
-import { Info, Clock, Check, Edit, CircleArrowDown, AlertTriangle, GitMerge, ArrowUpDown, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Settings as SettingsIcon, Plus } from 'lucide-react';
+import { Info, Clock, Check, Edit, CircleArrowDown, AlertTriangle, GitMerge, ArrowUpDown, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Settings as SettingsIcon, Plus, RefreshCw } from 'lucide-react';
 import foozolLogo from '../assets/foozol-logo.svg';
 import { IconButton } from './ui/Button';
 import { Modal, ModalHeader, ModalBody } from './ui/Modal';
@@ -99,6 +99,16 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSet
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const activeProjectId = useNavigationStore((state) => state.activeProjectId);
   const navigateToProject = useNavigationStore((state) => state.navigateToProject);
+
+  const handleRefreshGitStatus = async () => {
+    try {
+      if (activeProjectId) {
+        await window.electronAPI.projects.refreshGitStatus(activeProjectId);
+      }
+    } catch (error) {
+      console.error('Failed to refresh git status:', error);
+    }
+  };
 
   // Fetch projects for collapsed sidebar
   useEffect(() => {
@@ -297,12 +307,6 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSet
           <div className="px-3 py-2 text-sm uppercase flex items-center justify-between overflow-hidden">
             <span className="truncate text-text-tertiary">Repos & Worktrees</span>
             <div className="flex items-center space-x-1">
-              <IconButton
-                aria-label="View Prompt History (Cmd/Ctrl + P)"
-                size="sm"
-                onClick={onPromptHistoryClick}
-                icon={<Clock className="w-4 h-4" />}
-              />
               <Dropdown
                 trigger={
                   <button className="p-1 rounded-md hover:bg-interactive/10 text-text-secondary hover:text-text-primary">
@@ -310,6 +314,12 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSet
                   </button>
                 }
                 items={[
+                  {
+                    id: 'prompt-history',
+                    label: 'Prompt history',
+                    icon: Clock,
+                    onClick: onPromptHistoryClick
+                  },
                   {
                     id: 'sort',
                     label: sessionSortAscending ? 'Sort: Oldest first' : 'Sort: Newest first',
@@ -321,6 +331,12 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSet
                     label: 'Status legend',
                     icon: Info,
                     onClick: () => setShowStatusGuide(true)
+                  },
+                  {
+                    id: 'refresh',
+                    label: 'Refresh git status',
+                    icon: RefreshCw,
+                    onClick: handleRefreshGitStatus
                   }
                 ] satisfies DropdownItem[]}
                 position="auto"

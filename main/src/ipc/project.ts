@@ -4,6 +4,8 @@ import type { CreateProjectRequest, UpdateProjectRequest } from '../../../fronte
 import { scriptExecutionTracker } from '../services/scriptExecutionTracker';
 import { panelManager } from '../services/panelManager';
 import { parseWSLPath, wrapCommandForWSL, validateWSLAvailable } from '../utils/wslUtils';
+import { invalidatePrCache, fetchPrForSession } from './git';
+import { getWSLContextFromProject } from '../utils/wslUtils';
 
 // Helper function to stop a running project script
 async function stopProjectScriptInternal(projectId?: number): Promise<{ success: boolean; error?: string }> {
@@ -486,6 +488,9 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
         return { success: false, error: 'Project not found' };
       }
 
+      // Invalidate PR cache for this project so fresh data is fetched
+      invalidatePrCache(project.path);
+
       // Get all sessions for this project
       const sessions = await sessionManager.getAllSessions();
       const projectSessions = sessions.filter(s => s.projectId === projectIdNum && !s.archived && s.status !== 'error');
@@ -509,10 +514,27 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
               })
           );
 
-        // Log when all refreshes complete (in background)
+        // After all git status refreshes complete, enrich with PR data
         Promise.allSettled(refreshPromises).then(results => {
           const refreshedCount = results.filter(result => result.status === 'fulfilled').length;
           console.log(`[Main] Background refresh completed: ${refreshedCount}/${sessionCount} sessions`);
+
+          // Now refresh PR data for each session (sequenced after git status)
+          const wslCtx = getWSLContextFromProject(project);
+          for (const session of sessionsToRefresh) {
+            if (!session.worktreePath) continue;
+            const branchName = session.worktreePath.replace(/\\/g, '/').split('/').pop();
+            if (!branchName) continue;
+            fetchPrForSession(branchName, project.path, wslCtx).then(prData => {
+              if (prData.prNumber !== undefined) {
+                const currentStatus = gitStatusManager.getCachedStatus(session.id)?.status;
+                if (currentStatus) {
+                  const enrichedStatus = { ...currentStatus, prNumber: prData.prNumber, prUrl: prData.prUrl, prTitle: prData.prTitle, prState: prData.prState };
+                  gitStatusManager.emit('git-status-updated', session.id, enrichedStatus);
+                }
+              }
+            }).catch(() => { /* PR enrichment is best-effort */ });
+          }
         });
       });
 

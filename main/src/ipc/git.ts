@@ -54,40 +54,53 @@ interface RawCommitData {
 
 
 // Module-level cache for PR data keyed by "projectPath:branchName"
-const prCache = new Map<string, { prNumber?: number; prUrl?: string; fetchedAt: number }>();
-const PR_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const prCache = new Map<string, { prNumber?: number; prUrl?: string; prTitle?: string; prState?: string; fetchedAt: number }>();
+const PR_CACHE_TTL = 2.5 * 60 * 1000; // 2.5 minutes
 
-async function fetchPrForSession(
+export async function fetchPrForSession(
   branchName: string,
   projectPath: string,
   wslContext?: WSLContext | null
-): Promise<{ prNumber?: number; prUrl?: string }> {
+): Promise<{ prNumber?: number; prUrl?: string; prTitle?: string; prState?: string }> {
   const cacheKey = `${projectPath}:${branchName}`;
   const cached = prCache.get(cacheKey);
   if (cached && Date.now() - cached.fetchedAt < PR_CACHE_TTL) {
-    return { prNumber: cached.prNumber, prUrl: cached.prUrl };
+    return { prNumber: cached.prNumber, prUrl: cached.prUrl, prTitle: cached.prTitle, prState: cached.prState };
   }
 
   try {
-    // Branch name quoted to handle slashes in branch names
     const result = await execAsync(
-      `gh pr list --head "${branchName}" --json number,url --limit 1`,
+      `gh pr list --head "${branchName}" --state all --json number,url,title,state --limit 1`,
       { cwd: projectPath, timeout: 5000 },
       wslContext
     );
-    const prs = JSON.parse(result.stdout.trim() || '[]') as Array<{ number?: number; url?: string }>;
+    const prs = JSON.parse(result.stdout.trim() || '[]') as Array<{ number?: number; url?: string; title?: string; state?: string }>;
     const pr = prs[0];
     const entry = {
       prNumber: pr?.number,
       prUrl: pr?.url,
+      prTitle: pr?.title,
+      prState: pr?.state,
       fetchedAt: Date.now()
     };
     prCache.set(cacheKey, entry);
-    return { prNumber: entry.prNumber, prUrl: entry.prUrl };
+    return { prNumber: entry.prNumber, prUrl: entry.prUrl, prTitle: entry.prTitle, prState: entry.prState };
   } catch {
     // gh not installed or network error — cache the miss so we don't retry immediately
     prCache.set(cacheKey, { fetchedAt: Date.now() });
     return {};
+  }
+}
+
+export function invalidatePrCache(projectPath?: string): void {
+  if (projectPath) {
+    for (const key of prCache.keys()) {
+      if (key.startsWith(`${projectPath}:`)) {
+        prCache.delete(key);
+      }
+    }
+  } else {
+    prCache.clear();
   }
 }
 
@@ -1746,7 +1759,6 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
         const session = sessionManager.getSession(sid);
         if (!session?.worktreePath) return;
 
-        // Derive branch name from the worktree path (last path segment)
         const branchName = session.worktreePath.replace(/\\/g, '/').split('/').pop();
         if (!branchName) return;
 
@@ -1757,16 +1769,31 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
         const prData = await fetchPrForSession(branchName, project.path, wslCtx);
 
         if (prData.prNumber !== undefined) {
-          // Get the current cached status to enrich it
           const currentStatus = await gitStatusManager.getGitStatus(sid);
-          if (currentStatus && currentStatus.prNumber !== prData.prNumber) {
+          if (currentStatus && (
+            currentStatus.prNumber !== prData.prNumber ||
+            currentStatus.prState !== prData.prState ||
+            currentStatus.prTitle !== prData.prTitle
+          )) {
             const enrichedStatus = {
               ...currentStatus,
               prNumber: prData.prNumber,
-              prUrl: prData.prUrl
+              prUrl: prData.prUrl,
+              prTitle: prData.prTitle,
+              prState: prData.prState
             };
-            // Emit through gitStatusManager's EventEmitter so events.ts forwards it to the renderer
             gitStatusManager.emit('git-status-updated', sid, enrichedStatus);
+          }
+
+          // Auto-rename session to PR title (one-time)
+          if (prData.prTitle && !session.pr_renamed) {
+            const autoRenamePref = databaseService.getUserPreference('auto_rename_sessions_to_pr');
+            if (autoRenamePref !== 'false') {
+              databaseService.updateSession(sid, { name: prData.prTitle, pr_renamed: true });
+              session.name = prData.prTitle;
+              session.pr_renamed = true;
+              sessionManager.emit('session-updated', session);
+            }
           }
         }
       } catch {

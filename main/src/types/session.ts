@@ -29,6 +29,7 @@ export interface Session {
   baseBranch?: string;
   commitMode?: 'structured' | 'checkpoint' | 'disabled';
   commitModeSettings?: string; // JSON string of CommitModeSettings
+  pr_renamed?: boolean;
 }
 
 export interface GitStatus {
@@ -54,6 +55,8 @@ export interface GitStatus {
   // PR information (fetched lazily from GitHub)
   prNumber?: number;
   prUrl?: string;
+  prTitle?: string;
+  prState?: string; // 'OPEN' | 'MERGED' | 'CLOSED'
 }
 
 export interface CreateSessionRequest {
