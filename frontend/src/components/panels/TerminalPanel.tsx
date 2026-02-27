@@ -132,9 +132,6 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
         terminal.loadAddon(fitAddon);
         console.log('[TerminalPanel] FitAddon loaded');
 
-        // Dedup paste: track when we handle paste via key handler to avoid double-paste
-        let lastPasteTime = 0;
-
         // Intercept app-level shortcuts before xterm consumes them
         terminal.attachCustomKeyEventHandler((e: KeyboardEvent) => {
           const ctrlOrMeta = e.ctrlKey || e.metaKey;
@@ -179,17 +176,10 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           // Use e.code for physical key (e.key may report 'AltGraph' on some layouts)
           if (e.code === 'AltRight') return false;
 
-          // Ctrl/Cmd+V or Ctrl/Cmd+Shift+V: handle paste from clipboard explicitly
-          // XTerm.js in Electron sends raw control chars instead of pasting clipboard content
-          if (ctrlOrMeta && e.key.toLowerCase() === 'v' && e.type === 'keydown') {
-            lastPasteTime = Date.now();
-            navigator.clipboard.readText().then((text) => {
-              if (text && terminal) {
-                terminal.paste(text);
-              }
-            }).catch(() => { /* clipboard access denied, fall through */ });
-            return false;
-          }
+          // Ctrl/Cmd+V: stop xterm from sending raw \x16 to PTY
+          // Returning false lets the browser trigger a native paste event instead,
+          // which is handled by our paste event listener on the terminal container
+          if (ctrlOrMeta && e.key.toLowerCase() === 'v') return false;
 
           return true; // Let terminal handle everything else
         });
@@ -286,11 +276,10 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
             }
           }
 
-          // Handle paste events from external sources (e.g. voice transcription tools)
-          // that inject text via clipboard paste rather than direct keystrokes
-          // Skip if we just handled paste via the Ctrl+V key handler (dedup)
+          // Handle paste events (Ctrl+V, voice transcription, external text injection)
+          // XTerm.js in Electron doesn't handle clipboard paste natively, so we
+          // intercept the paste event and feed it to the terminal explicitly
           const handlePaste = (e: ClipboardEvent) => {
-            if (Date.now() - lastPasteTime < 500) return;
             const text = e.clipboardData?.getData('text');
             if (text && terminal && !disposed) {
               e.preventDefault();
