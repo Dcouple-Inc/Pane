@@ -1,8 +1,7 @@
-import React, { Suspense, lazy, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { ToolPanel } from '../../../../../shared/types/panels';
 import { CliPanel } from '../../../../../shared/types/cliPanels';
-import { PanelLoadingFallback } from '../PanelLoadingFallback';
 
 /**
  * Props for the CLI panel factory
@@ -65,77 +64,35 @@ class CliPanelErrorBoundary extends React.Component<
   }
 }
 
-/**
- * Loading fallback component - memoized for better performance
- */
-const LoadingFallback: React.FC<{ cliToolId: string }> = React.memo(({ cliToolId }) => (
-  <PanelLoadingFallback 
-    panelType={cliToolId}
-    message={`Loading ${cliToolId} panel...`}
-  />
-));
-
-LoadingFallback.displayName = 'CliLoadingFallback';
-
-// Lazy-loaded CLI panel components
-const ClaudePanel = lazy(() => import('../claude/ClaudePanel'));
-const CodexPanel = lazy(() => import('../codex/CodexPanel'));
 
 /**
  * Factory component that dynamically renders the appropriate CLI panel
- * 
+ *
  * This component examines the panel type to determine which
- * specific CLI panel component to render. Currently only supports Claude.
+ * specific CLI panel component to render.
  */
-export const CliPanelFactory: React.FC<CliPanelFactoryProps> = React.memo(({ panel, isActive }) => {
+export const CliPanelFactory: React.FC<CliPanelFactoryProps> = React.memo(({ panel }) => {
   // Determine CLI tool ID from panel
   const cliToolId = useMemo(() => {
-    if (panel.type === 'claude') return 'claude';
-    if (panel.type === 'codex') return 'codex';
-    
-    // For future CLI panels, extract from panel data
+    // For CLI panels, extract from panel data
     const cliPanel = panel as CliPanel;
     return cliPanel.cliToolId || panel.type;
   }, [panel]);
 
-  // Determine which component to render
-  const renderPanel = () => {
-    switch (cliToolId) {
-      case 'claude':
-        return (
-          <Suspense fallback={<LoadingFallback cliToolId={cliToolId} />}>
-            <ClaudePanel panel={panel} isActive={isActive} />
-          </Suspense>
-        );
-      
-      case 'codex':
-        return (
-          <Suspense fallback={<LoadingFallback cliToolId={cliToolId} />}>
-            <CodexPanel panel={panel} isActive={isActive} />
-          </Suspense>
-        );
-      
-      default:
-        // For any unrecognized panel type, show unsupported message
-        return (
-          <div className="h-full w-full flex items-center justify-center p-8">
-            <div className="text-center max-w-md">
-              <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-text-primary mb-2">
-                Unsupported Panel Type
-              </h3>
-              <p className="text-sm text-text-secondary">
-                The panel type "{cliToolId}" is not yet supported.
-              </p>
-            </div>
-          </div>
-        );
-    }
-  };
-
+  // All CLI panels are now unsupported (use Terminal panels instead)
   return (
     <CliPanelErrorBoundary cliToolId={cliToolId}>
-      {renderPanel()}
+      <div className="h-full w-full flex items-center justify-center p-8">
+        <div className="text-center max-w-md">
+          <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-text-primary mb-2">
+            Unsupported Panel Type
+          </h3>
+          <p className="text-sm text-text-secondary">
+            The panel type "{cliToolId}" is not yet supported.
+          </p>
+        </div>
+      </div>
     </CliPanelErrorBoundary>
   );
 });
@@ -147,8 +104,8 @@ CliPanelFactory.displayName = 'CliPanelFactory';
  */
 export const useCliToolSupport = (cliToolId: string) => {
   return useMemo(() => {
-    const supportedTools = ['claude', 'codex'];
-    
+    const supportedTools: string[] = [];
+
     return {
       isSupported: supportedTools.includes(cliToolId),
       supportLevel: supportedTools.includes(cliToolId) ? 'full' : 'unsupported'

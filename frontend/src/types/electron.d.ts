@@ -303,18 +303,6 @@ interface ElectronAPI {
     sendTerminalInput: (panelId: string, data: string) => Promise<IPCResponse>;
   };
 
-  // Claude Panels - specific API for Claude panels
-  claudePanels: {
-    getModel: (panelId: string) => Promise<IPCResponse>;
-    setModel: (panelId: string, model: string) => Promise<IPCResponse>;
-  };
-
-  // Codex panel operations
-  codexPanels: {
-    getSettings: (panelId: string) => Promise<IPCResponse>;
-    setSettings: (panelId: string, settings: Record<string, unknown>) => Promise<IPCResponse>;
-  };
-
   // Logs panel operations
   logs: {
     runScript: (sessionId: string, command: string, cwd: string) => Promise<IPCResponse>;

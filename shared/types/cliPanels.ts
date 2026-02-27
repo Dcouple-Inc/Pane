@@ -4,15 +4,9 @@ import { ToolPanel, ToolPanelState } from './panels';
  * Base interface for all CLI panel types
  */
 export interface CliPanel extends ToolPanel {
-  type: CliPanelType;
-  cliToolId: string; // Which CLI tool this panel uses (e.g., claude)
+  cliToolId: string; // Which CLI tool this panel uses
   state: CliPanelState;
 }
-
-/**
- * CLI-specific panel types
- */
-export type CliPanelType = 'claude';
 
 /**
  * CLI panel state extending the base ToolPanelState
@@ -449,30 +443,7 @@ export const createCliPanelConfig = (toolId: string, overrides?: Partial<CliPane
 /**
  * Pre-configured CLI panel configurations for supported tools
  */
-export const CLI_PANEL_CONFIGS: Record<string, CliPanelConfig> = {
-  claude: createCliPanelConfig('claude', {
-    display: {
-      titleTemplate: 'Claude Panel',
-      defaultViewMode: 'output',
-      availableViewModes: ['output', 'messages', 'stats', 'settings'],
-      showModelSelector: true,
-      showPermissionControls: true
-    },
-    input: {
-      supportsFiles: true,
-      supportsImages: true,
-      supportsMultiline: true,
-      placeholder: 'Enter your Claude prompt...'
-    },
-    features: {
-      conversationHistory: true,
-      settingsPanel: true,
-      statsView: true,
-      helpDocumentation: true,
-      exportSupport: true
-    }
-  })
-};
+export const CLI_PANEL_CONFIGS: Record<string, CliPanelConfig> = {};
 
 /**
  * Utility to get CLI panel config for a tool

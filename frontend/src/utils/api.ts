@@ -547,31 +547,6 @@ export class API {
     },
   };
 
-  // Claude Panels - specific API for Claude panels
-  static claudePanels = {
-    async getModel(panelId: string) {
-      if (!isElectron()) throw new Error('Electron API not available');
-      return window.electronAPI.claudePanels.getModel(panelId);
-    },
-
-    async setModel(panelId: string, model: string) {
-      if (!isElectron()) throw new Error('Electron API not available');
-      return window.electronAPI.claudePanels.setModel(panelId, model);
-    },
-  };
-  
-  // Codex panel operations
-  static codexPanels = {
-    async getSettings(panelId: string) {
-      if (!isElectron()) throw new Error('Electron API not available');
-      return window.electronAPI.codexPanels.getSettings(panelId);
-    },
-
-    async setSettings(panelId: string, settings: Record<string, unknown>) {
-      if (!isElectron()) throw new Error('Electron API not available');
-      return window.electronAPI.codexPanels.setSettings(panelId, settings);
-    },
-  };
 
   // Spotlight
   static spotlight = {

@@ -1,13 +1,12 @@
 import React, { useCallback, memo, useState, useRef, useEffect, useMemo } from 'react';
-import { Plus, X, Terminal, ChevronDown, MessageSquare, GitBranch, FileCode, MoreVertical, BarChart3, Code2, Edit2, PanelRight, FolderTree, TerminalSquare, Wrench, Play } from 'lucide-react';
+import { Plus, X, Terminal, ChevronDown, GitBranch, FileCode, MoreVertical, BarChart3, Edit2, PanelRight, FolderTree, TerminalSquare, Wrench, Play } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useHotkey } from '../../hooks/useHotkey';
 import { PanelTabBarProps, PanelCreateOptions } from '../../types/panelComponents';
-import { ToolPanel, ToolPanelType, PANEL_CAPABILITIES, LogsPanelState, BaseAIPanelState, PanelStatus } from '../../../../shared/types/panels';
+import { ToolPanel, ToolPanelType, PANEL_CAPABILITIES, LogsPanelState } from '../../../../shared/types/panels';
 import { Button } from '../ui/Button';
 import { Dropdown } from '../ui/Dropdown';
 import { useSession } from '../../contexts/SessionContext';
-import { StatusDot } from '../ui/StatusDot';
 import { StatusIndicator } from '../StatusIndicator';
 import { useConfigStore } from '../../stores/configStore';
 import { formatKeyDisplay } from '../../utils/hotkeyUtils';
@@ -258,9 +257,6 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
       // Exclude logs panel - it's only created automatically when running scripts
       if (type === 'logs') return false;
 
-      // Temporarily hide claude/codex panels - use Terminal (Claude) and Terminal (Codex) instead
-      if (type === 'claude' || type === 'codex') return false;
-
       // Enforce singleton panels
       if (capabilities.singleton) {
         // Check if a panel of this type already exists
@@ -274,10 +270,6 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
     switch (type) {
       case 'terminal':
         return <Terminal className="w-4 h-4" />;
-      case 'claude':
-        return <MessageSquare className="w-4 h-4" />;
-      case 'codex':
-        return <Code2 className="w-4 h-4" />;
       case 'diff':
         return <GitBranch className="w-4 h-4" />;
       case 'explorer':
@@ -286,7 +278,6 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
         return <FileCode className="w-4 h-4" />;
       case 'dashboard':
         return <BarChart3 className="w-4 h-4" />;
-      // Add more icons as panel types are added
       default:
         return null;
     }
@@ -305,45 +296,6 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
       return (a.metadata?.position ?? 0) - (b.metadata?.position ?? 0);
     });
   }, [panels]);
-
-  // Get panel status indicator config for AI panels (claude/codex)
-  const getPanelStatusConfig = (panel: ToolPanel): { status: 'running' | 'waiting' | 'info' | 'error' | 'default'; animated: boolean; pulse: boolean } | null => {
-    // Only show status for AI panels
-    if (panel.type !== 'claude' && panel.type !== 'codex') {
-      return null;
-    }
-
-    const customState = panel.state?.customState as BaseAIPanelState | undefined;
-    const panelStatus: PanelStatus | undefined = customState?.panelStatus;
-    const hasUnviewedContent = customState?.hasUnviewedContent ?? false;
-    const isActivePanel = activePanel?.id === panel.id;
-
-    // Don't show status indicator if panel is active and doesn't have unviewed content
-    // (user is actively viewing it)
-    if (isActivePanel && !hasUnviewedContent && panelStatus !== 'running' && panelStatus !== 'waiting') {
-      return null;
-    }
-
-    switch (panelStatus) {
-      case 'running':
-        return { status: 'running', animated: true, pulse: false };
-      case 'waiting':
-        return { status: 'waiting', animated: false, pulse: true };
-      case 'error':
-        return { status: 'error', animated: false, pulse: false };
-      case 'completed_unviewed':
-        // Show blue dot for completed with unviewed content
-        return { status: 'info', animated: false, pulse: true };
-      case 'stopped':
-      case 'idle':
-      default:
-        // Only show if there's unviewed content and panel is not active
-        if (hasUnviewedContent && !isActivePanel) {
-          return { status: 'info', animated: false, pulse: true };
-        }
-        return null;
-    }
-  };
 
   return (
     <div className="panel-tab-bar bg-surface-secondary flex-shrink-0">
@@ -371,7 +323,6 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
           const isEditing = editingPanelId === panel.id;
           const isDiffPanel = panel.type === 'diff';
           const displayTitle = isDiffPanel ? 'Diff' : panel.title;
-          const statusConfig = getPanelStatusConfig(panel);
           const shortcutHint = index < 9 ? formatKeyDisplay(`alt+${index + 1}`) : undefined;
 
           const tab = (
@@ -394,16 +345,6 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
                 }
               }}
             >
-              {/* Status indicator for AI panels */}
-              {statusConfig && (
-                <StatusDot
-                  status={statusConfig.status}
-                  size="sm"
-                  animated={statusConfig.animated}
-                  pulse={statusConfig.pulse}
-                  className="mr-1"
-                />
-              )}
               {getPanelIcon(panel.type)}
 
               {isEditing ? (
@@ -500,21 +441,6 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
                 >
                   <Terminal className="w-4 h-4" />
                   <span className="ml-2">Terminal (Claude)</span>
-                </button>
-              )}
-              {/* Terminal with Codex CLI - second option */}
-              {availablePanelTypes.includes('terminal') && (
-                <button
-                  ref={(el) => { dropdownItemsRef.current[refIndex++] = el; }}
-                  role="menuitem"
-                  className={menuItemClass}
-                  onClick={() => handleAddPanel('terminal', {
-                    initialCommand: 'codex',
-                    title: 'Codex CLI'
-                  })}
-                >
-                  <Terminal className="w-4 h-4" />
-                  <span className="ml-2">Terminal (Codex)</span>
                 </button>
               )}
               {/* Setup Run Script - creates intelligent dev command */}

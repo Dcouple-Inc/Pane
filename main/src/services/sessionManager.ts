@@ -108,32 +108,6 @@ export class SessionManager extends EventEmitter {
     return claudeSessionId;
   }
 
-  // Panel-scoped Claude session ID for correct per-panel resume behavior
-  getPanelClaudeSessionId(panelId: string): string | undefined {
-    try {
-      const panel = this.db.getPanel(panelId);
-      // Check new agentSessionId first, then fall back to legacy claudeSessionId
-      const panelState = panel?.state?.customState as BaseAIPanelState | undefined;
-      const claudeSessionId = panelState?.agentSessionId || panelState?.claudeSessionId;
-      return claudeSessionId;
-    } catch (e) {
-      return undefined;
-    }
-  }
-
-  // Panel-scoped Codex session ID for conversation continuation
-  getPanelCodexSessionId(panelId: string): string | undefined {
-    try {
-      const panel = this.db.getPanel(panelId);
-      // Check new agentSessionId first, then fall back to legacy codexSessionId
-      const panelState = panel?.state?.customState as BaseAIPanelState | undefined;
-      const codexSessionId = panelState?.agentSessionId || panelState?.codexSessionId;
-      return codexSessionId;
-    } catch (e) {
-      return undefined;
-    }
-  }
-
   beginAutoContextCapture(panelId: string): void {
     // Use synchronous operation - no race condition here as it's a simple set
     this.autoContextBuffers.set(panelId, []);
@@ -169,11 +143,7 @@ export class SessionManager extends EventEmitter {
     try {
       const panel = this.db.getPanel(panelId);
       const customState = panel?.state?.customState as BaseAIPanelState | undefined;
-      // Check new field first, then fall back to legacy fields based on panel type
-      const agentSessionId = customState?.agentSessionId || 
-                             customState?.claudeSessionId || 
-                             customState?.codexSessionId;
-      return agentSessionId;
+      return customState?.agentSessionId;
     } catch (e) {
       return undefined;
     }
@@ -216,10 +186,8 @@ export class SessionManager extends EventEmitter {
   }
 
   private convertDbSessionToSession(dbSession: DbSession): Session {
-    const toolTypeFromDb = (dbSession as DbSession & { tool_type?: string }).tool_type as 'claude' | 'codex' | 'none' | null | undefined;
-    const normalizedToolType: 'claude' | 'codex' | 'none' = toolTypeFromDb === 'codex'
-      ? 'codex'
-      : toolTypeFromDb === 'none'
+    const toolTypeFromDb = (dbSession as DbSession & { tool_type?: string }).tool_type as 'claude' | 'none' | null | undefined;
+    const normalizedToolType: 'claude' | 'none' = toolTypeFromDb === 'none'
         ? 'none'
         : 'claude';
 
@@ -319,7 +287,7 @@ export class SessionManager extends EventEmitter {
     isMainRepo?: boolean,
     autoCommit?: boolean,
     folderId?: string,
-    toolType?: 'claude' | 'codex' | 'none',
+    toolType?: 'claude' | 'none',
     baseCommit?: string,
     baseBranch?: string,
     commitMode?: 'structured' | 'checkpoint' | 'disabled',
@@ -357,7 +325,7 @@ export class SessionManager extends EventEmitter {
     isMainRepo?: boolean,
     autoCommit?: boolean,
     folderId?: string,
-    toolType?: 'claude' | 'codex' | 'none',
+    toolType?: 'claude' | 'none',
     baseCommit?: string,
     baseBranch?: string,
     commitMode?: 'structured' | 'checkpoint' | 'disabled',
@@ -438,7 +406,6 @@ export class SessionManager extends EventEmitter {
         session_count: 1, // This is for a single session creation
         has_folder: !!folderId,
         used_claude_code: toolType === 'claude',
-        used_codex: toolType === 'codex',
         used_auto_name: false, // Will be updated by caller if auto-name was used
         auto_name_available: true, // Auto-naming is always available
         git_mode: isMainRepo ? 'main_repo' : commitMode || 'disabled',
@@ -779,41 +746,6 @@ export class SessionManager extends EventEmitter {
       throw new Error(`Session ${id} not found`);
     }
 
-    // Stop all AI panel processes (Claude, Codex, etc.) for this session
-    try {
-      // Get all panels for this session
-      const { panelManager } = require('./panelManager');
-      const panels: ToolPanel[] = panelManager.getPanelsForSession(id);
-      
-      // Stop Claude panels
-      const claudePanels = panels.filter(p => p.type === 'claude');
-      if (claudePanels.length > 0) {
-        try {
-          const { claudePanelManager } = require('../ipc/claudePanel');
-          for (const panel of claudePanels) {
-            await claudePanelManager.unregisterPanel(panel.id);
-          }
-        } catch (error) {
-          console.error(`[SessionManager] Failed to stop Claude panels for session ${id}:`, error);
-        }
-      }
-      
-      // Stop Codex panels
-      const codexPanels = panels.filter(p => p.type === 'codex');
-      if (codexPanels.length > 0) {
-        try {
-          const { codexPanelManager } = require('../ipc/codexPanel');
-          for (const panel of codexPanels) {
-            await codexPanelManager.unregisterPanel(panel.id);
-          }
-        } catch (error) {
-          console.error(`[SessionManager] Failed to stop Codex panels for session ${id}:`, error);
-        }
-      }
-    } catch (error) {
-      console.error(`[SessionManager] Error stopping AI panels for session ${id}:`, error);
-    }
-
     // Close terminal session if it exists
     await this.terminalSessionManager.closeTerminalSession(id);
     
@@ -940,14 +872,14 @@ export class SessionManager extends EventEmitter {
       }
     }
     
-    // Handle Codex session completion message to stop prompt timing
+    // Handle session completion message to stop prompt timing
     if (output.type === 'json' && (output.data as GenericMessageData).type === 'session' && (output.data as GenericMessageData).data?.status === 'completed') {
       // Add a completion message to trigger panel-response-added event which stops the timer
       const completionMessage = String((output.data as GenericMessageData).data?.message || 'Session completed');
       this.addPanelConversationMessage(panelId, 'assistant', completionMessage);
     }
     
-    // Handle Codex agent messages (similar to Claude's assistant messages)
+    // Handle agent messages (similar to Claude's assistant messages)
     if (output.type === 'json' && ((output.data as GenericMessageData).type === 'agent_message' || (output.data as GenericMessageData).type === 'agent_message_delta')) {
       const agentText = String((output.data as GenericMessageData).message || (output.data as GenericMessageData).delta || '');
       if (agentText && (output.data as GenericMessageData).type === 'agent_message') {
@@ -1793,12 +1725,6 @@ export class SessionManager extends EventEmitter {
             // Panel ID was used as --session-id when launching Claude, so it IS the resume ID
             resumablePanels.push({ panelId: panel.id, panelType: 'terminal', resumeId: panel.id });
           }
-        } else if (panel.type === 'claude') {
-          const aiState = panel.state?.customState as BaseAIPanelState | undefined;
-          const resumeId = aiState?.agentSessionId || aiState?.claudeSessionId;
-          if (resumeId) {
-            resumablePanels.push({ panelId: panel.id, panelType: 'claude', resumeId });
-          }
         }
       }
 
@@ -1853,22 +1779,6 @@ export class SessionManager extends EventEmitter {
               console.log(`[SessionManager] Resumed terminal panel ${panel.id} with claude --resume ${panel.id}`);
               resumedPanelCount++;
             }
-          }
-        } else if (panel.type === 'claude') {
-          const aiState = panel.state?.customState as BaseAIPanelState | undefined;
-          const resumeId = aiState?.agentSessionId || aiState?.claudeSessionId;
-
-          if (resumeId) {
-            // For Claude panels, clear the interrupted status
-            // The frontend will handle triggering the actual resume via continuePanel
-            const state = panel.state;
-            const customState = (state.customState || {}) as BaseAIPanelState;
-            customState.panelStatus = 'idle';
-            state.customState = customState;
-            this.db.updatePanel(panel.id, { state });
-
-            console.log(`[SessionManager] Prepared Claude panel ${panel.id} for resume (agent session: ${resumeId})`);
-            resumedPanelCount++;
           }
         }
       }

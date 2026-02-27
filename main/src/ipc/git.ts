@@ -2,7 +2,6 @@ import { IpcMain } from 'electron';
 import type { AppServices } from './types';
 import { execSync, execAsync } from '../utils/commandExecutor';
 import { buildGitCommitCommand } from '../utils/shellEscape';
-import { panelManager } from '../services/panelManager';
 import { mainWindow } from '../index';
 import { panelEventBus } from '../services/panelEventBus';
 import { PanelEventType, ToolPanelType, PanelEvent } from '../../../shared/types/panels';
@@ -909,66 +908,41 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
         // Not in a rebase state or already clean - that's fine
       }
 
-      // Create a new Claude panel to handle the rebase and conflicts
+      // Use session-based Claude to handle the rebase and conflicts
       const prompt = `Please rebase the local ${mainBranch} branch (not origin/${mainBranch}) into this branch and resolve all conflicts`;
-      
+
       try {
-        // Create a new Claude panel
-        const panel = await panelManager.createPanel({
-          sessionId: sessionId,
-          type: 'claude',
-          title: 'Claude - Resolve Conflicts'
-        });
-        
-        // Get the claudePanelManager from the claudePanel module
-        const { claudePanelManager } = require('./claudePanel');
-        
-        // Register the panel with the Claude panel manager
-        claudePanelManager.registerPanel(panel.id, sessionId, panel.state.customState);
-        
-        // Start Claude in the new panel with the rebase prompt
-        await claudePanelManager.startPanel(
-          panel.id,
+        // Start Claude session to handle rebase
+        await claudeCodeManager.startSession(
+          sessionId,
           session.worktreePath,
           prompt,
           session.permissionMode,
           session.model
         );
-        
+
         // Add message to session output
-        const message = `🤖 CLAUDE CODE\nCreated new Claude panel to handle rebase and resolve conflicts\nPrompt: ${prompt}`;
+        const message = `🤖 CLAUDE CODE\nStarted Claude session to handle rebase and resolve conflicts\nPrompt: ${prompt}`;
         sessionManager.addSessionOutput(sessionId, {
           type: 'stdout',
           data: message,
           timestamp: new Date()
         });
-        
-        return { 
-          success: true, 
-          data: { 
-            message: 'Claude Code panel created to handle rebase and resolve conflicts',
-            panelId: panel.id
-          } 
+
+        return {
+          success: true,
+          data: {
+            message: 'Claude Code session started to handle rebase and resolve conflicts'
+          }
         };
       } catch (error: unknown) {
-        console.error('[IPC:git] Failed to create Claude panel:', error);
-        console.error('[IPC:git] Error details:', {
-          sessionId,
-          worktreePath: session.worktreePath,
-          errorMessage: error instanceof Error ? error.message : String(error),
-          errorStack: error instanceof Error ? error.stack : undefined
-        });
-        
-        // Provide more specific error messages
-        let errorMessage = 'Failed to create Claude panel';
-        if (error instanceof Error && error.message?.includes('API key')) {
-          errorMessage = 'Failed to create Claude panel: API key not configured';
-        } else if (error instanceof Error && error.message?.includes('not found')) {
-          errorMessage = 'Failed to create Claude panel: Session or worktree not found';
-        } else if (error instanceof Error && error.message) {
-          errorMessage = `Failed to create Claude panel: ${error.message}`;
+        console.error('[IPC:git] Failed to start Claude session:', error);
+
+        let errorMessage = 'Failed to start Claude session';
+        if (error instanceof Error && error.message) {
+          errorMessage = `Failed to start Claude session: ${error.message}`;
         }
-        
+
         return { success: false, error: errorMessage };
       }
     } catch (error: unknown) {
