@@ -137,7 +137,7 @@ export const MessageSegment: React.FC<MessageSegmentProps> = ({
           </button>
           
           {isDiffExpanded && (
-            <div className="mt-2 bg-surface-tertiary rounded-lg p-3 overflow-hidden">
+            <div className="mt-2 bg-surface-secondary rounded-lg p-3 overflow-hidden">
               <pre className="text-xs font-mono overflow-x-auto">
                 {lines.map((line, i) => {
                   let className = 'text-text-tertiary';
