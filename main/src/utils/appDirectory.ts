@@ -77,6 +77,12 @@ export function getAppDirectory(): string {
  * Should be called once during app startup, before any services are initialized.
  */
 export function migrateDataDirectory(): void {
+  // Skip migration if a custom directory is set (via --pane-dir, --foozol-dir, or env vars)
+  // to avoid moving ~/.foozol out from under a running app that explicitly configured its path
+  if (customAppDir || process.env.PANE_DIR || process.env.FOOZOL_DIR) {
+    return;
+  }
+
   const home = homedir();
   const oldDir = join(home, '.foozol');
   const newDir = join(home, '.pane');
