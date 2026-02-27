@@ -97,7 +97,7 @@ export interface Session {
   displayOrder?: number;
   isFavorite?: boolean;
   autoCommit?: boolean;
-  toolType?: 'claude' | 'codex' | 'none';
+  toolType?: 'claude' | 'none';
   archived?: boolean;
   gitStatus?: GitStatus;
   baseCommit?: string;
@@ -143,17 +143,9 @@ export interface CreateSessionRequest {
   isMainRepo?: boolean;
   baseBranch?: string;
   autoCommit?: boolean;
-  toolType?: 'claude' | 'codex' | 'none';
+  toolType?: 'claude' | 'none';
   commitMode?: 'structured' | 'checkpoint' | 'disabled';
   commitModeSettings?: string; // JSON string of CommitModeSettings
-  codexConfig?: {
-    model?: string;
-    modelProvider?: string;
-    approvalPolicy?: 'auto' | 'manual';
-    sandboxMode?: 'read-only' | 'workspace-write' | 'danger-full-access';
-    webSearch?: boolean;
-    thinkingLevel?: 'low' | 'medium' | 'high';
-  };
   claudeConfig?: {
     model?: string;
     permissionMode?: 'approve' | 'ignore';

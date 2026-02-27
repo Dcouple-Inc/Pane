@@ -4,23 +4,16 @@ import { useNavigationStore } from '../stores/navigationStore';
 import { useSessionHistoryStore } from '../stores/sessionHistoryStore';
 import { useHotkey } from '../hooks/useHotkey';
 import { HomePage } from './HomePage';
-// import CombinedDiffView from './panels/diff/CombinedDiffView'; // Removed - now in panels
 import '@xterm/xterm/css/xterm.css';
 import { useSessionView } from '../hooks/useSessionView';
 import { DetailPanel } from './DetailPanel';
-// import { SessionInputWithImages } from './panels/claude/ClaudeInputWithImages'; // Removed - now in panels
 import { GitErrorDialog } from './session/GitErrorDialog';
 import { CommitMessageDialog } from './session/CommitMessageDialog';
 import { FolderArchiveDialog } from './session/FolderArchiveDialog';
-// import { FileEditor } from './panels/editor/FileEditor'; // Removed - now in panels
 import { ProjectView } from './ProjectView';
 import { API } from '../utils/api';
 import { useResizable } from '../hooks/useResizable';
 import { useResizableHeight } from '../hooks/useResizableHeight';
-// import { RichOutputWithSidebar } from './panels/claude/RichOutputWithSidebar'; // Removed - now in panels
-// import { RichOutputSettings } from './panels/claude/RichOutputView'; // Removed - not needed
-// import { LogsView } from './panels/logPanel/LogsView'; // Removed - now in panels
-// import { MessagesView } from './panels/claude/MessagesView'; // Removed - now in panels
 import { usePanelStore } from '../stores/panelStore';
 import { panelApi } from '../services/panelApi';
 import { PanelTabBar, SETUP_RUN_SCRIPT_PROMPT } from './panels/PanelTabBar';
@@ -180,13 +173,7 @@ export const SessionView = memo(() => {
     () => sessionPanels.find(p => p.id === activePanels[activeSession?.id || '']),
     [sessionPanels, activePanels, activeSession?.id]
   );
-  
-  // Check if session has Claude panels
-  const hasClaudePanels = useMemo(
-    () => sessionPanels.some(panel => panel.type === 'claude'),
-    [sessionPanels]
-  );
-  
+
   // Track current session/panel in history when they change
   useEffect(() => {
     if (activeSession?.id && currentActivePanel?.id) {
@@ -198,7 +185,6 @@ export const SessionView = memo(() => {
   renderLog('[SessionView] Session panels:', sessionPanels);
   renderLog('[SessionView] Active panel ID:', activePanels[activeSession?.id || '']);
   renderLog('[SessionView] Current active panel:', currentActivePanel);
-  renderLog('[SessionView] Has Claude panels:', hasClaudePanels);
 
   // FIX: Memoize all callbacks to prevent re-renders
   const handlePanelSelect = useCallback(
@@ -210,18 +196,6 @@ export const SessionView = memo(() => {
 
       setActivePanelInStore(activeSession.id, panel.id);
       await panelApi.setActivePanel(activeSession.id, panel.id);
-
-      // Clear unviewed content flag when panel is viewed (for AI panels)
-      if (panel.type === 'claude' || panel.type === 'codex') {
-        const customState = panel.state?.customState as { hasUnviewedContent?: boolean; panelStatus?: string } | undefined;
-        if (customState?.hasUnviewedContent || customState?.panelStatus === 'completed_unviewed') {
-          try {
-            await panelApi.clearPanelUnviewedContent(panel.id);
-          } catch (err) {
-            console.error('[SessionView] Failed to clear unviewed content:', err);
-          }
-        }
-      }
     },
     [activeSession, setActivePanelInStore, addToHistory]
   );
@@ -297,21 +271,9 @@ export const SessionView = memo(() => {
   });
 
   useHotkey({
-    id: 'add-tool-terminal-codex',
-    label: 'Add Terminal (Codex)',
-    keys: 'mod+shift+2',
-    category: 'tools',
-    enabled: () => isInSessionView,
-    action: () => handlePanelCreate('terminal', {
-      initialCommand: 'codex',
-      title: 'Codex CLI'
-    }),
-  });
-
-  useHotkey({
     id: 'add-tool-setup-run-script',
     label: 'Add Setup Run Script',
-    keys: 'mod+shift+3',
+    keys: 'mod+shift+2',
     category: 'tools',
     enabled: () => isInSessionView,
     action: () => handlePanelCreate('terminal', {
@@ -394,26 +356,8 @@ export const SessionView = memo(() => {
     async (type: ToolPanelType, options?: PanelCreateOptions) => {
       if (!activeSession) return;
 
-      // For Codex panels, include the last selected model and thinking level in initial state
-      let initialState: { customState?: unknown } | undefined = undefined;
-      if (type === 'codex') {
-        const savedModel = localStorage.getItem('codex.lastSelectedModel');
-        const savedThinkingLevel = localStorage.getItem('codex.lastSelectedThinkingLevel');
-
-        initialState = {
-          customState: {
-            codexConfig: {
-              model: savedModel || 'auto',
-              modelProvider: 'openai',
-              thinkingLevel: savedThinkingLevel || 'medium',
-              sandboxMode: 'workspace-write',
-              webSearch: false
-            }
-          }
-        };
-      }
-
       // For terminal panels with initialCommand (e.g., Terminal (Claude))
+      let initialState: { customState?: unknown } | undefined = undefined;
       if (type === 'terminal' && options?.initialCommand) {
         initialState = {
           customState: {
@@ -833,7 +777,7 @@ export const SessionView = memo(() => {
                   .filter(p => !defaultTerminalPanel || p.id !== defaultTerminalPanel.id)
                   .map(panel => {
                     const isActive = panel.id === currentActivePanel.id;
-                    const shouldKeepAlive = ['terminal', 'claude', 'codex'].includes(panel.type);
+                    const shouldKeepAlive = ['terminal'].includes(panel.type);
                     if (!isActive && !shouldKeepAlive) return null;
                     return (
                       <div

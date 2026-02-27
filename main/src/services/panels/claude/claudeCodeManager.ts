@@ -188,7 +188,7 @@ export class ClaudeCodeManager extends AbstractCliManager {
     // Handle resume and prompt logic
     if (isResume) {
       // Get Claude's session ID for this panel if available
-      const claudeSessionId = this.sessionManager.getPanelClaudeSessionId(options.panelId);
+      const claudeSessionId = this.sessionManager.getClaudeSessionId(options.panelId);
 
       if (claudeSessionId) {
         // Use --resume flag with Claude's actual session ID
@@ -452,7 +452,7 @@ export class ClaudeCodeManager extends AbstractCliManager {
 
       // Handle resume validation before calling parent
       if (isResume) {
-        const claudeSessionId = this.sessionManager.getPanelClaudeSessionId(panelId);
+        const claudeSessionId = this.sessionManager.getClaudeSessionId(panelId);
         
         if (!claudeSessionId) {
           const errMsg = `Cannot resume: no Claude session_id stored for Pane session ${sessionId}`;

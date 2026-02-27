@@ -143,6 +143,8 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
 
       const count = request.count || 1;
 
+      const sessionToolType: 'claude' | 'none' | undefined = request.toolType;
+
       if (count > 1) {
         const jobs = await taskQueue.createMultipleSessions(
           request.prompt,
@@ -152,15 +154,11 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
           targetProject.id,
           request.baseBranch,
           request.autoCommit,
-          request.toolType,
+          sessionToolType,
           request.commitMode,
           request.commitModeSettings,
-          request.codexConfig,
-          request.claudeConfig,
           request.folderId
         );
-
-        // Note: Model is now stored at panel level, not session level
 
         return { success: true, data: { jobIds: jobs.map(job => job.id) } };
       } else {
@@ -172,14 +170,10 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
           folderId: request.folderId,
           baseBranch: request.baseBranch,
           autoCommit: request.autoCommit,
-          toolType: request.toolType,
+          toolType: sessionToolType,
           commitMode: request.commitMode,
-          commitModeSettings: request.commitModeSettings,
-          codexConfig: request.codexConfig,
-          claudeConfig: request.claudeConfig
+          commitModeSettings: request.commitModeSettings
         });
-
-        // Note: Model is now stored at panel level, not session level
 
         return { success: true, data: { jobId: job.id } };
       }
@@ -372,22 +366,22 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
       const dbSession = databaseService.getSession(sessionId);
       if (dbSession?.commit_mode === 'structured') {
         console.log(`[IPC] Session ${sessionId} uses structured commit mode, enhancing input`);
-        
+
         // Parse commit mode settings
         let commitModeSettings;
         try {
-          commitModeSettings = dbSession.commit_mode_settings ? 
-            JSON.parse(dbSession.commit_mode_settings) : 
+          commitModeSettings = dbSession.commit_mode_settings ?
+            JSON.parse(dbSession.commit_mode_settings) :
             { mode: 'structured' };
         } catch (e) {
           console.error(`[IPC] Failed to parse commit mode settings:`, e);
           commitModeSettings = { mode: 'structured' };
         }
-        
+
         // Get structured prompt template from settings or use default
         const { DEFAULT_STRUCTURED_PROMPT_TEMPLATE } = require('../../../shared/types');
         const structuredPromptTemplate = commitModeSettings?.structuredPromptTemplate || DEFAULT_STRUCTURED_PROMPT_TEMPLATE;
-        
+
         // Add structured commit instructions to the input
         finalInput = `${input}\n\n${structuredPromptTemplate}`;
         console.log(`[IPC] Added structured commit instructions to input`);
@@ -399,120 +393,38 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
         return { success: false, error: 'Session not found' };
       }
 
-      // Determine which tool type to use for panel operations
+      // Determine which tool type to use
       const sessionToolType = session.toolType || 'claude'; // Default to claude for backward compatibility
 
-      // Panel Integration: Find or create appropriate panel for input based on session's tool type
-      console.log(`[IPC] Checking for ${sessionToolType} panels for session ${sessionId}`);
-      const inputPanels = panelManager.getPanelsForSession(sessionId);
-      const inputToolPanels = inputPanels.filter(p => p.type === sessionToolType);
-
-      // Only auto-create panel if user hasn't explicitly closed one
-      if (inputToolPanels.length === 0 && sessionToolType !== 'none' && panelManager.shouldAutoCreatePanel(sessionId, sessionToolType)) {
-        console.log(`[IPC] No ${sessionToolType} panel found, creating one for session ${sessionId}`);
-        try {
-          const panelTitle = sessionToolType === 'codex' ? 'Codex' : 'Claude';
-          await panelManager.createPanel({
-            sessionId: sessionId,
-            type: sessionToolType as 'claude' | 'codex',
-            title: panelTitle
-          });
-          console.log(`[IPC] Created ${sessionToolType} panel for session ${sessionId}`);
-        } catch (error) {
-          console.error(`[IPC] Failed to create ${sessionToolType} panel for session ${sessionId}:`, error);
-          // Continue without panel - fallback to session-level handling
-        }
-      } else if (sessionToolType !== 'none') {
-        console.log(`[IPC] Found ${inputToolPanels.length} ${sessionToolType} panel(s) for session ${sessionId}`);
-      }
-
-      // Handle based on tool type
-      if (sessionToolType === 'codex') {
-        // For Codex sessions, route through the Codex panel manager
-        console.log(`[IPC] Session ${sessionId} is a Codex session - routing to Codex panel`);
-        
-        // Get Codex panels for this session after potential creation
-        const postCreateCodexPanels = panelManager.getPanelsForSession(sessionId).filter(p => p.type === 'codex');
-        
-        if (postCreateCodexPanels.length === 0) {
-          console.error(`[IPC] No Codex panels found for session ${sessionId} after creation attempt`);
-          return { success: false, error: 'No Codex panels found for session' };
-        }
-        
-        // Use the first Codex panel
-        const codexPanel = postCreateCodexPanels[0];
-        console.log(`[IPC] Using Codex panel ${codexPanel.id} for input to session ${sessionId}`);
-        
-        // Get Codex manager instance
-        const { cliManagerFactory } = require('../services/cliManagerFactory');
-        const codexManager = cliManagerFactory.getCodexManager();
-        
-        if (!codexManager) {
-          console.error(`[IPC] Codex manager not available`);
-          return { success: false, error: 'Codex manager not available' };
-        }
-        
-        // Check if Codex is running for this panel
-        const isCodexRunning = codexManager.isPanelRunning(codexPanel.id);
-        
-        if (!isCodexRunning) {
-          console.log(`[IPC] Codex not running for panel ${codexPanel.id}, starting it now...`);
-          
-          // Start Codex via the panel with the input as the initial prompt (finalInput already includes structured commit enhancement)
-          await codexManager.startPanel(codexPanel.id, sessionId, session.worktreePath, finalInput);
-          
-          // Update session status to running
-          await sessionManager.updateSession(sessionId, { status: 'running' });
-        } else {
-          console.log(`[IPC] Codex already running for panel ${codexPanel.id}, continuing conversation...`);
-          
-          // Continue the Codex conversation with the new input (finalInput already includes structured commit enhancement)
-          await codexManager.continuePanel(codexPanel.id, sessionId, session.worktreePath, finalInput, []);
-          
-          // Update session status to running
-          await sessionManager.updateSession(sessionId, { status: 'running' });
-        }
-        
-        return { success: true };
-      }
-      
       if (sessionToolType === 'none') {
         console.log(`[IPC] Session ${sessionId} has no tool type - cannot send input`);
         return { success: false, error: 'Session has no tool configured' };
       }
 
-      // Get Claude panels for this session after potential creation (only for Claude sessions)
-      const postCreatePanels = panelManager.getPanelsForSession(sessionId);
-      const postCreateClaudePanels = postCreatePanels.filter(p => p.type === 'claude');
-      
-      if (postCreateClaudePanels.length === 0) {
-        console.error(`[IPC] No Claude panels found for session ${sessionId} after creation attempt`);
-        return { success: false, error: 'No Claude panels found for session' };
-      }
-      
-      // Use the first Claude panel (in most cases there will be only one)
-      const claudePanel = postCreateClaudePanels[0];
-      console.log(`[IPC] Using Claude panel ${claudePanel.id} for input to session ${sessionId}`);
-      
-      // Check if Claude Code is running for this panel
-      // TODO: In the future, this should detect the panel's CLI tool type and get the appropriate manager
-      const isClaudeRunning = claudeCodeManager.isPanelRunning(claudePanel.id);
-      
+      // Use session-based methods for all tool types
+      console.log(`[IPC] Sending input to session ${sessionId} via claudeCodeManager session methods`);
+
+      // Check if Claude Code is running for this session
+      const isClaudeRunning = claudeCodeManager.isSessionRunning(sessionId);
+
       if (!isClaudeRunning) {
-        console.log(`[IPC] Claude Code not running for panel ${claudePanel.id}, starting it now...`);
-        
-        // Session already fetched above, no need to fetch again
-        
-        // Start Claude Code via the panel with the input as the initial prompt
-        await claudeCodeManager.startPanel(claudePanel.id, sessionId, session.worktreePath, finalInput, session.permissionMode);
-        
+        console.log(`[IPC] Claude Code not running for session ${sessionId}, starting it now...`);
+
+        // Start Claude Code with the input as the initial prompt
+        await claudeCodeManager.startSession(
+          sessionId,
+          session.worktreePath,
+          finalInput,
+          session.permissionMode
+        );
+
         // Update session status to running
         await sessionManager.updateSession(sessionId, { status: 'running' });
       } else {
-        // Claude Code is already running, just send the input to the panel
-        claudeCodeManager.sendInput(claudePanel.id, finalInput);
+        // Claude Code is already running, just send the input using virtual panel ID
+        claudeCodeManager.sendInput(`session-${sessionId}`, finalInput);
       }
-      
+
       return { success: true };
     } catch (error) {
       console.error('Failed to send input:', error);
@@ -563,13 +475,7 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
 
       // Determine tool type for this session
       const sessionToolType = session.toolType || 'claude'; // Default to claude for backward compatibility
-      
-      // For Codex sessions, continuing is not supported
-      if (sessionToolType === 'codex') {
-        console.log(`[IPC] Session ${sessionId} is a Codex session - continue not supported`);
-        return { success: false, error: 'Continue not supported for Codex sessions. Use the Codex panel interface.' };
-      }
-      
+
       if (sessionToolType === 'none') {
         console.log(`[IPC] Session ${sessionId} has no tool type - cannot continue`);
         return { success: false, error: 'Session has no tool configured' };
@@ -581,47 +487,8 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
         return { success: false, error: 'Session is already processing a request' };
       }
 
-      // Claude Panel Integration: Find or create Claude panel for continuation (only for Claude sessions)
-      if (prompt) {
-        console.log(`[IPC] Checking for Claude panels for session ${sessionId}`);
-        const continuePanels = panelManager.getPanelsForSession(sessionId);
-        const continueClaudePanels = continuePanels.filter(p => p.type === 'claude');
-
-        // Only auto-create panel if user hasn't explicitly closed one
-        if (continueClaudePanels.length === 0 && panelManager.shouldAutoCreatePanel(sessionId, 'claude')) {
-          console.log(`[IPC] No Claude panel found, creating one for session ${sessionId}`);
-          try {
-            console.log('[IPC] Routing panels:continue to ClaudePanelManager.continuePanel');
-            await panelManager.createPanel({
-              sessionId: sessionId,
-              type: 'claude',
-              title: 'Claude'
-            });
-            console.log(`[IPC] Created Claude panel for session ${sessionId}`);
-          } catch (error) {
-            console.error(`[IPC] Failed to create Claude panel for session ${sessionId}:`, error);
-            // Continue without panel - fallback to session-level handling
-          }
-        } else {
-          console.log(`[IPC] Found ${continueClaudePanels.length} Claude panel(s) for session ${sessionId}`);
-          // Route to panel-based handler if panels exist
-          // For now, continue with session-level handling but panels will handle the UI
-        }
-      }
-
-      // MIGRATION FIX: Get conversation history using appropriate method
-      const continuePanelsAfterCheck = panelManager.getPanelsForSession(sessionId);
-      const continueClaudePanelsAfterCheck = continuePanelsAfterCheck.filter(p => p.type === 'claude');
-      
-      let conversationHistory;
-      if (continueClaudePanelsAfterCheck.length > 0 && sessionManager.getPanelConversationMessages) {
-        // Use panel-based method for migrated sessions
-        console.log(`[IPC] Using panel-based conversation history for session ${sessionId} with Claude panel ${continueClaudePanelsAfterCheck[0].id}`);
-        conversationHistory = sessionManager.getPanelConversationMessages(continueClaudePanelsAfterCheck[0].id);
-      } else {
-        // Use session-based method for non-migrated sessions
-        conversationHistory = sessionManager.getConversationMessages(sessionId);
-      }
+      // Always use session-based conversation history
+      const conversationHistory = sessionManager.getConversationMessages(sessionId);
 
       // If no prompt provided, use empty string (for resuming)
       const continuePrompt = prompt || '';
@@ -673,70 +540,30 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
           console.log(`[IPC] Build script completed. Success: ${buildResult.success}`);
         }
 
-        // Get Claude panels for this session
-        const mainRepoPanels = panelManager.getPanelsForSession(sessionId);
-        const mainRepoClaudePanels = mainRepoPanels.filter(p => p.type === 'claude');
-        
-        if (mainRepoClaudePanels.length > 0) {
-          // Start Claude Code via the first Claude panel
-          const claudePanel = mainRepoClaudePanels[0];
-          console.log(`[IPC] Starting Claude via panel ${claudePanel.id} for main repo session ${sessionId}`);
-          // Model is now managed at panel level
-          await claudeCodeManager.startPanel(
-            claudePanel.id,
-            sessionId,
-            session.worktreePath,
-            continuePrompt,
-            dbSession?.permission_mode,
-            model
-          );
-        } else {
-          // Fallback to session-based start
-          console.log(`[IPC] No Claude panels found, falling back to session-based start for ${sessionId}`);
-          // Model is now managed at panel level  
-          await claudeCodeManager.startSession(
-            sessionId,
-            session.worktreePath,
-            continuePrompt,
-            dbSession?.permission_mode,
-            model
-          );
-        }
+        // Use session-based start method
+        console.log(`[IPC] Starting Claude via session-based method for main repo session ${sessionId}`);
+        await claudeCodeManager.startSession(
+          sessionId,
+          session.worktreePath,
+          continuePrompt,
+          dbSession?.permission_mode,
+          model
+        );
       } else {
         // Normal continue for existing sessions
         if (continuePrompt) {
           await sessionManager.continueConversation(sessionId, continuePrompt);
         }
 
-        // Get Claude panels for this session
-        const normalContinuePanels = panelManager.getPanelsForSession(sessionId);
-        const normalContinueClaudePanels = normalContinuePanels.filter(p => p.type === 'claude');
-        
-        if (normalContinueClaudePanels.length > 0) {
-          // Continue Claude conversation via the first Claude panel
-          const claudePanel = normalContinueClaudePanels[0];
-          // Model is now managed at panel level
-          console.log(`[IPC] Continuing Claude via panel ${claudePanel.id} for session ${sessionId}`);
-          await claudeCodeManager.continuePanel(
-            claudePanel.id,
-            sessionId,
-            session.worktreePath,
-            continuePrompt,
-            conversationHistory,
-            model
-          );
-        } else {
-          // Fallback to session-based continue
-          // Model is now managed at panel level
-          console.log(`[IPC] No Claude panels found, continuing session ${sessionId}`);
-          await claudeCodeManager.continueSession(
-            sessionId,
-            session.worktreePath,
-            continuePrompt,
-            conversationHistory,
-            model
-          );
-        }
+        // Use session-based continue method
+        console.log(`[IPC] Continuing Claude via session-based method for session ${sessionId}`);
+        await claudeCodeManager.continueSession(
+          sessionId,
+          session.worktreePath,
+          continuePrompt,
+          conversationHistory,
+          model
+        );
       }
 
       // The session manager will update status based on Claude output
@@ -759,70 +586,29 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
       // Performance optimization: Default to loading only recent outputs
       const DEFAULT_OUTPUT_LIMIT = 5000;
       const outputLimit = limit || DEFAULT_OUTPUT_LIMIT;
-      
+
       console.log(`[IPC] sessions:get-output called for session: ${sessionId} with limit: ${outputLimit}`);
-      
-      // Migration: Check if this session needs a Claude panel
+
+      // Refresh git status when session is loaded/viewed
       const session = await sessionManager.getSession(sessionId);
       if (session && !session.archived) {
-        const sessionToolType = session.toolType ?? 'claude';
-        if (sessionToolType === 'claude') {
-          console.log(`[IPC] Checking for Claude panels migration for session ${sessionId}`);
-          const existingPanels = panelManager.getPanelsForSession(sessionId);
-          const claudePanels = existingPanels.filter(p => p.type === 'claude');
-
-          // Check if session has conversation history but no Claude panels
-          const conversationHistory = sessionManager.getConversationMessages(sessionId);
-          const hasConversation = conversationHistory.length > 0;
-          const hasClaudePanels = claudePanels.length > 0;
-
-          // Only auto-create panel if user hasn't explicitly closed one
-          if (hasConversation && !hasClaudePanels && panelManager.shouldAutoCreatePanel(sessionId, 'claude')) {
-            console.log(`[IPC] Session ${sessionId} has conversation history but no Claude panels, creating one`);
-            try {
-              await panelManager.createPanel({
-                sessionId: sessionId,
-                type: 'claude',
-                title: 'Claude'
-              });
-              console.log(`[IPC] Migrated session ${sessionId} to use Claude panel`);
-            } catch (error) {
-              console.error(`[IPC] Failed to create Claude panel during migration for session ${sessionId}:`, error);
-            }
-          }
-        } else {
-          console.log(`[IPC] Skipping Claude panel migration for session ${sessionId} with tool type ${sessionToolType}`);
-        }
-
-        // Refresh git status when session is loaded/viewed
         gitStatusManager.refreshSessionGitStatus(sessionId, false).catch(error => {
           console.error(`[IPC] Failed to refresh git status for session ${sessionId}:`, error);
         });
       }
-      
-      // MIGRATION FIX: Check if session has Claude panels and use panel-based data retrieval
-      const sessionPanels = panelManager.getPanelsForSession(sessionId);
-      const sessionClaudePanels = sessionPanels.filter(p => p.type === 'claude');
-      
-      let outputs;
-      if (sessionClaudePanels.length > 0 && sessionManager.getPanelOutputs) {
-        // Use panel-based method for migrated sessions
-        console.log(`[IPC] Using panel-based output retrieval for session ${sessionId} with Claude panel ${sessionClaudePanels[0].id}`);
-        outputs = await sessionManager.getPanelOutputs(sessionClaudePanels[0].id, outputLimit);
-      } else {
-        // Use session-based method for non-migrated sessions
-        outputs = await sessionManager.getSessionOutputs(sessionId, outputLimit);
-      }
+
+      // Always use session-based output retrieval
+      const outputs = await sessionManager.getSessionOutputs(sessionId, outputLimit);
       console.log(`[IPC] Retrieved ${outputs.length} outputs for session ${sessionId}`);
 
       // Performance optimization: Process outputs in batches to avoid blocking
       const { formatJsonForOutputEnhanced } = await import('../utils/toolFormatter');
       const BATCH_SIZE = 100;
       const transformedOutputs = [];
-      
+
       for (let i = 0; i < outputs.length; i += BATCH_SIZE) {
         const batch = outputs.slice(i, Math.min(i + BATCH_SIZE, outputs.length));
-        
+
         const transformedBatch = batch.map(output => {
           if (output.type === 'json') {
             // Generate formatted output from JSON
@@ -839,11 +625,11 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
             return null;
           }
           // Pass through all other output types including 'error'
-          return output; 
+          return output;
         }).filter(Boolean);
-        
+
         transformedOutputs.push(...transformedBatch);
-      } // Remove any null entries
+      }
       return { success: true, data: transformedOutputs };
     } catch (error) {
       console.error('Failed to get session outputs:', error);
@@ -853,20 +639,8 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
 
   ipcMain.handle('sessions:get-conversation', async (_event, sessionId: string) => {
     try {
-      // MIGRATION FIX: Check if session has Claude panels and use panel-based data retrieval
-      const sessionPanels = panelManager.getPanelsForSession(sessionId);
-      const sessionClaudePanels = sessionPanels.filter(p => p.type === 'claude');
-      
-      let messages;
-      if (sessionClaudePanels.length > 0 && sessionManager.getPanelConversationMessages) {
-        // Use panel-based method for migrated sessions
-        console.log(`[IPC] Using panel-based conversation retrieval for session ${sessionId} with Claude panel ${sessionClaudePanels[0].id}`);
-        messages = await sessionManager.getPanelConversationMessages(sessionClaudePanels[0].id);
-      } else {
-        // Use session-based method for non-migrated sessions
-        messages = await sessionManager.getConversationMessages(sessionId);
-      }
-      
+      // Always use session-based conversation retrieval
+      const messages = await sessionManager.getConversationMessages(sessionId);
       return { success: true, data: messages };
     } catch (error) {
       console.error('Failed to get conversation messages:', error);
@@ -876,20 +650,8 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
 
   ipcMain.handle('sessions:get-conversation-messages', async (_event, sessionId: string) => {
     try {
-      // MIGRATION FIX: Check if session has Claude panels and use panel-based data retrieval
-      const sessionPanels = panelManager.getPanelsForSession(sessionId);
-      const sessionClaudePanels = sessionPanels.filter(p => p.type === 'claude');
-      
-      let messages;
-      if (sessionClaudePanels.length > 0 && sessionManager.getPanelConversationMessages) {
-        // Use panel-based method for migrated sessions
-        console.log(`[IPC] Using panel-based conversation messages retrieval for session ${sessionId} with Claude panel ${sessionClaudePanels[0].id}`);
-        messages = await sessionManager.getPanelConversationMessages(sessionClaudePanels[0].id);
-      } else {
-        // Use session-based method for non-migrated sessions
-        messages = await sessionManager.getConversationMessages(sessionId);
-      }
-      
+      // Always use session-based conversation retrieval
+      const messages = await sessionManager.getConversationMessages(sessionId);
       return { success: true, data: messages };
     } catch (error) {
       console.error('Failed to get conversation messages:', error);
@@ -1070,23 +832,6 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
 
       // Route to appropriate panel type handler
       switch (panel.type) {
-        case 'claude':
-          try {
-            // Save the user input as a conversation message for panel history
-            if (input) {
-              sessionManager.addPanelConversationMessage(panelId, 'user', input);
-            }
-            // Call Claude panel manager directly
-            const { claudePanelManager } = require('./claudePanel');
-            if (!claudePanelManager) {
-              return { success: false, error: 'Claude panel manager not available' };
-            }
-            claudePanelManager.sendInputToPanel(panelId, input);
-            return { success: true };
-          } catch (err) {
-            console.error('Failed to send input to Claude panel:', err);
-            return { success: false, error: 'Failed to send input to Claude panel' };
-          }
         case 'terminal':
           // Terminal panels don't have input handlers - they use runTerminalCommand
           return { success: false, error: 'Terminal panels use different input methods' };
@@ -1125,115 +870,8 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
 
       console.log(`[IPC] Validated panel ${panelId} belongs to session ${panel.sessionId}`);
 
-      // Route to appropriate panel type handler
-      switch (panel.type) {
-        case 'codex':
-          try {
-            const { codexPanelManager } = require('./codexPanel');
-            if (!codexPanelManager) {
-              return { success: false, error: 'Codex panel manager not available' };
-            }
-
-            // Get session to retrieve worktreePath
-            const session = await sessionManager.getSession(panel.sessionId);
-            if (!session) {
-              return { success: false, error: 'Session not found' };
-            }
-
-            // Save the user input as a conversation message
-            if (input) {
-              sessionManager.addPanelConversationMessage(panelId, 'user', input);
-            }
-
-            // Check if there's a Codex session ID for resumption
-            const isRunning = codexPanelManager.isPanelRunning(panelId);
-            const hasCodexSessionId = !!sessionManager.getPanelCodexSessionId(panelId);
-
-            if (!isRunning && !hasCodexSessionId) {
-              // No running process and no session ID, start fresh
-              console.log('[IPC] panels:continue starting fresh Codex session (no running process, no codex_session_id)');
-              // Model is stored in panel state for Codex panels
-              await codexPanelManager.startPanel(panelId, panel.sessionId, session.worktreePath, input || '');
-              return { success: true };
-            }
-
-            // Otherwise continue with resume
-            const conversationHistory = sessionManager.getPanelConversationMessages
-              ? await sessionManager.getPanelConversationMessages(panelId)
-              : [];
-              
-            console.log('[IPC] panels:continue resuming Codex conversation via continuePanel');
-            await codexPanelManager.continuePanel(
-              panelId,
-              panel.sessionId,  // Add the missing sessionId parameter
-              session.worktreePath,
-              input || '',
-              conversationHistory
-            );
-            return { success: true };
-          } catch (err) {
-            console.error('Failed to continue Codex panel:', err);
-            return { success: false, error: 'Failed to continue Codex panel' };
-          }
-          
-        case 'claude':
-          try {
-            const { claudePanelManager } = require('./claudePanel');
-            if (!claudePanelManager) {
-              return { success: false, error: 'Claude panel manager not available' };
-            }
-
-            // Get session to retrieve worktreePath and determine resume behavior
-            const session = await sessionManager.getSession(panel.sessionId);
-            if (!session) {
-              return { success: false, error: 'Session not found' };
-            }
-
-            // Save the user input as a conversation message
-            if (input) {
-              sessionManager.addPanelConversationMessage(panelId, 'user', input);
-            }
-
-            // If there's no running process and no Claude session id yet, this is likely the first message.
-            // Start fresh (no --resume) so the user can begin a new conversation.
-            const isRunning = claudePanelManager.isPanelRunning(panelId);
-            const hasClaudeSessionId = !!sessionManager.getPanelClaudeSessionId(panelId);
-
-            if (!isRunning && !hasClaudeSessionId) {
-              console.log('[IPC] panels:continue starting fresh via startPanel (no running process, no claude_session_id)');
-              const dbSession = sessionManager.getDbSession(panel.sessionId);
-              // Model is now managed at panel level in Claude panel settings
-              await claudePanelManager.startPanel(
-                panelId,
-                session.worktreePath,
-                input || '',
-                dbSession?.permission_mode,
-                model
-              );
-              return { success: true };
-            }
-
-            // Otherwise continue; ClaudeCodeManager enforces strict --resume behavior
-            const conversationHistory = sessionManager.getPanelConversationMessages
-              ? await sessionManager.getPanelConversationMessages(panelId)
-              : await sessionManager.getConversationMessages(panel.sessionId);
-
-            // Model is now managed at panel level in Claude panel settings
-            await claudePanelManager.continuePanel(
-              panelId,
-              session.worktreePath,
-              input || '',
-              conversationHistory,
-              model
-            );
-            return { success: true };
-          } catch (err) {
-            console.error('Failed to continue Claude panel:', err);
-            return { success: false, error: 'Failed to continue Claude panel' };
-          }
-        default:
-          return { success: false, error: `Panel type ${panel.type} does not support continue operation` };
-      }
+      // Panel-based handlers removed - panels should not be used for AI operations
+      return { success: false, error: `Panel type ${panel.type} does not support continue operation` };
     } catch (error) {
       console.error('Failed to continue panel conversation:', error);
       return { success: false, error: 'Failed to continue panel conversation' };
@@ -1243,7 +881,7 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
   ipcMain.handle('sessions:generate-compacted-context', async (_event, sessionId: string) => {
     try {
       console.log('[IPC] sessions:generate-compacted-context called for sessionId:', sessionId);
-      
+
       // Get all the data we need for compaction
       const session = await sessionManager.getSession(sessionId);
       if (!session) {
@@ -1256,44 +894,16 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
         return { success: false, error: 'Session not found in database' };
       }
 
-      // MIGRATION FIX: Use panel-based data retrieval if session has Claude panels
-      const compactPanels = panelManager.getPanelsForSession(sessionId);
-      const compactClaudePanels = compactPanels.filter(p => p.type === 'claude');
-      
-      let conversationMessages, promptMarkers, executionDiffs, sessionOutputs;
-      
-      if (compactClaudePanels.length > 0) {
-        // Use panel-based methods for migrated sessions
-        const claudePanel = compactClaudePanels[0];
-        console.log(`[IPC] Using panel-based data retrieval for context compaction, session ${sessionId} with Claude panel ${claudePanel.id}`);
-        
-        conversationMessages = sessionManager.getPanelConversationMessages ? 
-          await sessionManager.getPanelConversationMessages(claudePanel.id) :
-          await sessionManager.getConversationMessages(sessionId);
-          
-        promptMarkers = databaseService.getPanelPromptMarkers ? 
-          databaseService.getPanelPromptMarkers(claudePanel.id) :
-          databaseService.getPromptMarkers(sessionId);
-          
-        executionDiffs = databaseService.getPanelExecutionDiffs ? 
-          databaseService.getPanelExecutionDiffs(claudePanel.id) :
-          databaseService.getExecutionDiffs(sessionId);
-          
-        sessionOutputs = sessionManager.getPanelOutputs ? 
-          await sessionManager.getPanelOutputs(claudePanel.id) :
-          await sessionManager.getSessionOutputs(sessionId);
-      } else {
-        // Use session-based methods for non-migrated sessions
-        conversationMessages = await sessionManager.getConversationMessages(sessionId);
-        promptMarkers = databaseService.getPromptMarkers(sessionId);
-        executionDiffs = databaseService.getExecutionDiffs(sessionId);
-        sessionOutputs = await sessionManager.getSessionOutputs(sessionId);
-      }
-      
+      // Always use session-based data retrieval
+      const conversationMessages = await sessionManager.getConversationMessages(sessionId);
+      const promptMarkers = databaseService.getPromptMarkers(sessionId);
+      const executionDiffs = databaseService.getExecutionDiffs(sessionId);
+      const sessionOutputs = await sessionManager.getSessionOutputs(sessionId);
+
       // Import the compactor utility
       const { ProgrammaticCompactor } = await import('../utils/contextCompactor');
       const compactor = new ProgrammaticCompactor(databaseService);
-      
+
       // Generate the compacted summary
       const summary = await compactor.generateSummary(sessionId, {
         session: dbSession,
@@ -1302,11 +912,11 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
         executionDiffs,
         sessionOutputs: sessionOutputs
       });
-      
+
       // Set flag to skip --resume on the next execution
       console.log('[IPC] Setting skip_continue_next flag to true for session:', sessionId);
       await sessionManager.updateSession(sessionId, { skip_continue_next: true });
-      
+
       // Verify the flag was set
       const updatedSession = databaseService.getSession(sessionId);
       console.log('[IPC] Verified skip_continue_next flag after update:', {
@@ -1315,7 +925,7 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
         is_truthy: !!updatedSession?.skip_continue_next
       });
       console.log('[IPC] Generated compacted context summary and set skip_continue_next flag');
-      
+
       // Add a system message to the session outputs so it appears in rich output view
       const contextCompactionMessage = {
         type: 'system',
@@ -1324,13 +934,13 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
         summary: summary,
         message: 'Context has been compacted. You can continue chatting - your next message will automatically include the context summary above.'
       };
-      
+
       await sessionManager.addSessionOutput(sessionId, {
         type: 'json',
         data: contextCompactionMessage,
         timestamp: new Date()
       });
-      
+
       return { success: true, data: { summary } };
     } catch (error) {
       console.error('Failed to generate compacted context:', error);
@@ -1341,25 +951,14 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
   ipcMain.handle('sessions:get-json-messages', async (_event, sessionId: string) => {
     try {
       console.log(`[IPC] sessions:get-json-messages called for session: ${sessionId}`);
-      
-      // MIGRATION FIX: Check if session has Claude panels and use panel-based data retrieval
-      const jsonPanels = panelManager.getPanelsForSession(sessionId);
-      const jsonClaudePanels = jsonPanels.filter(p => p.type === 'claude');
-      
-      let outputs;
-      if (jsonClaudePanels.length > 0 && sessionManager.getPanelOutputs) {
-        // Use panel-based method for migrated sessions
-        console.log(`[IPC] Using panel-based output retrieval for JSON messages, session ${sessionId} with Claude panel ${jsonClaudePanels[0].id}`);
-        outputs = await sessionManager.getPanelOutputs(jsonClaudePanels[0].id);
-      } else {
-        // Use session-based method for non-migrated sessions
-        outputs = await sessionManager.getSessionOutputs(sessionId);
-      }
+
+      // Always use session-based output retrieval
+      const outputs = await sessionManager.getSessionOutputs(sessionId);
       console.log(`[IPC] Retrieved ${outputs.length} total outputs for session ${sessionId}`);
-      
+
       // Helper function to check if stdout/stderr contains git operation output
       const isGitOperation = (data: string): boolean => {
-        return data.includes('🔄 GIT OPERATION') || 
+        return data.includes('🔄 GIT OPERATION') ||
                data.includes('Successfully rebased') ||
                data.includes('Successfully squashed and rebased') ||
                data.includes('Successfully pulled latest changes') ||
@@ -1370,11 +969,11 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
                data.includes('Push failed:') ||
                data.includes('Aborted rebase successfully');
       };
-      
+
       // Filter to JSON messages, error messages, and git operation stdout/stderr messages
       const jsonMessages = outputs
-        .filter(output => 
-          output.type === 'json' || 
+        .filter(output =>
+          output.type === 'json' ||
           output.type === 'error' ||
           ((output.type === 'stdout' || output.type === 'stderr') && isGitOperation(output.data as string))
         )
@@ -1410,7 +1009,7 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
             } as Record<string, unknown>;
           }
         });
-      
+
       console.log(`[IPC] Found ${jsonMessages.length} messages (including git operations) for session ${sessionId}`);
       return { success: true, data: jsonMessages };
     } catch (error) {
@@ -1431,21 +1030,9 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
 
   ipcMain.handle('sessions:stop', async (_event, sessionId: string) => {
     try {
-      // Get Claude panels for this session and stop them
-      const stopPanels = panelManager.getPanelsForSession(sessionId);
-      const stopClaudePanels = stopPanels.filter(p => p.type === 'claude');
-      
-      if (stopClaudePanels.length > 0) {
-        // Stop all Claude panels for this session
-        console.log(`[IPC] Stopping ${stopClaudePanels.length} Claude panel(s) for session ${sessionId}`);
-        for (const claudePanel of stopClaudePanels) {
-          await claudeCodeManager.stopPanel(claudePanel.id);
-        }
-      } else {
-        // Fallback to session-based stop
-        console.log(`[IPC] No Claude panels found, stopping session ${sessionId} directly`);
-        await claudeCodeManager.stopSession(sessionId);
-      }
+      // Use session-based stop
+      console.log(`[IPC] Stopping session ${sessionId} via session-based method`);
+      await claudeCodeManager.stopSession(sessionId);
 
       const timestamp = new Date();
       const cancellationMessage = {
@@ -1458,38 +1045,17 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
       };
 
       try {
-        if (stopClaudePanels.length > 0 && sessionManager.addPanelOutput) {
-          for (const claudePanel of stopClaudePanels) {
-            sessionManager.addPanelOutput(claudePanel.id, {
-              type: 'json',
-              data: cancellationMessage,
-              timestamp
-            });
-
-            const payload = {
-              panelId: claudePanel.id,
-              sessionId,
-              type: 'json' as const,
-              data: cancellationMessage,
-              timestamp
-            };
-
-            sessionManager.emit('session-output', payload);
-            sessionManager.emit('session-output-available', { sessionId, panelId: claudePanel.id });
-          }
-        } else {
-          sessionManager.addSessionOutput(sessionId, {
-            type: 'json',
-            data: cancellationMessage,
-            timestamp
-          });
-        }
+        sessionManager.addSessionOutput(sessionId, {
+          type: 'json',
+          data: cancellationMessage,
+          timestamp
+        });
       } catch (loggingError) {
         console.warn('[IPC] Failed to record cancellation message for session stop:', loggingError);
       }
 
       sessionManager.stopSession(sessionId);
-      
+
       return { success: true };
     } catch (error) {
       console.error('Failed to stop session:', error);
@@ -1819,28 +1385,9 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
         }
       });
 
-      // MIGRATION FIX: Get prompt count and messages using appropriate method
-      const statsPanels = panelManager.getPanelsForSession(sessionId);
-      const statsClaudePanels = statsPanels.filter(p => p.type === 'claude');
-      
-      let promptMarkers, messageCount;
-      if (statsClaudePanels.length > 0) {
-        // Use panel-based methods for migrated sessions
-        const claudePanel = statsClaudePanels[0];
-        console.log(`[IPC] Using panel-based prompt/message counts for session ${sessionId} with Claude panel ${claudePanel.id}`);
-        
-        promptMarkers = databaseService.getPanelPromptMarkers ? 
-          databaseService.getPanelPromptMarkers(claudePanel.id) :
-          databaseService.getPromptMarkers(sessionId);
-          
-        messageCount = databaseService.getPanelConversationMessageCount ? 
-          databaseService.getPanelConversationMessageCount(claudePanel.id) :
-          databaseService.getConversationMessageCount(sessionId);
-      } else {
-        // Use session-based methods for non-migrated sessions
-        promptMarkers = databaseService.getPromptMarkers(sessionId);
-        messageCount = databaseService.getConversationMessageCount(sessionId);
-      }
+      // Always use session-based methods for statistics
+      const promptMarkers = databaseService.getPromptMarkers(sessionId);
+      const messageCount = databaseService.getConversationMessageCount(sessionId);
       
       // Get session outputs count by type
       const outputCounts = databaseService.getSessionOutputCounts(sessionId);

@@ -133,26 +133,8 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     async (type: ToolPanelType, options?: PanelCreateOptions) => {
       if (!mainRepoSessionId) return;
 
-      // For Codex panels, include the last selected model and thinking level in initial state
-      let initialState: { customState?: unknown } | undefined = undefined;
-      if (type === 'codex') {
-        const savedModel = localStorage.getItem('codex.lastSelectedModel');
-        const savedThinkingLevel = localStorage.getItem('codex.lastSelectedThinkingLevel');
-
-        initialState = {
-          customState: {
-            codexConfig: {
-              model: savedModel || 'auto',
-              modelProvider: 'openai',
-              thinkingLevel: savedThinkingLevel || 'medium',
-              sandboxMode: 'workspace-write',
-              webSearch: false
-            }
-          }
-        };
-      }
-
       // For terminal panels with initialCommand (e.g., Terminal (Claude))
+      let initialState: { customState?: unknown } | undefined = undefined;
       if (type === 'terminal' && options?.initialCommand) {
         initialState = {
           customState: {
@@ -176,28 +158,14 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     [mainRepoSessionId, addPanel, setActivePanelInStore]
   );
   
-  // Wrapped git operations
+  // Wrapped git operations - just call the handlers directly without navigating to a panel
   const handleGitPull = useCallback(() => {
-    // Find or create a Claude panel
-    const claudePanel = sessionPanels.find(p => p.type === 'claude');
-    if (claudePanel) {
-      handlePanelSelect(claudePanel);
-    } else {
-      handlePanelCreate('claude');
-    }
     onGitPull();
-  }, [onGitPull, sessionPanels, handlePanelSelect, handlePanelCreate]);
-  
+  }, [onGitPull]);
+
   const handleGitPush = useCallback(() => {
-    // Find or create a Claude panel
-    const claudePanel = sessionPanels.find(p => p.type === 'claude');
-    if (claudePanel) {
-      handlePanelSelect(claudePanel);
-    } else {
-      handlePanelCreate('claude');
-    }
     onGitPush();
-  }, [onGitPush, sessionPanels, handlePanelSelect, handlePanelCreate]);
+  }, [onGitPush]);
   
   // We don't need terminal handling or the hook for now, as panels handle their own terminals
   

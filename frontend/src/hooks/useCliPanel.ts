@@ -311,8 +311,8 @@ export function useCliPanel(
         const mockPanel: CliPanel = {
           id: panelId,
           sessionId: 'mock-session',
-          type: 'claude',
-          cliToolId: 'claude',
+          type: 'terminal',
+          cliToolId: 'generic-cli',
           title: 'CLI Panel',
           state: {
             isActive: true,
@@ -381,48 +381,6 @@ export function useCliPanel(
   useEffect(() => {
     // TODO: Set up proper event listener when API is available
     // This will be implemented once the panels API is ready
-    /*
-    if (!panel || !window.electron) return;
-
-    const handlePanelOutput = (_event: Electron.IpcRendererEvent, data: { panelId: string; sessionId: string; type: string; data: unknown; timestamp: Date; content?: string; metadata?: unknown }) => {
-      if (data.panelId !== panelId) return;
-
-      const newOutput: CliOutput = {
-        type: data.type || 'assistant',
-        content: data.content || data.data,
-        timestamp: data.timestamp || new Date().toISOString(),
-        metadata: data.metadata
-      };
-
-      setOutputs(prev => {
-        const updated = [...prev, newOutput].slice(-maxOutputs);
-        outputsRef.current = updated;
-        return updated;
-      });
-
-      // Update status based on output
-      if (data.type === 'error') {
-        setProcessStatus('error');
-      } else if (data.type === 'complete') {
-        setProcessStatus('stopped');
-      }
-
-      // Emit event
-      emitEvent({
-        type: 'output:received',
-        panelId,
-        cliToolId: 'claude',
-        data: newOutput,
-        timestamp: new Date().toISOString()
-      });
-    };
-
-    const cleanup = window.electron?.claudePanel?.onOutput(handlePanelOutput);
-    
-    return () => {
-      cleanup?.();
-    };
-    */
   }, [panel, panelId, maxOutputs, emitEvent]);
 
   return {

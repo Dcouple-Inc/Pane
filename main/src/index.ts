@@ -44,7 +44,7 @@ import { setupConsoleWrapper } from './utils/consoleWrapper';
 import * as fs from 'fs';
 import { terminalPanelManager } from './services/terminalPanelManager';
 import { panelManager } from './services/panelManager';
-import { TerminalPanelState, BaseAIPanelState } from '../../shared/types/panels';
+import { TerminalPanelState } from '../../shared/types/panels';
 
 export let mainWindow: BrowserWindow | null = null;
 
@@ -888,46 +888,7 @@ app.on('before-quit', async (event) => {
 
     logToFile(`Found ${interruptedPanels.size} session(s) with interrupted terminals`);
 
-    // Check CLI panels for existing agent session IDs
-    if (cliManagerFactory) {
-      const cliManagers = cliManagerFactory.getManager('claude');
-      if (cliManagers) {
-        // Get all CLI panels from all sessions
-        const allSessions = sessionManager ? sessionManager.getAllSessions() : [];
-        for (const session of allSessions) {
-          const panels = panelManager.getPanelsForSession(session.id);
-          for (const panel of panels) {
-            if (panel.type === 'claude') {
-              // Only mark Claude CLI panels — Codex doesn't support resume yet
-              const agentSessionId = sessionManager?.getPanelAgentSessionId(panel.id);
-              const customState = (panel.state?.customState || {}) as BaseAIPanelState;
-              const isActive = customState.panelStatus === 'running' || customState.panelStatus === 'waiting';
-              if (agentSessionId && isActive) {
-                // Update panel status to interrupted (only if it was actively running)
-                const state = panel.state;
-                const cs = (state.customState || {}) as BaseAIPanelState;
-                cs.panelStatus = 'interrupted';
-                state.customState = cs;
-
-                await panelManager.updatePanel(panel.id, { state });
-
-                // Track for session update
-                const existing = interruptedPanels.get(panel.sessionId);
-                if (existing) {
-                  existing.push(panel.id);
-                } else {
-                  interruptedPanels.set(panel.sessionId, [panel.id]);
-                }
-
-                console.log(`[Main] Marked ${panel.type} panel ${panel.id} as interrupted (agent session ID: ${agentSessionId})`);
-              }
-            }
-          }
-        }
-      }
-    }
-
-    console.log(`[Main] Graceful shutdown: found ${interruptedPanels.size} session(s) with interrupted Claude terminals`);
+    console.log(`[Main] Graceful shutdown: found ${interruptedPanels.size} session(s) with interrupted terminals`);
 
     // Phase 3: Mark sessions as interrupted in DB
     for (const [sessionId, panelIds] of interruptedPanels) {

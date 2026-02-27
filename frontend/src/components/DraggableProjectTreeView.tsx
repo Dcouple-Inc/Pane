@@ -22,7 +22,6 @@ import { Button } from './ui/Button';
 import { EnhancedInput } from './ui/EnhancedInput';
 import { FieldWithTooltip } from './ui/FieldWithTooltip';
 import { Card } from './ui/Card';
-import { getCodexModelConfig } from '../../../shared/types/models';
 
 interface ProjectWithSessions extends Project {
   sessions: Session[];
@@ -106,20 +105,13 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
     sessionId: string; // ID of session to archive after new session is created
     prompt: string;
     sessionName: string;
-    toolType: 'claude' | 'codex' | 'none';
+    toolType: 'claude' | 'none';
     baseBranch?: string;
     folderId?: string; // Folder to create the new session in
     claudeConfig?: {
       model?: 'auto' | 'sonnet' | 'opus' | 'haiku';
       permissionMode?: 'approve' | 'ignore';
       ultrathink?: boolean;
-    };
-    codexConfig?: {
-      model?: string;
-      modelProvider?: string;
-      sandboxMode?: 'read-only' | 'workspace-write' | 'danger-full-access';
-      webSearch?: boolean;
-      thinkingLevel?: 'low' | 'medium' | 'high';
     };
   } | null>(null);
   const [showProjectSettings, setShowProjectSettings] = useState(false);
@@ -617,15 +609,11 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
         sessionId: session.id,
         prompt: session.prompt || '',
         sessionName: session.name || '',
-        toolType: session.toolType || 'claude',
+        toolType: session.toolType === 'claude' ? 'claude' : 'none',
         baseBranch: session.baseBranch,
         folderId: folderId || session.folderId,
         claudeConfig: session.toolType === 'claude' ? {
           permissionMode: session.permissionMode
-        } : undefined,
-        codexConfig: session.toolType === 'codex' ? {
-          // Codex configs would need to be retrieved from panel settings
-          // For now, we'll use defaults
         } : undefined
       });
 
@@ -1139,11 +1127,11 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
         worktreeTemplate: 'untitled', // Simple name - backend will make it unique
         count: 1,
         permissionMode: 'ignore', // Use default permission mode
-        toolType: getCodexModelConfig(project.lastUsedModel || 'auto') ? 'codex' : 'claude',
+        toolType: 'claude',
         projectId: project.id,
         autoCommit: true,
         commitMode: 'checkpoint',
-        commitModeSettings: JSON.stringify({ 
+        commitModeSettings: JSON.stringify({
           mode: 'checkpoint',
           checkpointPrefix: 'checkpoint: '
         })

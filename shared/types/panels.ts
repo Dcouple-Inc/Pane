@@ -13,13 +13,13 @@ export interface ToolPanel {
   metadata: ToolPanelMetadata;   // Creation time, position, etc.
 }
 
-export type ToolPanelType = 'terminal' | 'claude' | 'codex' | 'diff' | 'explorer' | 'logs' | 'dashboard' | 'setup-tasks'; // Will expand later
+export type ToolPanelType = 'terminal' | 'diff' | 'explorer' | 'logs' | 'dashboard' | 'setup-tasks'; // Will expand later
 
 export interface ToolPanelState {
   isActive: boolean;
   isPinned?: boolean;
   hasBeenViewed?: boolean;       // Track if panel has ever been viewed
-  customState?: TerminalPanelState | ClaudePanelState | CodexPanelState | DiffPanelState | ExplorerPanelState | LogsPanelState | DashboardPanelState | SetupTasksPanelState | Record<string, unknown>;
+  customState?: TerminalPanelState | DiffPanelState | ExplorerPanelState | LogsPanelState | DashboardPanelState | SetupTasksPanelState | Record<string, unknown>;
 }
 
 export interface TerminalPanelState {
@@ -79,42 +79,6 @@ export interface BaseAIPanelState {
 
   // Generic agent session ID for resume functionality (used by all AI agents)
   agentSessionId?: string;        // The AI agent's session ID for resuming conversations
-
-  // Legacy fields for backward compatibility (will be migrated to agentSessionId)
-  /** @deprecated Use agentSessionId instead */
-  claudeSessionId?: string;
-  /** @deprecated Use agentSessionId instead */
-  codexSessionId?: string;
-  /** @deprecated Use agentSessionId instead */
-  claudeResumeId?: string;
-  /** @deprecated Use agentSessionId instead */
-  codexResumeId?: string;
-}
-
-export interface ClaudePanelState extends BaseAIPanelState {
-  // Claude-specific state
-  permissionMode?: 'approve' | 'ignore'; // Permission mode for Claude
-
-  // Automatic context tracking
-  contextUsage?: string | null;          // Latest context usage summary (e.g., "54k/200k tokens (27%)")
-  autoContextRunState?: 'idle' | 'running'; // Tracks whether an automatic /context run is in progress
-  lastAutoContextAt?: string;            // ISO timestamp of the most recent automatic context refresh
-}
-
-export interface CodexPanelState extends BaseAIPanelState {
-  // Codex-specific state
-  modelProvider?: string;        // Provider (openai, anthropic, etc.)
-  approvalPolicy?: 'auto' | 'manual'; // Approval policy for tool calls
-  sandboxMode?: 'read-only' | 'workspace-write' | 'danger-full-access'; // Sandbox mode
-  webSearch?: boolean;           // Whether web search is enabled
-  
-  // Settings to remember for new tabs
-  codexConfig?: {
-    model: string;
-    thinkingLevel: 'low' | 'medium' | 'high';
-    sandboxMode: 'read-only' | 'workspace-write' | 'danger-full-access';
-    webSearch: boolean;
-  };
 }
 
 export interface ExplorerPanelState {
@@ -175,7 +139,7 @@ export interface CreatePanelRequest {
   sessionId: string;
   type: ToolPanelType;
   title?: string;                // Optional custom title
-  initialState?: TerminalPanelState | ClaudePanelState | CodexPanelState | DiffPanelState | ExplorerPanelState | LogsPanelState | DashboardPanelState | SetupTasksPanelState | { customState?: unknown };
+  initialState?: TerminalPanelState | DiffPanelState | ExplorerPanelState | LogsPanelState | DashboardPanelState | SetupTasksPanelState | { customState?: unknown };
   metadata?: Partial<ToolPanelMetadata>; // Optional metadata overrides
 }
 
@@ -190,7 +154,7 @@ export interface ResumableSession {
   sessionName: string;
   panels: Array<{
     panelId: string;
-    panelType: 'terminal' | 'claude';
+    panelType: 'terminal';
     resumeId: string;
   }>;
 }
@@ -266,22 +230,6 @@ export const PANEL_CAPABILITIES: Record<ToolPanelType, PanelCapabilities> = {
     singleton: false,
     canAppearInProjects: true,       // Terminal can appear in projects
     canAppearInWorktrees: true       // Terminal can appear in worktrees
-  },
-  claude: {
-    canEmit: ['files:changed'], // Claude can change files through tool calls
-    canConsume: [], // Claude doesn't consume events in initial implementation
-    requiresProcess: true,
-    singleton: false,
-    canAppearInProjects: true,       // Claude can appear in projects
-    canAppearInWorktrees: true       // Claude can appear in worktrees
-  },
-  codex: {
-    canEmit: ['files:changed'], // Codex can change files through tool calls
-    canConsume: [], // Codex doesn't consume events in initial implementation
-    requiresProcess: true,
-    singleton: false,
-    canAppearInProjects: true,       // Codex can appear in projects
-    canAppearInWorktrees: true       // Codex can appear in worktrees
   },
   diff: {
     canEmit: ['diff:refreshed'],

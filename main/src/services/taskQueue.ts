@@ -9,9 +9,6 @@ import type { ExecutionTracker } from './executionTracker';
 import { formatForDisplay } from '../utils/timestampUtils';
 import * as os from 'os';
 import { panelManager } from './panelManager';
-import { getCodexModelConfig } from '../../../shared/types/models';
-import type { Session } from '../types/session';
-import type { ToolPanel } from '../../../shared/types/panels';
 import type { DatabaseService } from '../database/database';
 import type { Project } from '../database/models';
 
@@ -34,22 +31,9 @@ interface CreateSessionJob {
   folderId?: string;
   baseBranch?: string;
   autoCommit?: boolean;
-  toolType?: 'claude' | 'codex' | 'none';
+  toolType?: 'claude' | 'none';
   commitMode?: 'structured' | 'checkpoint' | 'disabled';
   commitModeSettings?: string; // JSON string of CommitModeSettings
-  codexConfig?: {
-    model?: string;
-    modelProvider?: string;
-    approvalPolicy?: 'auto' | 'manual';
-    sandboxMode?: 'read-only' | 'workspace-write' | 'danger-full-access';
-    webSearch?: boolean;
-    thinkingLevel?: 'low' | 'medium' | 'high';
-  };
-  claudeConfig?: {
-    model?: string;
-    permissionMode?: 'approve' | 'ignore';
-    ultrathink?: boolean;
-  };
 }
 
 interface ContinueSessionJob {
@@ -151,7 +135,7 @@ export class TaskQueue {
     const sessionConcurrency = isLinux ? 1 : 5;
     
     this.sessionQueue.process(sessionConcurrency, async (job) => {
-      const { prompt, worktreeTemplate, index, permissionMode, projectId, baseBranch, autoCommit, toolType, codexConfig, claudeConfig } = job.data;
+      const { prompt, worktreeTemplate, index, permissionMode, projectId, baseBranch, autoCommit, toolType } = job.data;
       const { sessionManager, worktreeManager, claudeCodeManager } = this.options;
 
       // Processing session creation job - verbose debug logging removed
@@ -234,16 +218,6 @@ export class TaskQueue {
           job.data.commitMode,
           job.data.commitModeSettings
         );
-        
-        // Attach codexConfig to the session object for the panel creation in events.ts
-        if (codexConfig) {
-          (session as Session & { codexConfig?: typeof codexConfig }).codexConfig = codexConfig;
-        }
-        
-        // Attach claudeConfig to the session object for the panel creation in events.ts
-        if (claudeConfig) {
-          (session as Session & { claudeConfig?: typeof claudeConfig }).claudeConfig = claudeConfig;
-        }
 
         // Only add prompt-related data if there's actually a prompt
         if (prompt && prompt.trim().length > 0) {
@@ -292,107 +266,20 @@ export class TaskQueue {
           console.log(`[TaskQueue] Build script completed. Success: ${buildResult.success}`);
         }
 
-        // Only start an AI panel if there's a prompt
+        // Only start Claude if there's a prompt
         if (prompt && prompt.trim().length > 0) {
-          const resolvedToolType: 'claude' | 'codex' | 'none' = toolType || 'claude';
+          const resolvedToolType: 'claude' | 'none' = toolType || 'claude';
 
-          if (resolvedToolType === 'codex') {
-            // Update status message
-            sessionManager.updateSessionStatus(session.id, 'initializing', 'Starting Codex...');
-
-            // Wait for the Codex panel to be created by the session-created event handler in events.ts
-            let codexPanel = null;
-            let attempts = 0;
-            const maxAttempts = 15;
-
-            while (!codexPanel && attempts < maxAttempts) {
-              await new Promise(resolve => setTimeout(resolve, 200));
-              const { panelManager } = require('./panelManager');
-              const existingPanels = panelManager.getPanelsForSession(session.id);
-              codexPanel = existingPanels.find((p: ToolPanel) => p.type === 'codex');
-              attempts++;
-            }
-
-            if (codexPanel) {
-              const { codexPanelManager } = require('../ipc/codexPanel');
-              if (codexPanelManager) {
-                try {
-                  // Record initial prompt in panel conversation history
-                  try {
-                    sessionManager.addPanelConversationMessage(codexPanel.id, 'user', prompt);
-                  } catch (e) {
-                    console.warn('[TaskQueue] Failed to add initial panel conversation message:', e);
-                  }
-
-                  await codexPanelManager.startPanel(
-                    codexPanel.id,
-                    session.worktreePath,
-                    prompt,
-                    codexConfig?.model,
-                    codexConfig?.modelProvider,
-                    codexConfig?.approvalPolicy,
-                    codexConfig?.sandboxMode,
-                    codexConfig?.webSearch,
-                    codexConfig?.thinkingLevel
-                  );
-                } catch (error) {
-                  console.error('[TaskQueue] Failed to start Codex via panel manager:', error);
-                  throw new Error(`Failed to start Codex panel: ${error}`);
-                }
-              } else {
-                console.error('[TaskQueue] CodexPanelManager not available, cannot start Codex');
-                throw new Error('Codex panel manager not available');
-              }
-            } else {
-              console.error(`[TaskQueue] No Codex panel found for session ${session.id} after ${maxAttempts} attempts`);
-              console.error('[TaskQueue] This indicates the panel creation failed in events.ts.');
-              throw new Error('No Codex panel found - cannot start Codex without a real panel ID');
-            }
-          } else if (resolvedToolType === 'claude') {
+          if (resolvedToolType === 'claude') {
             // Update status message
             sessionManager.updateSessionStatus(session.id, 'initializing', 'Starting Claude Code...');
 
-            // Wait for the Claude panel to be created by the session-created event handler in events.ts
-            let claudePanel = null;
-            let attempts = 0;
-            const maxAttempts = 15; // Increased attempts for better reliability
-
-            while (!claudePanel && attempts < maxAttempts) {
-              await new Promise(resolve => setTimeout(resolve, 200)); // Wait 200ms
-              const { panelManager } = require('./panelManager');
-              const existingPanels = panelManager.getPanelsForSession(session.id);
-              claudePanel = existingPanels.find((p: ToolPanel) => p.type === 'claude');
-              attempts++;
-            }
-
-            if (claudePanel) {
-              // Import the claude panel manager to start Claude properly
-              const { claudePanelManager } = require('../ipc/claudePanel');
-
-              if (claudePanelManager) {
-                try {
-                  // Record the initial prompt in panel conversation history
-                  try {
-                    sessionManager.addPanelConversationMessage(claudePanel.id, 'user', prompt);
-                  } catch (e) {
-                    console.warn('[TaskQueue] Failed to add initial panel conversation message:', e);
-                  }
-
-                  // Use the claude panel manager directly instead of calling IPC handlers
-                  // Model is now managed at panel level
-                  const modelToUse = claudeConfig?.model || 'auto';
-                  await claudePanelManager.startPanel(claudePanel.id, session.worktreePath, prompt, permissionMode, modelToUse);
-                } catch (error) {
-                  console.error(`[TaskQueue] Failed to start Claude via panel manager:`, error);
-                  throw new Error(`Failed to start Claude panel: ${error}`);
-                }
-              } else {
-                console.error(`[TaskQueue] ClaudePanelManager not available, cannot start with real panel ID`);
-                throw new Error('Claude panel manager not available');
-              }
-            } else {
-              console.error(`[TaskQueue] No Claude panel found for session ${session.id} after ${maxAttempts} attempts`);
-              throw new Error('No Claude panel found - cannot start Claude without a real panel ID');
+            // Use claudeCodeManager to start session directly (session-based, not panel-based)
+            try {
+              await claudeCodeManager.startSession(session.id, session.worktreePath, prompt, permissionMode);
+            } catch (error) {
+              console.error(`[TaskQueue] Failed to start Claude Code session:`, error);
+              throw new Error(`Failed to start Claude session: ${error}`);
             }
           } else if (resolvedToolType === 'none') {
             // No AI tool selected - update session status to stopped
@@ -412,7 +299,7 @@ export class TaskQueue {
           }
         } else {
           // No prompt provided - update session status to stopped if toolType is 'none'
-          const resolvedToolType: 'claude' | 'codex' | 'none' = toolType || 'claude';
+          const resolvedToolType: 'claude' | 'none' = toolType || 'claude';
           if (resolvedToolType === 'none') {
             console.log(`[TaskQueue] Session ${session.id} has no prompt and no AI tool, marking as stopped`);
             await sessionManager.updateSession(session.id, { status: 'stopped', statusMessage: undefined });
@@ -428,57 +315,26 @@ export class TaskQueue {
 
     this.inputQueue.process(10, async (job) => {
       const { sessionId, input } = job.data;
-      
-      // Find the Claude panel for this session
-      const { panelManager } = require('./panelManager');
-      const existingPanels = panelManager.getPanelsForSession(sessionId);
-      const claudePanel = existingPanels.find((p: ToolPanel) => p.type === 'claude');
-      
-      if (!claudePanel) {
-        throw new Error(`No Claude panel found for session ${sessionId}`);
-      }
+      const { claudeCodeManager } = this.options;
 
-      // Use the claude panel manager instead of the legacy session-based approach
-      const { claudePanelManager } = require('../ipc/claudePanel');
-      
-      if (!claudePanelManager) {
-        throw new Error('Claude panel manager not available');
-      }
-
-      claudePanelManager.sendInputToPanel(claudePanel.id, input);
+      // Use claudeCodeManager to send input directly (session-based)
+      claudeCodeManager.sendInput(sessionId, input);
     });
 
     this.continueQueue.process(10, async (job) => {
       const { sessionId, prompt } = job.data;
-      const { sessionManager } = this.options;
-      
+      const { sessionManager, claudeCodeManager } = this.options;
+
       const session = await sessionManager.getSession(sessionId);
       if (!session) {
         throw new Error(`Session ${sessionId} not found`);
       }
 
-      // Find the Claude panel for this session
-      const { panelManager } = require('./panelManager');
-      const existingPanels = panelManager.getPanelsForSession(sessionId);
-      const claudePanel = existingPanels.find((p: ToolPanel) => p.type === 'claude');
-      
-      if (!claudePanel) {
-        throw new Error(`No Claude panel found for session ${sessionId}`);
-      }
+      // Get conversation history using session-based method
+      const conversationHistory = await sessionManager.getConversationMessages(sessionId);
 
-      // Use the claude panel manager instead of the legacy session-based approach
-      const { claudePanelManager } = require('../ipc/claudePanel');
-      
-      if (!claudePanelManager) {
-        throw new Error('Claude panel manager not available');
-      }
-
-      // Get conversation history using panel-based method for Claude data
-      const conversationHistory = sessionManager.getPanelConversationMessages ? 
-        await sessionManager.getPanelConversationMessages(claudePanel.id) :
-        await sessionManager.getConversationMessages(sessionId);
-
-      await claudePanelManager.continuePanel(claudePanel.id, session.worktreePath, prompt, conversationHistory);
+      // Use claudeCodeManager to continue session directly (session-based)
+      await claudeCodeManager.continueSession(sessionId, session.worktreePath, prompt, conversationHistory);
     });
   }
 
@@ -495,22 +351,9 @@ export class TaskQueue {
     projectId?: number,
     baseBranch?: string,
     autoCommit?: boolean,
-    toolType?: 'claude' | 'codex' | 'none',
+    toolType?: 'claude' | 'none',
     commitMode?: 'structured' | 'checkpoint' | 'disabled',
     commitModeSettings?: string,
-    codexConfig?: {
-      model?: string;
-      modelProvider?: string;
-      approvalPolicy?: 'auto' | 'manual';
-      sandboxMode?: 'read-only' | 'workspace-write' | 'danger-full-access';
-      webSearch?: boolean;
-      thinkingLevel?: 'low' | 'medium' | 'high';
-    },
-    claudeConfig?: {
-      model?: string;
-      permissionMode?: 'approve' | 'ignore';
-      ultrathink?: boolean;
-    },
     providedFolderId?: string
   ): Promise<(Bull.Job<CreateSessionJob> | { id: string; data: CreateSessionJob; status: string })[]> {
     let folderId: string | undefined = providedFolderId;
@@ -563,7 +406,7 @@ export class TaskQueue {
     for (let i = 0; i < count; i++) {
       // Use the generated base name if no template was provided
       const templateToUse = worktreeTemplate || generatedBaseName || '';
-      jobs.push(this.sessionQueue.add({ prompt, worktreeTemplate: templateToUse, index: i, permissionMode, projectId, folderId, baseBranch, autoCommit, toolType, commitMode, commitModeSettings, codexConfig, claudeConfig }));
+      jobs.push(this.sessionQueue.add({ prompt, worktreeTemplate: templateToUse, index: i, permissionMode, projectId, folderId, baseBranch, autoCommit, toolType, commitMode, commitModeSettings }));
     }
     return Promise.all(jobs);
   }

@@ -72,17 +72,6 @@ interface UpdaterInfo {
   size?: number;
 }
 
-interface CodexPanelSettings {
-  model?: string;
-  modelProvider?: string;
-  approvalPolicy?: 'auto' | 'manual';
-  sandboxMode?: 'read-only' | 'workspace-write' | 'danger-full-access';
-  webSearch?: boolean;
-  thinkingLevel?: 'low' | 'medium' | 'high';
-  lastPrompt?: string;
-  lastActivityTime?: string;
-}
-
 // Increase max listeners for ipcRenderer to prevent warnings when many components listen to events
 ipcRenderer.setMaxListeners(50);
 
@@ -608,18 +597,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     continue: (panelId: string, input: string, model?: string): Promise<IPCResponse> => ipcRenderer.invoke('panels:continue', panelId, input, model),
   },
 
-  // Claude Panels - specific API for Claude panels
-  claudePanels: {
-    getModel: (panelId: string): Promise<IPCResponse> => ipcRenderer.invoke('claude-panels:get-model', panelId),
-    setModel: (panelId: string, model: string): Promise<IPCResponse> => ipcRenderer.invoke('claude-panels:set-model', panelId, model),
-  },
-
-  // Codex panel operations
-  codexPanels: {
-    getSettings: (panelId: string): Promise<IPCResponse> => ipcRenderer.invoke('codexPanel:get-settings', panelId),
-    setSettings: (panelId: string, settings: CodexPanelSettings): Promise<IPCResponse> => ipcRenderer.invoke('codexPanel:set-settings', panelId, settings),
-  },
-
   // Logs panel operations
   logs: {
     runScript: (sessionId: string, command: string, cwd: string): Promise<IPCResponse> => ipcRenderer.invoke('logs:runScript', sessionId, command, cwd),
@@ -678,11 +655,7 @@ contextBridge.exposeInMainWorld('electron', {
   invoke: (channel: string, ...args: unknown[]) => ipcRenderer.invoke(channel, ...args),
   on: (channel: string, callback: (...args: unknown[]) => void) => {
     const validChannels = [
-      'permission:request',
-      'codexPanel:output',
-      'codexPanel:spawned',
-      'codexPanel:exit',
-      'codexPanel:error'
+      'permission:request'
     ];
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, (_event, ...args) => callback(...args));
@@ -690,11 +663,7 @@ contextBridge.exposeInMainWorld('electron', {
   },
   off: (channel: string, callback: (...args: unknown[]) => void) => {
     const validChannels = [
-      'permission:request',
-      'codexPanel:output',
-      'codexPanel:spawned',
-      'codexPanel:exit',
-      'codexPanel:error'
+      'permission:request'
     ];
     if (validChannels.includes(channel)) {
       ipcRenderer.removeListener(channel, callback);

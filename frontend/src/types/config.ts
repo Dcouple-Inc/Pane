@@ -24,22 +24,14 @@ export interface AppConfig {
   devMode?: boolean;
   sessionCreationPreferences?: {
     sessionCount?: number;
-    toolType?: 'claude' | 'codex' | 'none';
+    toolType?: 'claude' | 'none';
     selectedTools?: {
       claude?: boolean;
-      codex?: boolean;
     };
     claudeConfig?: {
       model?: 'auto' | 'sonnet' | 'opus' | 'haiku';
       permissionMode?: 'ignore' | 'approve';
       ultrathink?: boolean;
-    };
-    codexConfig?: {
-      model?: string;
-      modelProvider?: string;
-      approvalPolicy?: 'auto' | 'manual';
-      sandboxMode?: 'read-only' | 'workspace-write' | 'danger-full-access';
-      webSearch?: boolean;
     };
     showAdvanced?: boolean;
     baseBranch?: string;

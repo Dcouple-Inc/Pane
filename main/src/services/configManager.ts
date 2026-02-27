@@ -39,20 +39,12 @@ export class ConfigManager extends EventEmitter {
         sessionCount: 1,
         toolType: 'none',
         selectedTools: {
-          claude: false,
-          codex: false
+          claude: false
         },
         claudeConfig: {
           model: 'auto',
           permissionMode: 'ignore',
           ultrathink: false
-        },
-        codexConfig: {
-          model: 'gpt-5',
-          modelProvider: 'openai',
-          approvalPolicy: 'auto',
-          sandboxMode: 'workspace-write',
-          webSearch: false
         },
         showAdvanced: false,
         commitModeSettings: {
@@ -95,10 +87,6 @@ export class ConfigManager extends EventEmitter {
           claudeConfig: {
             ...this.config.sessionCreationPreferences?.claudeConfig,
             ...loadedConfig.sessionCreationPreferences?.claudeConfig
-          },
-          codexConfig: {
-            ...this.config.sessionCreationPreferences?.codexConfig,
-            ...loadedConfig.sessionCreationPreferences?.codexConfig
           },
           commitModeSettings: {
             ...this.config.sessionCreationPreferences?.commitModeSettings,
@@ -258,20 +246,12 @@ export class ConfigManager extends EventEmitter {
       sessionCount: 1,
       toolType: 'none',
       selectedTools: {
-        claude: false,
-        codex: false
+        claude: false
       },
       claudeConfig: {
         model: 'auto',
         permissionMode: 'ignore',
         ultrathink: false
-      },
-      codexConfig: {
-        model: 'gpt-5',
-        modelProvider: 'openai',
-        approvalPolicy: 'auto',
-        sandboxMode: 'workspace-write',
-        webSearch: false
       },
       showAdvanced: false,
       commitModeSettings: {

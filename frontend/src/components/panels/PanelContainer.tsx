@@ -1,7 +1,6 @@
 import React, { Suspense, lazy, useMemo } from 'react';
 import { PanelContainerProps } from '../../types/panelComponents';
 import { ErrorBoundary } from 'react-error-boundary';
-import { CliPanelFactory } from './cli/CliPanelFactory';
 import { PanelLoadingFallback } from './PanelLoadingFallback';
 import { renderLog } from '../../utils/console';
 
@@ -43,13 +42,7 @@ export const PanelContainer: React.FC<PanelContainerProps> = React.memo(({
   const panelComponent = useMemo(() => {
     renderLog('[PanelContainer] Creating component for panel type:', panel.type);
 
-    // CLI panel types (including Claude and Codex) use the CLI panel factory
-    const cliPanelTypes = ['claude', 'codex', 'aider', 'continue', 'cursor', 'generic-cli'];
-    if (cliPanelTypes.includes(panel.type)) {
-      return <CliPanelFactory panel={panel} isActive={isActive} />;
-    }
-
-    // Non-CLI panel types use direct components
+    // Panel type rendering
     switch (panel.type) {
       case 'terminal':
         return <TerminalPanel panel={panel} isActive={isActive} />;
