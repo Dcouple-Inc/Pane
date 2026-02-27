@@ -530,8 +530,6 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
           setNewProject({ name: '', path: '', buildScript: '', runScript: '' });
           setDetectedBranch(null);
           setShowValidationErrors(false);
-          setGenerateRunScript(true);
-          setSelectedAiTool('claude');
         }}
         size="lg"
       >
@@ -619,8 +617,6 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
               setNewProject({ name: '', path: '', buildScript: '', runScript: '' });
               setDetectedBranch(null);
               setShowValidationErrors(false);
-              setGenerateRunScript(true);
-              setSelectedAiTool('claude');
             }}
             variant="ghost"
             size="md"
