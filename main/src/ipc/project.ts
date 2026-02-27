@@ -514,28 +514,28 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
               })
           );
 
-        // Log when all refreshes complete (in background)
+        // After all git status refreshes complete, enrich with PR data
         Promise.allSettled(refreshPromises).then(results => {
           const refreshedCount = results.filter(result => result.status === 'fulfilled').length;
           console.log(`[Main] Background refresh completed: ${refreshedCount}/${sessionCount} sessions`);
-        });
 
-        // Also refresh PR data for each session (fire-and-forget)
-        const wslCtx = getWSLContextFromProject(project);
-        for (const session of sessionsToRefresh) {
-          if (!session.worktreePath) continue;
-          const branchName = session.worktreePath.replace(/\\/g, '/').split('/').pop();
-          if (!branchName) continue;
-          fetchPrForSession(branchName, project.path, wslCtx).then(prData => {
-            if (prData.prNumber !== undefined) {
-              const currentStatus = gitStatusManager.getCachedStatus(session.id)?.status;
-              if (currentStatus) {
-                const enrichedStatus = { ...currentStatus, prNumber: prData.prNumber, prUrl: prData.prUrl, prTitle: prData.prTitle, prState: prData.prState };
-                gitStatusManager.emit('git-status-updated', session.id, enrichedStatus);
+          // Now refresh PR data for each session (sequenced after git status)
+          const wslCtx = getWSLContextFromProject(project);
+          for (const session of sessionsToRefresh) {
+            if (!session.worktreePath) continue;
+            const branchName = session.worktreePath.replace(/\\/g, '/').split('/').pop();
+            if (!branchName) continue;
+            fetchPrForSession(branchName, project.path, wslCtx).then(prData => {
+              if (prData.prNumber !== undefined) {
+                const currentStatus = gitStatusManager.getCachedStatus(session.id)?.status;
+                if (currentStatus) {
+                  const enrichedStatus = { ...currentStatus, prNumber: prData.prNumber, prUrl: prData.prUrl, prTitle: prData.prTitle, prState: prData.prState };
+                  gitStatusManager.emit('git-status-updated', session.id, enrichedStatus);
+                }
               }
-            }
-          }).catch(() => { /* PR enrichment is best-effort */ });
-        }
+            }).catch(() => { /* PR enrichment is best-effort */ });
+          }
+        });
       });
 
       // Return immediately with the count of sessions that will be refreshed
