@@ -32,6 +32,12 @@ import { Modal, ModalHeader, ModalBody, ModalFooter } from './ui/Modal';
 import { CollapsibleCard } from './ui/CollapsibleCard';
 import { SettingsSection } from './ui/SettingsSection';
 
+interface IPCResponse<T = unknown> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
+
 interface SettingsProps {
   isOpen: boolean;
   onClose: () => void;
@@ -50,6 +56,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
   const [platform, setPlatform] = useState<string>('darwin');
   const [enableCommitFooter, setEnableCommitFooter] = useState(true);
   const [disableAutoContext, setDisableAutoContext] = useState(false);
+  const [autoRenameToPR, setAutoRenameToPR] = useState<boolean>(true);
   const [uiScale, setUiScale] = useState(1.0);
   const [notificationSettings, setNotificationSettings] = useState({
     enabled: true,
@@ -86,6 +93,18 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
         setPlatform(p);
         fetchConfig(p);
       });
+
+      const loadAutoRename = async () => {
+        try {
+          const result = await window.electron?.invoke('preferences:get', 'auto_rename_sessions_to_pr') as IPCResponse<string>;
+          if (result?.data !== undefined && result?.data !== null) {
+            setAutoRenameToPR(result.data !== 'false');
+          }
+        } catch (error) {
+          console.error('Failed to load auto-rename preference:', error);
+        }
+      };
+      loadAutoRename();
     }
   }, [isOpen]);
 
@@ -148,6 +167,15 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
       }
     } catch (err) {
       setError('Failed to load configuration');
+    }
+  };
+
+  const handleAutoRenameToggle = async (checked: boolean) => {
+    setAutoRenameToPR(checked);
+    try {
+      await window.electron?.invoke('preferences:set', 'auto_rename_sessions_to_pr', checked ? 'true' : 'false');
+    } catch (error) {
+      console.error('Failed to save auto-rename preference:', error);
     }
   };
 
@@ -470,6 +498,21 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                 />
                 <p className="text-xs text-text-tertiary mt-1">
                   When enabled, commits made through foozol will include a footer crediting foozol. This helps others know you're using foozol for AI-powered development.
+                </p>
+              </SettingsSection>
+
+              <SettingsSection
+                title="Auto-rename Sessions to PR Title"
+                description="Automatically rename sessions when a pull request is detected"
+                icon={<FileText className="w-4 h-4" />}
+              >
+                <Checkbox
+                  label="Auto-rename sessions to PR title"
+                  checked={autoRenameToPR}
+                  onChange={(e) => handleAutoRenameToggle(e.target.checked)}
+                />
+                <p className="text-xs text-text-tertiary mt-1">
+                  When a PR is detected for a session, automatically rename it to the PR title.
                 </p>
               </SettingsSection>
 

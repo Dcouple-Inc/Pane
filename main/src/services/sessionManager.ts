@@ -246,7 +246,8 @@ export class SessionManager extends EventEmitter {
       baseCommit: dbSession.base_commit,
       baseBranch: dbSession.base_branch,
       commitMode: dbSession.commit_mode,
-      commitModeSettings: dbSession.commit_mode_settings
+      commitModeSettings: dbSession.commit_mode_settings,
+      pr_renamed: !!dbSession.pr_renamed
     };
   }
 

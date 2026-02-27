@@ -69,6 +69,7 @@ export interface Session {
   commit_mode?: "structured" | "checkpoint" | "disabled";
   commit_mode_settings?: string; // JSON string of CommitModeSettings
   skip_continue_next?: boolean;
+  pr_renamed?: boolean;
 }
 
 export interface SessionOutput {
@@ -122,6 +123,7 @@ export interface UpdateSessionData {
   commit_mode?: "structured" | "checkpoint" | "disabled";
   commit_mode_settings?: string; // JSON string of CommitModeSettings
   skip_continue_next?: boolean;
+  pr_renamed?: boolean;
 }
 
 export interface PromptMarker {

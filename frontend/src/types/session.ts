@@ -129,6 +129,8 @@ export interface GitStatus {
   // PR information (fetched lazily from GitHub)
   prNumber?: number;
   prUrl?: string;
+  prTitle?: string;
+  prState?: string; // 'OPEN' | 'MERGED' | 'CLOSED'
 }
 
 export interface CreateSessionRequest {

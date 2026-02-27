@@ -4,6 +4,7 @@ import type { CreateProjectRequest, UpdateProjectRequest } from '../../../fronte
 import { scriptExecutionTracker } from '../services/scriptExecutionTracker';
 import { panelManager } from '../services/panelManager';
 import { parseWSLPath, wrapCommandForWSL, validateWSLAvailable } from '../utils/wslUtils';
+import { invalidatePrCache } from './git';
 
 // Helper function to stop a running project script
 async function stopProjectScriptInternal(projectId?: number): Promise<{ success: boolean; error?: string }> {
@@ -485,6 +486,9 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
       if (!project) {
         return { success: false, error: 'Project not found' };
       }
+
+      // Invalidate PR cache for this project so fresh data is fetched
+      invalidatePrCache(project.path);
 
       // Get all sessions for this project
       const sessions = await sessionManager.getAllSessions();

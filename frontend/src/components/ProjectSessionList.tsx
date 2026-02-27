@@ -909,7 +909,19 @@ function SessionRow({
           {branch && <span className="truncate max-w-[120px]">{branch}</span>}
           {branch && (gs?.prNumber || statusText) && <span className="flex-shrink-0">·</span>}
           {gs?.prNumber && (
-            <span className="text-text-secondary flex-shrink-0">#{gs.prNumber}</span>
+            <span className="text-text-secondary flex-shrink-0 flex items-center gap-1">
+              {gs.prState && (
+                <span
+                  className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                    gs.prState === 'MERGED' ? 'bg-purple-400' :
+                    gs.prState === 'CLOSED' ? 'bg-red-400' :
+                    'bg-green-400'
+                  }`}
+                  title={`PR ${gs.prState?.toLowerCase()}`}
+                />
+              )}
+              #{gs.prNumber}
+            </span>
           )}
           {gs?.prNumber && statusText && <span className="flex-shrink-0">·</span>}
           {statusText && (
