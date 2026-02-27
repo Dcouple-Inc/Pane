@@ -1,5 +1,5 @@
 #!/bin/bash
-# foozol Cloud Setup — Interactive CLI
+# Pane Cloud Setup — Interactive CLI
 # Guides you through provisioning a secure GCP VM with IAP-only access.
 #
 # Prerequisites: gcloud CLI, terraform CLI, bash
@@ -14,7 +14,7 @@ if [ -z "$BASH_VERSION" ]; then
   echo "  On macOS/Linux:  bash cloud/scripts/setup-cloud.sh"
   echo "  On Windows:      Open Git Bash, then run the command above"
   echo ""
-  echo "If you're using foozol's built-in terminal, set your shell to"
+  echo "If you're using Pane's built-in terminal, set your shell to"
   echo "Git Bash in Settings > Preferred Shell."
   echo ""
   exit 1
@@ -83,9 +83,9 @@ for arg in "$@"; do
 done
 
 # ============================================================
-# Detect WSL and get correct foozol config path
+# Detect WSL and get correct Pane config path
 # ============================================================
-get_foozol_config_path() {
+get_pane_config_path() {
   # Check if running in WSL
   if grep -qi microsoft /proc/version 2>/dev/null; then
     # Running in WSL - get Windows username and use Windows home dir
@@ -94,29 +94,29 @@ get_foozol_config_path() {
     if [ -n "$win_user" ]; then
       local win_home="/mnt/c/Users/${win_user}"
       if [ -d "$win_home" ]; then
-        echo "${win_home}/.foozol/config.json"
+        echo "${win_home}/.pane/config.json"
         return
       fi
     fi
   fi
   # Default: use $HOME (native Linux/macOS or Git Bash on Windows)
-  echo "$HOME/.foozol/config.json"
+  echo "$HOME/.pane/config.json"
 }
 
-get_foozol_config_dir() {
+get_pane_config_dir() {
   local config_path
-  config_path=$(get_foozol_config_path)
+  config_path=$(get_pane_config_path)
   dirname "$config_path"
 }
 
 # Set config path early so it's available throughout the script
-FOOZOL_CONFIG=$(get_foozol_config_path)
-FOOZOL_CONFIG_DIR=$(get_foozol_config_dir)
+PANE_CONFIG=$(get_pane_config_path)
+PANE_CONFIG_DIR=$(get_pane_config_dir)
 
 # ============================================================
 # Incremental config save function
 # ============================================================
-# Saves current cloud config to foozol config file as we go
+# Saves current cloud config to Pane config file as we go
 # This ensures partial progress is preserved if setup fails
 save_cloud_config() {
   local project_id="${1:-}"
@@ -131,11 +131,11 @@ save_cloud_config() {
   fi
 
   # Ensure config directory exists
-  mkdir -p "$FOOZOL_CONFIG_DIR"
+  mkdir -p "$PANE_CONFIG_DIR"
 
   # Create config file if it doesn't exist
-  if [ ! -f "$FOOZOL_CONFIG" ]; then
-    echo '{}' > "$FOOZOL_CONFIG"
+  if [ ! -f "$PANE_CONFIG" ]; then
+    echo '{}' > "$PANE_CONFIG"
   fi
 
   # Extract region from zone
@@ -146,7 +146,7 @@ save_cloud_config() {
 
   # Update config with current values (only non-empty ones)
   # Use canonical key names (projectId, zone) to match what the app reads
-  local tmp_config="${FOOZOL_CONFIG}.tmp"
+  local tmp_config="${PANE_CONFIG}.tmp"
   jq --arg provider "gcp" \
      --arg projectId "$project_id" \
      --arg zone "$zone" \
@@ -162,7 +162,7 @@ save_cloud_config() {
       | if $vncPassword != "" then .cloud.vncPassword = $vncPassword else . end
       | .cloud.tunnelPort = $tunnelPort
       | .cloud.serverIp = ""' \
-     "$FOOZOL_CONFIG" > "$tmp_config" && mv "$tmp_config" "$FOOZOL_CONFIG"
+     "$PANE_CONFIG" > "$tmp_config" && mv "$tmp_config" "$PANE_CONFIG"
 }
 
 # ============================================================
@@ -336,8 +336,8 @@ install_jq() {
 # Destroy mode handler
 # ============================================================
 if [ "$DESTROY_MODE" = true ]; then
-  header "foozol Cloud Destroy"
-  echo -e "This will destroy your foozol Cloud VM and clean up GCP resources.\n"
+  header "Pane Cloud Destroy"
+  echo -e "This will destroy your Pane Cloud VM and clean up GCP resources.\n"
 
   warn "This action is irreversible!"
   echo ""
@@ -347,9 +347,9 @@ if [ "$DESTROY_MODE" = true ]; then
     info "No terraform state found. Nothing to destroy."
     info "Clearing local config..."
 
-    # Clear cloud config from foozol config
-    if [ -f "$FOOZOL_CONFIG" ] && command -v jq &>/dev/null; then
-      jq 'del(.cloud)' "$FOOZOL_CONFIG" > "${FOOZOL_CONFIG}.tmp" && mv "${FOOZOL_CONFIG}.tmp" "$FOOZOL_CONFIG"
+    # Clear cloud config from Pane config
+    if [ -f "$PANE_CONFIG" ] && command -v jq &>/dev/null; then
+      jq 'del(.cloud)' "$PANE_CONFIG" > "${PANE_CONFIG}.tmp" && mv "${PANE_CONFIG}.tmp" "$PANE_CONFIG"
       success "Local cloud config cleared."
     fi
     exit 0
@@ -382,8 +382,8 @@ if [ "$DESTROY_MODE" = true ]; then
 
   # Clear local config
   info "Clearing local cloud config..."
-  if [ -f "$FOOZOL_CONFIG" ] && command -v jq &>/dev/null; then
-    jq 'del(.cloud)' "$FOOZOL_CONFIG" > "${FOOZOL_CONFIG}.tmp" && mv "${FOOZOL_CONFIG}.tmp" "$FOOZOL_CONFIG"
+  if [ -f "$PANE_CONFIG" ] && command -v jq &>/dev/null; then
+    jq 'del(.cloud)' "$PANE_CONFIG" > "${PANE_CONFIG}.tmp" && mv "${PANE_CONFIG}.tmp" "$PANE_CONFIG"
     success "Local cloud config cleared."
   fi
 
@@ -399,12 +399,12 @@ fi
 # ============================================================
 # Step 0: Check prerequisites
 # ============================================================
-header "foozol Cloud Setup"
-echo -e "This script will guide you through setting up a secure foozol Cloud VM"
+header "Pane Cloud Setup"
+echo -e "This script will guide you through setting up a secure Pane Cloud VM"
 echo -e "on Google Cloud Platform with IAP-only access (no public IP).\n"
 
 info "Detected platform: ${BOLD}${PLATFORM}${NC}"
-info "Config will be saved to: ${FOOZOL_CONFIG}"
+info "Config will be saved to: ${PANE_CONFIG}"
 echo ""
 
 info "Checking prerequisites..."
@@ -454,7 +454,7 @@ if [ -f "${TERRAFORM_DIR}/terraform.tfstate" ]; then
   INSTANCE_NAME=$(terraform -chdir="$TERRAFORM_DIR" output -raw instance_name 2>/dev/null || echo "")
 
   if [ -n "$INSTANCE_NAME" ]; then
-    header "foozol Cloud — Connect Mode"
+    header "Pane Cloud — Connect Mode"
     info "Existing deployment detected. Entering connect mode."
     echo ""
 
@@ -561,7 +561,7 @@ if [ -f "${TERRAFORM_DIR}/terraform.tfstate" ]; then
           --zone="$GCP_ZONE" \
           --project="$PROJECT_ID" \
           --tunnel-through-iap \
-          --command="cat /home/foozol/.vnc_password 2>/dev/null" \
+          --command="cat /home/Pane/.vnc_password 2>/dev/null" \
           2>/dev/null || echo "")
 
         if [ -n "$VNC_PASSWORD" ]; then
@@ -579,19 +579,19 @@ if [ -f "${TERRAFORM_DIR}/terraform.tfstate" ]; then
     else
       warn "Could not retrieve VNC password."
       warn "You can get it later with:"
-      echo "  gcloud compute ssh ${INSTANCE_NAME} --zone=${GCP_ZONE} --project=${PROJECT_ID} --tunnel-through-iap --command='cat /home/foozol/.vnc_password'"
+      echo "  gcloud compute ssh ${INSTANCE_NAME} --zone=${GCP_ZONE} --project=${PROJECT_ID} --tunnel-through-iap --command='cat /home/Pane/.vnc_password'"
     fi
     echo ""
 
-    # Step 5: Update foozol config
-    info "Updating foozol config..."
-    mkdir -p "$FOOZOL_CONFIG_DIR"
+    # Step 5: Update Pane config
+    info "Updating Pane config..."
+    mkdir -p "$PANE_CONFIG_DIR"
 
     if command -v jq &>/dev/null; then
       # Read existing config or start with empty object
       EXISTING_CONFIG='{}'
-      if [ -f "$FOOZOL_CONFIG" ]; then
-        EXISTING_CONFIG=$(cat "$FOOZOL_CONFIG" 2>/dev/null || echo '{}')
+      if [ -f "$PANE_CONFIG" ]; then
+        EXISTING_CONFIG=$(cat "$PANE_CONFIG" 2>/dev/null || echo '{}')
       fi
 
       # Update config using jq and capture to variable (avoids Windows path issues with temp files)
@@ -613,8 +613,8 @@ if [ -f "${TERRAFORM_DIR}/terraform.tfstate" ]; then
           }')
 
       if [ -n "$NEW_CONFIG" ] && [ "$NEW_CONFIG" != "null" ]; then
-        printf '%s\n' "$NEW_CONFIG" > "$FOOZOL_CONFIG"
-        success "Config updated: ${FOOZOL_CONFIG}"
+        printf '%s\n' "$NEW_CONFIG" > "$PANE_CONFIG"
+        success "Config updated: ${PANE_CONFIG}"
       else
         warn "jq produced empty output — config not updated."
       fi
@@ -627,22 +627,22 @@ if [ -f "${TERRAFORM_DIR}/terraform.tfstate" ]; then
     header "Starting IAP Tunnel"
 
     echo -e "The tunnel will connect your local port ${BOLD}${TUNNEL_PORT}${NC} to the VM."
-    echo -e "Once connected, open foozol and click the ${BOLD}Cloud${NC} button to view your VM."
+    echo -e "Once connected, open Pane and click the ${BOLD}Cloud${NC} button to view your VM."
     echo ""
     echo -e "${YELLOW}Press Ctrl+C to disconnect the tunnel.${NC}"
     echo ""
 
     # Update config to indicate tunnel is starting
-    if [ -f "$FOOZOL_CONFIG" ] && command -v jq &>/dev/null; then
-      jq '.cloud.tunnelStatus = "running"' "$FOOZOL_CONFIG" > "${FOOZOL_CONFIG}.tmp" \
-        && mv "${FOOZOL_CONFIG}.tmp" "$FOOZOL_CONFIG"
+    if [ -f "$PANE_CONFIG" ] && command -v jq &>/dev/null; then
+      jq '.cloud.tunnelStatus = "running"' "$PANE_CONFIG" > "${PANE_CONFIG}.tmp" \
+        && mv "${PANE_CONFIG}.tmp" "$PANE_CONFIG"
     fi
 
     # Set trap to update config when tunnel exits
     cleanup_tunnel() {
-      if [ -f "$FOOZOL_CONFIG" ] && command -v jq &>/dev/null; then
-        jq '.cloud.tunnelStatus = "off"' "$FOOZOL_CONFIG" > "${FOOZOL_CONFIG}.tmp" \
-          && mv "${FOOZOL_CONFIG}.tmp" "$FOOZOL_CONFIG"
+      if [ -f "$PANE_CONFIG" ] && command -v jq &>/dev/null; then
+        jq '.cloud.tunnelStatus = "off"' "$PANE_CONFIG" > "${PANE_CONFIG}.tmp" \
+          && mv "${PANE_CONFIG}.tmp" "$PANE_CONFIG"
       fi
       exit 0
     }
@@ -691,7 +691,7 @@ fi
 # ============================================================
 header "Step 2: GCP Project"
 
-echo -e "foozol Cloud will create an isolated GCP project for your VM.\n"
+echo -e "Pane Cloud will create an isolated GCP project for your VM.\n"
 
 prompt_input USER_ID "Enter a unique user ID (used in resource names, e.g. your-name)" ""
 
@@ -702,7 +702,7 @@ done
 
 # Sanitize: lowercase, alphanumeric + hyphens only, strip carriage returns (WSL fix)
 USER_ID=$(echo "$USER_ID" | tr -d '\r' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')
-PROJECT_ID="foozol-cloud-${USER_ID}"
+PROJECT_ID="pane-cloud-${USER_ID}"
 
 info "Project ID will be: ${BOLD}${PROJECT_ID}${NC}"
 
@@ -816,7 +816,7 @@ header "Step 6: Provisioning Infrastructure"
 
 if [ ! -d "$TERRAFORM_DIR" ]; then
   error "Terraform directory not found at: ${TERRAFORM_DIR}"
-  error "Make sure you're running this from the foozol repo root."
+  error "Make sure you're running this from the Pane repo root."
   exit 1
 fi
 
@@ -853,7 +853,7 @@ success "Config saved with all VM details."
 # ============================================================
 header "Step 7: Waiting for VM Setup"
 
-info "The VM is running the setup script (installs packages, Node.js, foozol, etc.)"
+info "The VM is running the setup script (installs packages, Node.js, Pane, etc.)"
 info "This typically takes 3-5 minutes on a fresh VM.\n"
 
 # Poll for setup completion by checking if supervisor is running
@@ -889,19 +889,19 @@ if [ $ELAPSED -ge $MAX_WAIT ]; then
 fi
 
 # ============================================================
-# Step 8: Configure foozol
+# Step 8: Configure Pane
 # ============================================================
-header "Step 8: Configuring foozol"
+header "Step 8: Configuring Pane"
 
-# FOOZOL_CONFIG is set at script start (handles WSL → Windows path)
-mkdir -p "$FOOZOL_CONFIG_DIR"
+# PANE_CONFIG is set at script start (handles WSL → Windows path)
+mkdir -p "$PANE_CONFIG_DIR"
 
 # Get GCP access token for API calls
 GCP_TOKEN=$(gcloud auth print-access-token 2>/dev/null || echo "")
 TUNNEL_PORT=8080
 
 if command -v jq &>/dev/null; then
-  if [ -f "$FOOZOL_CONFIG" ]; then
+  if [ -f "$PANE_CONFIG" ]; then
     # Merge cloud settings into existing config
     jq --arg provider "gcp" \
        --arg token "$GCP_TOKEN" \
@@ -918,8 +918,8 @@ if command -v jq &>/dev/null; then
           projectId: $projectId,
           zone: $zone,
           tunnelPort: $port
-        }' "$FOOZOL_CONFIG" > "${FOOZOL_CONFIG}.tmp" \
-      && mv "${FOOZOL_CONFIG}.tmp" "$FOOZOL_CONFIG"
+        }' "$PANE_CONFIG" > "${PANE_CONFIG}.tmp" \
+      && mv "${PANE_CONFIG}.tmp" "$PANE_CONFIG"
   else
     # Create new config with cloud settings
     echo '{}' | jq --arg provider "gcp" \
@@ -937,14 +937,14 @@ if command -v jq &>/dev/null; then
           projectId: $projectId,
           zone: $zone,
           tunnelPort: $port
-        }' > "$FOOZOL_CONFIG"
+        }' > "$PANE_CONFIG"
   fi
-  success "foozol configured with cloud settings."
-  info "Settings written to ${FOOZOL_CONFIG}"
-  info "Note: The GCP access token expires in ~1 hour. foozol auto-refreshes it via gcloud."
+  success "Pane configured with cloud settings."
+  info "Settings written to ${PANE_CONFIG}"
+  info "Note: The GCP access token expires in ~1 hour. Pane auto-refreshes it via gcloud."
 else
-  warn "jq not installed — skipping automatic foozol config."
-  warn "You can install jq and re-run this script, or configure cloud settings manually in foozol Settings."
+  warn "jq not installed — skipping automatic Pane config."
+  warn "You can install jq and re-run this script, or configure cloud settings manually in Pane Settings."
 fi
 
 # ============================================================
@@ -952,7 +952,7 @@ fi
 # ============================================================
 header "Setup Complete!"
 
-echo -e "${GREEN}${BOLD}Your foozol Cloud VM is ready!${NC}\n"
+echo -e "${GREEN}${BOLD}Your Pane Cloud VM is ready!${NC}\n"
 
 echo -e "${BOLD}Connect to your VM:${NC}"
 echo ""
@@ -972,7 +972,7 @@ echo ""
 echo -e "${BOLD}First-time setup inside the VM:${NC}"
 echo -e "  1. ${BOLD}gh auth login${NC}    — Authenticate GitHub"
 echo -e "  2. ${BOLD}claude login${NC}     — Authenticate Claude Code"
-echo -e "  3. Set API keys in foozol Settings"
+echo -e "  3. Set API keys in Pane Settings"
 echo ""
 
 echo -e "${BOLD}Cost management:${NC}"

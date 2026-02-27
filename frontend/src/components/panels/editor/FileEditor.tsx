@@ -606,7 +606,7 @@ export function FileEditor({
     defaultWidth: initialState?.fileTreeWidth || 256,  // Use saved width or default
     minWidth: 200,
     maxWidth: 400,
-    storageKey: 'foozol-file-tree-width',
+    storageKey: 'pane-file-tree-width',
     onResize: handleTreeResize
   });
   

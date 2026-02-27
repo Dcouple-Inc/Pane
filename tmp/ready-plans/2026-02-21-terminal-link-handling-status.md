@@ -40,7 +40,7 @@
 **Status:** Stub only (TODO)
 **Issue:** Editor panel integration not implemented. The button exists but does nothing.
 **What's needed:**
-- Integration with foozol's Editor panel system
+- Integration with Pane's Editor panel system
 - File path resolution to open at correct line number
 - Panel creation/switching logic
 **Effort:** Medium-High - requires understanding the panel system and editor integration
@@ -87,5 +87,5 @@
 ---
 
 ## PR Status
-- **PR #16**: https://github.com/parsakhaz/foozol/pull/16
+- **PR #16**: https://github.com/Dcouple-Inc/Pane/pull/16
 - Ready for merge with current working features

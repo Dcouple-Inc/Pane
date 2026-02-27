@@ -1,8 +1,8 @@
 {
-  "name": "foozol",
+  "name": "Pane",
   "version": "0.0.2",
   "private": true,
-  "description": "foozol - Terminal-first AI code assistant manager with Windows support",
+  "description": "Pane - Terminal-first AI code assistant manager with Windows support",
   "author": {
     "name": "Dcouple Inc",
     "email": "hello@dcouple.ai",
@@ -24,7 +24,7 @@
     ]
   },
   "scripts": {
-    "dev": "node scripts/foozol-run-script.js",
+    "dev": "node scripts/pane-run-script.js",
     "electron-dev": "pnpm run build:main && concurrently \"pnpm run --filter main dev\" \"pnpm run --filter frontend dev\" \"wait-on http-get://localhost:${VITE_PORT:-${PORT:-4521}} && electron .\"",
     "electron-dev:custom": "concurrently \"pnpm run --filter frontend dev\" \"wait-on http-get://localhost:${VITE_PORT:-${PORT:-4521}} && electron .\"",
     "build": "pnpm run build:frontend && pnpm run build:main && pnpm run build:electron",
@@ -96,8 +96,8 @@
     "wait-on": "^9.0.0"
   },
   "build": {
-    "appId": "com.stravu.foozol",
-    "productName": "foozol",
+    "appId": "com.dcouple.pane",
+    "productName": "Pane",
     "directories": {
       "output": "dist-electron"
     },
@@ -161,10 +161,10 @@
       "icon": "main/assets/icon.png",
       "desktop": {
         "entry": {
-          "Name": "foozol",
+          "Name": "Pane",
           "Comment": "Claude Code Commander for managing multiple Claude Code instances",
           "Categories": "Development;IDE;",
-          "StartupWMClass": "foozol"
+          "StartupWMClass": "Pane"
         }
       }
     },
@@ -186,7 +186,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "foozol"
+      "shortcutName": "Pane"
     },
     "deb": {
       "depends": [

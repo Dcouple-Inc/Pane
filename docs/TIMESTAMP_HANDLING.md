@@ -4,7 +4,7 @@
 
 ## Overview
 
-foozol uses timestamps throughout the application for tracking session activity, prompt execution times, and displaying time-based information. Due to the mix of SQLite database storage and JavaScript Date objects, special care must be taken to ensure timezone consistency.
+Pane uses timestamps throughout the application for tracking session activity, prompt execution times, and displaying time-based information. Due to the mix of SQLite database storage and JavaScript Date objects, special care must be taken to ensure timezone consistency.
 
 ## Key Principles
 
@@ -21,7 +21,7 @@ foozol uses timestamps throughout the application for tracking session activity,
 
 ## Utility Functions
 
-foozol provides timestamp utilities in both frontend and backend:
+Pane provides timestamp utilities in both frontend and backend:
 
 ### Backend (`main/src/utils/timestampUtils.ts`)
 

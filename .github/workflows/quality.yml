@@ -117,7 +117,7 @@ jobs:
       run: |
         export DISPLAY=:99
         # Using minimal test suite until permission tests are fixed
-        # See: https://github.com/parsakhaz/foozol/issues/XXX
+        # See: https://github.com/Dcouple-Inc/Pane/issues/XXX
         pnpm test:ci:minimal
       env:
         CI: true

@@ -1,7 +1,7 @@
 /**
  * Generate Electron app icons from SVG source
  *
- * Converts foozol-logo.svg to:
+ * Converts pane-logo.svg to:
  * - icon.png (1024x1024 for Linux)
  * - icon.ico (Windows - multiple sizes)
  * - icon.icns (macOS - multiple sizes)
@@ -21,7 +21,7 @@ async function generateIcons() {
   // Accept a source image path as argument, or fall back to defaults
   const argSource = process.argv[2];
   const defaultPng = path.join(__dirname, '../frontend/src/assets/pane-logo.png');
-  const defaultSvg = path.join(__dirname, '../frontend/src/assets/foozol-logo.svg');
+  const defaultSvg = path.join(__dirname, '../frontend/src/assets/pane-logo.svg');
   const sourcePath = argSource
     ? path.resolve(argSource)
     : fs.existsSync(defaultPng) ? defaultPng : defaultSvg;

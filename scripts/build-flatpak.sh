@@ -5,7 +5,7 @@
 
 set -e
 
-echo "Building Flatpak package for foozol..."
+echo "Building Flatpak package for Pane..."
 
 # Check if flatpak-builder is installed
 if ! command -v flatpak-builder &> /dev/null; then
@@ -15,7 +15,7 @@ if ! command -v flatpak-builder &> /dev/null; then
 fi
 
 # Check if AppImage exists
-APPIMAGE=$(ls dist-electron/foozol-*-x64.AppImage 2>/dev/null | head -n1)
+APPIMAGE=$(ls dist-electron/pane-*-x64.AppImage 2>/dev/null | head -n1)
 if [ -z "$APPIMAGE" ]; then
     echo "Error: No AppImage found in dist-electron/"
     echo "Please build the AppImage first with: pnpm run build:linux"
@@ -29,23 +29,23 @@ echo "Installing Flatpak runtime and SDK..."
 flatpak install -y flathub org.freedesktop.Platform//23.08 org.freedesktop.Sdk//23.08 org.electronjs.Electron2.BaseApp//23.08 || true
 
 # Update the manifest with the actual AppImage path
-sed -i "s|path: dist-electron/foozol-\*.AppImage|path: $APPIMAGE|" com.dcouple.foozol.yml
+sed -i "s|path: dist-electron/pane-\*.AppImage|path: $APPIMAGE|" com.dcouple.pane.yml
 
 # Build the Flatpak
 echo "Building Flatpak..."
-flatpak-builder --force-clean --repo=repo build-dir com.dcouple.foozol.yml
+flatpak-builder --force-clean --repo=repo build-dir com.dcouple.pane.yml
 
 # Create a single-file bundle
 echo "Creating Flatpak bundle..."
-flatpak build-bundle repo foozol.flatpak com.dcouple.foozol
+flatpak build-bundle repo pane.flatpak com.dcouple.pane
 
 # Restore the manifest
-git checkout com.dcouple.foozol.yml
+git checkout com.dcouple.pane.yml
 
-echo "Flatpak bundle created: foozol.flatpak"
+echo "Flatpak bundle created: pane.flatpak"
 echo ""
 echo "To install locally:"
-echo "  flatpak install foozol.flatpak"
+echo "  flatpak install pane.flatpak"
 echo ""
 echo "To run:"
-echo "  flatpak run com.dcouple.foozol"
+echo "  flatpak run com.dcouple.pane"

@@ -4,14 +4,14 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * Generate optimized NOTICES file for foozol application
+ * Generate optimized NOTICES file for Pane application
  * This script collects third-party licenses that require attribution and groups them by license type
  */
 
 const NOTICES_HEADER = `THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
 ============================================
 
-foozol includes third-party software components. The following notices and license terms apply to various components distributed with foozol.
+Pane includes third-party software components. The following notices and license terms apply to various components distributed with Pane.
 
 This file includes only packages with licenses that require attribution. Public domain and no-attribution licenses (0BSD, WTFPL, Unlicense) have been excluded.
 
@@ -373,15 +373,15 @@ function generateNotices() {
     totalPackages += packages.length;
   }
   
-  // Add foozol's own license
-  const foozolPackageJson = require('../package.json');
+  // Add Pane's own license
+  const panePackageJson = require('../package.json');
   notices += `================================================================================\n`;
-  notices += `## FOOZOL LICENSE\n`;
+  notices += `## PANE LICENSE\n`;
   notices += `================================================================================\n\n`;
-  notices += `Package: foozol\n`;
-  notices += `Version: ${foozolPackageJson.version}\n`;
-  notices += `Author: ${foozolPackageJson.author}\n`;
-  notices += `License: ${foozolPackageJson.license}\n`;
+  notices += `Package: Pane\n`;
+  notices += `Version: ${panePackageJson.version}\n`;
+  notices += `Author: ${panePackageJson.author}\n`;
+  notices += `License: ${panePackageJson.license}\n`;
   notices += `\n${fs.readFileSync(path.join(__dirname, '..', 'LICENSE'), 'utf8')}\n`;
   
   return { notices, totalPackages: totalPackages + 1 };

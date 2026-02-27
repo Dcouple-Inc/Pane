@@ -54,7 +54,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               Something went wrong
             </h2>
             <p className="text-text-secondary mb-6">
-              foozol encountered an unexpected error and needs to reload.
+              Pane encountered an unexpected error and needs to reload.
             </p>
 
             {/* Error details */}

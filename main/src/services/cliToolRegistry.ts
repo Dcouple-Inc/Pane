@@ -167,7 +167,7 @@ export interface ToolDiscoveryResult {
 }
 
 /**
- * Central registry for managing CLI tools in foozol
+ * Central registry for managing CLI tools in Pane
  * 
  * This singleton class manages the registration, discovery, and instantiation
  * of CLI tools (Claude, Aider, Continue, etc.) providing a unified interface

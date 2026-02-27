@@ -294,17 +294,17 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
         // Stage all changes
         await execAsync('git add -A', { cwd: session.worktreePath });
 
-        // Check if foozol footer is enabled (default: true)
+        // Check if Pane footer is enabled (default: true)
         const config = configManager.getConfig();
         const enableCommitFooter = config?.enableCommitFooter !== false;
 
-        // Create the commit with foozol signature if enabled
+        // Create the commit with Pane signature if enabled
         const commitMessage = enableCommitFooter ? `${request.message}
 
 Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
 
         // Use a temporary file to handle commit messages with special characters
-        const tmpFile = path.join(os.tmpdir(), `foozol-commit-${Date.now()}.txt`);
+        const tmpFile = path.join(os.tmpdir(), `pane-commit-${Date.now()}.txt`);
         try {
           await fs.writeFile(tmpFile, commitMessage, 'utf-8');
           await execAsync(`git commit -F ${tmpFile}`, { cwd: session.worktreePath, env: { ...process.env, ...GIT_ATTRIBUTION_ENV } });
@@ -331,7 +331,7 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
           try {
             await execAsync('git add -A', { cwd: session.worktreePath });
             
-            // Check if foozol footer is enabled (default: true)
+            // Check if Pane footer is enabled (default: true)
             const config = configManager.getConfig();
             const enableCommitFooter = config?.enableCommitFooter !== false;
             
@@ -340,7 +340,7 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
 Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
 
             // Use a temporary file for retry as well
-            const tmpFile = path.join(os.tmpdir(), `foozol-commit-retry-${Date.now()}.txt`);
+            const tmpFile = path.join(os.tmpdir(), `pane-commit-retry-${Date.now()}.txt`);
             try {
               await fs.writeFile(tmpFile, retryMessage, 'utf-8');
               await execAsync(`git commit -F ${tmpFile}`, { cwd: session.worktreePath, env: { ...process.env, ...GIT_ATTRIBUTION_ENV } });

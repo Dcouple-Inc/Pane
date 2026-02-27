@@ -1,23 +1,23 @@
 #!/bin/bash
-# foozol Cloud VM Setup Script
+# Pane Cloud VM Setup Script
 # Installs all dependencies and configures the noVNC display stack
 # Run on a fresh Ubuntu 24.04 VM as root
 #
-# Usage: sudo bash setup-vm.sh [--foozol-version VERSION]
+# Usage: sudo bash setup-vm.sh [--pane-version VERSION]
 
 set -eo pipefail
 
 # Ensure full PATH — GCP startup scripts run with minimal PATH
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-FOOZOL_VERSION="${1:-latest}"
+PANE_VERSION="${1:-latest}"
 DISPLAY_NUM=99
 RESOLUTION="1920x1080x24"
 VNC_PORT=5900
 NOVNC_PORT=6080
-FOOZOL_USER="foozol"
+PANE_USER="Pane"
 
-echo "=== foozol Cloud VM Setup ==="
+echo "=== Pane Cloud VM Setup ==="
 echo "Display: :${DISPLAY_NUM} @ ${RESOLUTION}"
 echo "VNC port: ${VNC_PORT}"
 echo "noVNC port: ${NOVNC_PORT}"
@@ -127,69 +127,69 @@ fi
 echo "  Done."
 
 # ============================================================
-# 5. Install foozol
+# 5. Install Pane
 # ============================================================
-echo "[5/9] Installing foozol..."
+echo "[5/9] Installing Pane..."
 ARCH=$(dpkg --print-architecture)
-if [ ! -f /usr/bin/foozol ]; then
-  # Download the latest foozol AppImage from GitHub Releases
-  RELEASE_URL=$(curl -fsSL https://api.github.com/repos/parsakhaz/foozol/releases/latest \
-    | jq -r ".assets[] | select(.name | test(\"foozol.*${ARCH}.*\\\\.AppImage$\")) | .browser_download_url" \
+if [ ! -f /usr/bin/Pane ]; then
+  # Download the latest Pane AppImage from GitHub Releases
+  RELEASE_URL=$(curl -fsSL https://api.github.com/repos/parsakhaz/Pane/releases/latest \
+    | jq -r ".assets[] | select(.name | test(\"Pane.*${ARCH}.*\\\\.AppImage$\")) | .browser_download_url" \
     | head -1)
 
   if [ -n "${RELEASE_URL}" ] && [ "${RELEASE_URL}" != "null" ]; then
     echo "  Downloading from ${RELEASE_URL}..."
-    curl -fsSL -o /usr/bin/foozol "${RELEASE_URL}"
-    chmod +x /usr/bin/foozol
+    curl -fsSL -o /usr/bin/Pane "${RELEASE_URL}"
+    chmod +x /usr/bin/Pane
   else
     # Fallback: try .deb package
-    DEB_URL=$(curl -fsSL https://api.github.com/repos/parsakhaz/foozol/releases/latest \
-      | jq -r ".assets[] | select(.name | test(\"foozol.*${ARCH}.*\\\\.deb$\")) | .browser_download_url" \
+    DEB_URL=$(curl -fsSL https://api.github.com/repos/parsakhaz/Pane/releases/latest \
+      | jq -r ".assets[] | select(.name | test(\"Pane.*${ARCH}.*\\\\.deb$\")) | .browser_download_url" \
       | head -1)
 
     if [ -n "${DEB_URL}" ] && [ "${DEB_URL}" != "null" ]; then
       echo "  Downloading .deb from ${DEB_URL}..."
-      curl -fsSL -o /tmp/foozol.deb "${DEB_URL}"
-      dpkg -i /tmp/foozol.deb || apt-get install -f -y -qq > /dev/null
-      rm -f /tmp/foozol.deb
+      curl -fsSL -o /tmp/Pane.deb "${DEB_URL}"
+      dpkg -i /tmp/Pane.deb || apt-get install -f -y -qq > /dev/null
+      rm -f /tmp/Pane.deb
     else
-      echo "  WARNING: No foozol release found for ${ARCH}. The foozol supervisor process will not start."
-      echo "  Install foozol manually and place the binary at /usr/bin/foozol"
+      echo "  WARNING: No Pane release found for ${ARCH}. The Pane supervisor process will not start."
+      echo "  Install Pane manually and place the binary at /usr/bin/Pane"
     fi
   fi
 fi
 echo "  Done."
 
 # ============================================================
-# 6. Create foozol user
+# 6. Create Pane user
 # ============================================================
-echo "[6/9] Setting up foozol user..."
-if ! id "${FOOZOL_USER}" &>/dev/null; then
-  useradd -m -s /bin/bash "${FOOZOL_USER}"
+echo "[6/9] Setting up Pane user..."
+if ! id "${PANE_USER}" &>/dev/null; then
+  useradd -m -s /bin/bash "${PANE_USER}"
 fi
 
 # Create standard directories
-sudo -u "${FOOZOL_USER}" mkdir -p \
-  "/home/${FOOZOL_USER}/.foozol" \
-  "/home/${FOOZOL_USER}/.claude" \
-  "/home/${FOOZOL_USER}/.config/gh" \
-  "/home/${FOOZOL_USER}/.ssh" \
-  "/home/${FOOZOL_USER}/projects"
+sudo -u "${PANE_USER}" mkdir -p \
+  "/home/${PANE_USER}/.pane" \
+  "/home/${PANE_USER}/.claude" \
+  "/home/${PANE_USER}/.config/gh" \
+  "/home/${PANE_USER}/.ssh" \
+  "/home/${PANE_USER}/projects"
 
-echo "  User: ${FOOZOL_USER}"
+echo "  User: ${PANE_USER}"
 
 # Configure fluxbox for clean kiosk-like experience
-FLUXBOX_DIR="/home/${FOOZOL_USER}/.fluxbox"
-sudo -u "${FOOZOL_USER}" mkdir -p "${FLUXBOX_DIR}"
+FLUXBOX_DIR="/home/${PANE_USER}/.fluxbox"
+sudo -u "${PANE_USER}" mkdir -p "${FLUXBOX_DIR}"
 
-# Remove title bar from foozol/Electron windows
+# Remove title bar from Pane/Electron windows
 # Match on both name and class since Electron apps may vary
 cat > "${FLUXBOX_DIR}/apps" << 'FLUXBOX_APPS_EOF'
-[app] (name=foozol)
+[app] (name=Pane)
   [Deco] {NONE}
   [Maximized] {yes}
 [end]
-[app] (class=foozol)
+[app] (class=Pane)
   [Deco] {NONE}
   [Maximized] {yes}
 [end]
@@ -198,7 +198,7 @@ cat > "${FLUXBOX_DIR}/apps" << 'FLUXBOX_APPS_EOF'
   [Maximized] {yes}
 [end]
 FLUXBOX_APPS_EOF
-chown "${FOOZOL_USER}:${FOOZOL_USER}" "${FLUXBOX_DIR}/apps"
+chown "${PANE_USER}:${PANE_USER}" "${FLUXBOX_DIR}/apps"
 
 # Hide the toolbar completely - must clear tools and set visible false
 # See: https://forums.linuxmint.com/viewtopic.php?t=40637
@@ -208,7 +208,7 @@ session.screen0.toolbar.tools:
 session.screen0.workspaces: 1
 session.screen0.workspacewarping: false
 FLUXBOX_INIT_EOF
-chown "${FOOZOL_USER}:${FOOZOL_USER}" "${FLUXBOX_DIR}/init"
+chown "${PANE_USER}:${PANE_USER}" "${FLUXBOX_DIR}/init"
 
 echo "  Fluxbox configured (no title bar, no toolbar)"
 
@@ -216,7 +216,7 @@ echo "  Fluxbox configured (no title bar, no toolbar)"
 # 7. Get or generate VNC password
 # ============================================================
 echo "[7/9] Setting up VNC password..."
-VNC_PASSWORD_FILE="/home/${FOOZOL_USER}/.vnc_password"
+VNC_PASSWORD_FILE="/home/${PANE_USER}/.vnc_password"
 
 # Try to get VNC password from instance metadata (set by Terraform)
 VNC_PASSWORD=$(curl -sf -H "Metadata-Flavor: Google" \
@@ -232,7 +232,7 @@ fi
 
 echo "${VNC_PASSWORD}" > "${VNC_PASSWORD_FILE}"
 chmod 600 "${VNC_PASSWORD_FILE}"
-chown "${FOOZOL_USER}:${FOOZOL_USER}" "${VNC_PASSWORD_FILE}"
+chown "${PANE_USER}:${PANE_USER}" "${VNC_PASSWORD_FILE}"
 echo "  VNC password saved to ${VNC_PASSWORD_FILE}"
 
 # ============================================================
@@ -240,9 +240,9 @@ echo "  VNC password saved to ${VNC_PASSWORD_FILE}"
 # ============================================================
 echo "[8/9] Configuring supervisord..."
 
-cat > /etc/supervisor/conf.d/foozol-stack.conf << SUPERVISOR_EOF
+cat > /etc/supervisor/conf.d/pane-stack.conf << SUPERVISOR_EOF
 ; =============================================================
-; foozol Cloud Display Stack
+; Pane Cloud Display Stack
 ; =============================================================
 
 [program:xvfb]
@@ -257,20 +257,20 @@ command=/usr/bin/fluxbox
 priority=20
 autorestart=true
 environment=DISPLAY=":99"
-user=foozol
+user=Pane
 stdout_logfile=/var/log/supervisor/fluxbox.log
 stderr_logfile=/var/log/supervisor/fluxbox-error.log
 
-[program:foozol]
-command=/usr/bin/foozol --no-sandbox --start-fullscreen
+[program:Pane]
+command=/usr/bin/Pane --no-sandbox --start-fullscreen
 priority=30
 autorestart=true
-environment=DISPLAY=":99",HOME="/home/foozol",XDG_RUNTIME_DIR="/run/user/1000"
-user=foozol
-directory=/home/foozol
-stdout_logfile=/var/log/supervisor/foozol.log
-stderr_logfile=/var/log/supervisor/foozol-error.log
-; Give foozol time to start before considering it failed
+environment=DISPLAY=":99",HOME="/home/Pane",XDG_RUNTIME_DIR="/run/user/1000"
+user=Pane
+directory=/home/Pane
+stdout_logfile=/var/log/supervisor/Pane.log
+stderr_logfile=/var/log/supervisor/pane-error.log
+; Give Pane time to start before considering it failed
 startsecs=5
 ; Restart up to 5 times if it crashes
 startretries=5
@@ -279,7 +279,7 @@ startretries=5
 command=/usr/bin/x11vnc -display :99 -passwd ${VNC_PASSWORD} -forever -shared -rfbport 5900 -localhost -noxdamage -cursor arrow -noxfixes
 priority=40
 autorestart=true
-user=foozol
+user=Pane
 stdout_logfile=/var/log/supervisor/x11vnc.log
 stderr_logfile=/var/log/supervisor/x11vnc-error.log
 
@@ -290,8 +290,8 @@ autorestart=true
 stdout_logfile=/var/log/supervisor/websockify.log
 stderr_logfile=/var/log/supervisor/websockify-error.log
 
-[group:foozol-cloud]
-programs=xvfb,fluxbox,foozol,x11vnc,websockify
+[group:pane-cloud]
+programs=xvfb,fluxbox,Pane,x11vnc,websockify
 priority=999
 SUPERVISOR_EOF
 
@@ -302,8 +302,8 @@ echo "  Done."
 # ============================================================
 echo "[9/9] Configuring NGINX..."
 
-cat > /etc/nginx/sites-available/foozol-cloud << 'NGINX_EOF'
-# foozol Cloud - NGINX reverse proxy for noVNC
+cat > /etc/nginx/sites-available/pane-cloud << 'NGINX_EOF'
+# Pane Cloud - NGINX reverse proxy for noVNC
 # TLS will be configured by certbot after domain is set up
 
 server {
@@ -344,7 +344,7 @@ server {
 NGINX_EOF
 
 # Enable the site
-ln -sf /etc/nginx/sites-available/foozol-cloud /etc/nginx/sites-enabled/foozol-cloud
+ln -sf /etc/nginx/sites-available/pane-cloud /etc/nginx/sites-enabled/pane-cloud
 rm -f /etc/nginx/sites-enabled/default
 
 # Test NGINX config
@@ -356,9 +356,9 @@ echo "  Done."
 # Final setup
 # ============================================================
 
-# Create XDG runtime directory for foozol user
+# Create XDG runtime directory for Pane user
 mkdir -p /run/user/1000
-chown "${FOOZOL_USER}:${FOOZOL_USER}" /run/user/1000
+chown "${PANE_USER}:${PANE_USER}" /run/user/1000
 
 # Enable and start services
 systemctl enable supervisor
@@ -378,5 +378,5 @@ echo ""
 echo "First-run auth (do this in the noVNC session):"
 echo "  1. gh auth login    (GitHub)"
 echo "  2. claude login     (Claude Code)"
-echo "  3. Set API keys in foozol Settings"
+echo "  3. Set API keys in Pane Settings"
 echo ""

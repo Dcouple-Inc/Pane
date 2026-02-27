@@ -97,11 +97,11 @@ export class CommitManager extends EventEmitter {
 
       const fullMessage = prefix + commitMessage;
 
-      // Check if foozol footer is enabled (default: true)
+      // Check if Pane footer is enabled (default: true)
       const config = this.configManager?.getConfig();
       const enableCommitFooter = config?.enableCommitFooter !== false;
 
-      // Build commit command with foozol footer if enabled
+      // Build commit command with Pane footer if enabled
       const commitCommand = buildGitCommitCommand(fullMessage, enableCommitFooter) + ' --no-verify';
       const result = execSync(commitCommand, { cwd: worktreePath, encoding: 'utf8' });
 

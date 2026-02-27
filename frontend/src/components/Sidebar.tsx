@@ -4,7 +4,7 @@ import { CreateSessionDialog } from './CreateSessionDialog';
 import { ProjectSessionList, ArchivedSessions } from './ProjectSessionList';
 import { ArchiveProgress } from './ArchiveProgress';
 import { Info, Clock, Check, Edit, CircleArrowDown, AlertTriangle, GitMerge, ArrowUpDown, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Settings as SettingsIcon, Plus, RefreshCw } from 'lucide-react';
-import foozolLogo from '../assets/foozol-logo.svg';
+import paneLogo from '../assets/pane-logo.svg';
 import { IconButton } from './ui/Button';
 import { Modal, ModalHeader, ModalBody } from './ui/Modal';
 import { Dropdown } from './ui/Dropdown';
@@ -144,7 +144,7 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSet
           <div className="h-3 flex-shrink-0" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties} />
           {/* Logo */}
           <div className="flex items-center justify-center px-1 py-2 border-b border-border-primary">
-            <img src={foozolLogo} alt="foozol" className="h-6 w-6" />
+            <img src={paneLogo} alt="Pane" className="h-6 w-6" />
           </div>
 
           {/* Project selector */}
@@ -265,8 +265,8 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSet
         </div>
         <div className="px-3 py-2 border-b border-border-primary flex items-center justify-between overflow-hidden">
           <div className="flex items-center space-x-2 min-w-0">
-            <img src={foozolLogo} alt="foozol" className="h-6 w-6 flex-shrink-0" />
-            <h1 className="text-xl font-bold truncate">foozol</h1>
+            <img src={paneLogo} alt="Pane" className="h-6 w-6 flex-shrink-0" />
+            <h1 className="text-xl font-bold truncate">Pane</h1>
           </div>
           <div className="flex items-center space-x-2 flex-shrink-0">
             {onToggleCollapse && (

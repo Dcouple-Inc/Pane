@@ -382,7 +382,7 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       // Stage all changes
       gitExecSync('git add -A', session.worktreePath, wslContext);
 
-      // Create the commit with foozol's signature using safe escaping
+      // Create the commit with Pane's signature using safe escaping
       const commitCommand = buildGitCommitCommand(message);
 
       try {

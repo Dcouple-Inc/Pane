@@ -15,7 +15,7 @@ export class MCPPermissionServer {
   constructor(sessionId: string) {
     this.sessionId = sessionId;
     this.server = new Server({
-      name: 'foozol-permissions',
+      name: 'pane-permissions',
       version: '1.0.0'
     }, {
       capabilities: {

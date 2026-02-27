@@ -1,6 +1,6 @@
 # Feature Usage Tracking Integration Guide
 
-This document provides guidance on integrating the remaining feature usage tracking events into foozol's frontend.
+This document provides guidance on integrating the remaining feature usage tracking events into Pane's frontend.
 
 ## Overview
 
@@ -310,7 +310,7 @@ type AnalyticsEventData =
 
 After implementing the above tracking:
 
-1. **Enable analytics** in foozol settings
+1. **Enable analytics** in Pane settings
 2. **Configure PostHog API key** in settings
 3. **Use the features** that trigger the events:
    - Press keyboard shortcuts

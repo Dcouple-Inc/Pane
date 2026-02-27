@@ -1,6 +1,6 @@
 import React from 'react';
 import { BarChart3 } from 'lucide-react';
-import foozolLogo from '../assets/foozol-logo.svg';
+import paneLogo from '../assets/pane-logo.svg';
 import { Modal, ModalBody, ModalFooter } from './ui/Modal';
 import { Button } from './ui/Button';
 import { useConfigStore } from '../stores/configStore';
@@ -77,8 +77,8 @@ export default function AnalyticsConsentDialog({ isOpen, onClose }: AnalyticsCon
       {/* Header */}
       <div className="p-6 border-b border-border-primary">
         <div className="flex items-center">
-          <img src={foozolLogo} alt="foozol" className="h-10 w-10 mr-3" />
-          <h1 className="text-lg font-semibold text-text-primary">Help Improve foozol</h1>
+          <img src={paneLogo} alt="Pane" className="h-10 w-10 mr-3" />
+          <h1 className="text-lg font-semibold text-text-primary">Help Improve Pane</h1>
         </div>
       </div>
 
@@ -91,7 +91,7 @@ export default function AnalyticsConsentDialog({ isOpen, onClose }: AnalyticsCon
                 We do not collect any code, prompts, or identifying information.
               </p>
               <p className="text-text-secondary">
-                Your data helps us make foozol better. You can change this anytime in Settings.
+                Your data helps us make Pane better. You can change this anytime in Settings.
               </p>
             </div>
           </div>

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Release script for foozol
+ * Release script for Pane
  *
  * IMPORTANT: Before running this script, make sure to merge main into release:
  *   git checkout release
@@ -70,4 +70,4 @@ execSync('git push origin HEAD', { cwd: rootDir, stdio: 'inherit' });
 execSync(`git push origin v${cleanVersion}`, { cwd: rootDir, stdio: 'inherit' });
 
 console.log(`\nRelease v${cleanVersion} triggered!`);
-console.log('Watch progress at: https://github.com/parsakhaz/foozol/actions');
+console.log('Watch progress at: https://github.com/Dcouple-Inc/Pane/actions');

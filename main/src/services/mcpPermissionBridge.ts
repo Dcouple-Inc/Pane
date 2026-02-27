@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 // This is the MCP permission bridge that runs as a subprocess
-// It communicates with the main foozol process via IPC
+// It communicates with the main Pane process via IPC
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -91,7 +91,7 @@ async function main() {
   await new Promise(resolve => setTimeout(resolve, 100));
   
   const server = new Server({
-    name: 'foozol-permissions',
+    name: 'pane-permissions',
     version: '1.0.0'
   }, {
     capabilities: {

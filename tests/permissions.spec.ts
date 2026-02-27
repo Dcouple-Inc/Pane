@@ -22,7 +22,7 @@ test.describe('Permission Flow', () => {
     if (await getStartedButton.isVisible({ timeout: 2000 }).catch(() => false)) {
       await getStartedButton.click();
       // Wait for welcome dialog to close
-      await page.waitForSelector('text="Welcome to foozol"', { state: 'hidden' });
+      await page.waitForSelector('text="Welcome to Pane"', { state: 'hidden' });
     }
     
     // Check if we need to select a project

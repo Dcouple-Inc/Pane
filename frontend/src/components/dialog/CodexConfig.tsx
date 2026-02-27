@@ -289,9 +289,9 @@ export const CodexConfigComponent: React.FC<CodexConfigProps> = ({
           disabled={disabled}
         /> */}
         
-        {/* Approval Policy - Hidden as foozol doesn't implement approval handling for Codex */}
+        {/* Approval Policy - Hidden as Pane doesn't implement approval handling for Codex */}
         {/* Manual approval mode requires implementing exec_approval_request and patch_approval_request handlers */}
-        {/* which foozol currently doesn't support, so we default to 'auto' */}
+        {/* which Pane currently doesn't support, so we default to 'auto' */}
         
         {/* Sandbox Mode */}
         <div>

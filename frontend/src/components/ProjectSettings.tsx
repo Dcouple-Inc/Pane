@@ -139,7 +139,7 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
             
             <FieldWithTooltip
               label="Project Name"
-              tooltip="Display name for this project in foozol's interface."
+              tooltip="Display name for this project in Pane's interface."
             >
               <EnhancedInput
                 type="text"
@@ -153,7 +153,7 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
 
             <FieldWithTooltip
               label="Repository Path"
-              tooltip="Local path to the git repository where foozol will manage worktrees."
+              tooltip="Local path to the git repository where Pane will manage worktrees."
             >
               <div className="space-y-3">
                 <EnhancedInput
@@ -392,7 +392,7 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
                 <div className="space-y-4">
                   <Card variant="bordered" padding="md" className="bg-status-error/5 border-status-error/20">
                     <p className="text-sm text-text-secondary mb-3">
-                      Are you sure you want to delete this project? This action cannot be undone and will remove all project data from foozol.
+                      Are you sure you want to delete this project? This action cannot be undone and will remove all project data from Pane.
                     </p>
                     <div className="flex space-x-3">
                       <Button

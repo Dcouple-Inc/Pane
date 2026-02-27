@@ -27,7 +27,7 @@ export class Logger {
   private isInErrorHandler = false; // Prevent recursion in error handling
 
   constructor(private configManager: ConfigManager) {
-    // Use the centralized foozol directory
+    // Use the centralized Pane directory
     this.logDir = getAppSubdirectory('logs');
     
     this.currentLogFile = this.getCurrentLogFileName();
@@ -70,7 +70,7 @@ export class Logger {
 
   private getCurrentLogFileName(): string {
     const date = formatForDatabase().split('T')[0]; // YYYY-MM-DD
-    return path.join(this.logDir, `foozol-${date}.log`);
+    return path.join(this.logDir, `pane-${date}.log`);
   }
 
   private rotateLogIfNeeded() {
@@ -83,7 +83,7 @@ export class Logger {
 
         // Generate new filename with timestamp
         const timestamp = formatForDatabase().replace(/[:.]/g, '-');
-        const rotatedFileName = path.join(this.logDir, `foozol-${timestamp}.log`);
+        const rotatedFileName = path.join(this.logDir, `pane-${timestamp}.log`);
         
         // Rename current file
         fs.renameSync(this.currentLogFile, rotatedFileName);
@@ -103,7 +103,7 @@ export class Logger {
   private cleanupOldLogs() {
     try {
       const files = fs.readdirSync(this.logDir)
-        .filter(file => file.startsWith('foozol-') && file.endsWith('.log'))
+        .filter(file => file.startsWith('pane-') && file.endsWith('.log'))
         .map(file => ({
           name: file,
           path: path.join(this.logDir, file),

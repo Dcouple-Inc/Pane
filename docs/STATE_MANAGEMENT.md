@@ -1,10 +1,10 @@
 # State Management Guidelines
 
-⚠️ **IMPORTANT**: foozol follows a targeted update pattern for state management to minimize unnecessary re-renders and network requests.
+⚠️ **IMPORTANT**: Pane follows a targeted update pattern for state management to minimize unnecessary re-renders and network requests.
 
 ## Overview
 
-foozol uses a combination of Zustand stores, IPC events, and targeted updates to manage application state efficiently. The application prioritizes specific, targeted updates over global refreshes to improve performance and user experience.
+Pane uses a combination of Zustand stores, IPC events, and targeted updates to manage application state efficiently. The application prioritizes specific, targeted updates over global refreshes to improve performance and user experience.
 
 ## Key Principles
 

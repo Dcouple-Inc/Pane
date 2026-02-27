@@ -55,15 +55,15 @@ export const ClaudePanel: React.FC<AIPanelProps> = React.memo(({ panel, isActive
       );
 
       if (initMessage && Array.isArray(initMessage.slash_commands)) {
-        console.log('[slash-debug] Found init message with slash commands for foozol session:', activeSession.id);
+        console.log('[slash-debug] Found init message with slash commands for Pane session:', activeSession.id);
         console.log('[slash-debug] Commands:', initMessage.slash_commands);
 
         try {
           const slashCommandsKey = `slashCommands_${activeSession.id}`;
           localStorage.setItem(slashCommandsKey, JSON.stringify(initMessage.slash_commands));
-          console.log('[slash-debug] Stored slash commands for foozol session:', activeSession.id);
+          console.log('[slash-debug] Stored slash commands for Pane session:', activeSession.id);
         } catch (e) {
-          console.warn('[slash-debug] Failed to store slash commands for foozol session:', e);
+          console.warn('[slash-debug] Failed to store slash commands for Pane session:', e);
         }
       }
     };

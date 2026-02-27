@@ -1,6 +1,6 @@
-# Implementing New CLI Agents in foozol
+# Implementing New CLI Agents in Pane
 
-This guide provides step-by-step instructions for adding support for new CLI agent tools (like Aider, Continue, Cursor, etc.) to foozol's architecture.
+This guide provides step-by-step instructions for adding support for new CLI agent tools (like Aider, Continue, Cursor, etc.) to Pane's architecture.
 
 ## Table of Contents
 - [Overview](#overview)
@@ -14,7 +14,7 @@ This guide provides step-by-step instructions for adding support for new CLI age
 
 ## Overview
 
-foozol's architecture is designed to be extensible, allowing new CLI agents to be added with minimal modifications to existing code. The system follows a plugin-like pattern where each CLI tool is self-contained in its own directory structure.
+Pane's architecture is designed to be extensible, allowing new CLI agents to be added with minimal modifications to existing code. The system follows a plugin-like pattern where each CLI tool is self-contained in its own directory structure.
 
 ### What You'll Need to Build
 
@@ -33,7 +33,7 @@ foozol's architecture is designed to be extensible, allowing new CLI agents to b
 
 ```
 ┌─────────────────────────────────────────────────┐
-│              foozol Application                 │
+│              Pane Application                 │
 ├─────────────────────────────────────────────────┤
 │                                                  │
 │  Frontend (React)          Backend (Electron)   │
@@ -184,7 +184,7 @@ export interface AiderPanelState extends BaseAIPanelState {
 Your implementation should follow this structure:
 
 ```
-foozol/
+Pane/
 ├── main/src/services/panels/aider/           # Backend implementation
 │   ├── aiderManager.ts                       # Main manager class (required)
 │   ├── aiderProtocol.ts                      # Protocol handling (if needed)
@@ -369,7 +369,7 @@ await manager.startPanel(
 
 ### 3. Test Frontend Integration
 
-1. Run foozol in development mode
+1. Run Pane in development mode
 2. Create a new session
 3. Add a tool panel and select your CLI
 4. Verify the panel renders and accepts input
@@ -488,7 +488,7 @@ protected parseCliOutput(data: string, panelId: string, sessionId: string): Arra
 
 4. **Test CLI directly**:
    ```bash
-   # Test your CLI works outside foozol
+   # Test your CLI works outside Pane
    your-cli --version
    echo "test prompt" | your-cli
    ```
@@ -511,7 +511,7 @@ After implementing your CLI:
 1. Test thoroughly in development mode
 2. Add configuration options to Settings UI
 3. Update Help documentation
-4. Consider contributing back to foozol repository
+4. Consider contributing back to Pane repository
 5. Share your implementation with the community
 
 For more details on specific aspects:

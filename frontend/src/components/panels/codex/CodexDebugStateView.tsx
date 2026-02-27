@@ -186,7 +186,7 @@ export const CodexDebugStateView: React.FC<CodexDebugStateViewProps> = ({ sessio
               </h4>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="text-text-secondary">foozol Session ID:</span>
+                  <span className="text-text-secondary">Pane Session ID:</span>
                   <div className="text-text-primary font-mono mt-1 text-xs break-all">
                     {debugState.sessionId}
                   </div>

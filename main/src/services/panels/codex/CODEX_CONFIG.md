@@ -1,8 +1,8 @@
-# Codex CLI Configuration for foozol
+# Codex CLI Configuration for Pane
 
 ## Overview
 
-The Codex CLI integration for foozol provides access to OpenAI's advanced language models through a protocol-based interface. By default, Codex uses **GPT-5** (released August 7, 2025), which offers significant improvements in reasoning, speed, and capabilities.
+The Codex CLI integration for Pane provides access to OpenAI's advanced language models through a protocol-based interface. By default, Codex uses **GPT-5** (released August 7, 2025), which offers significant improvements in reasoning, speed, and capabilities.
 
 ## Default Configuration
 

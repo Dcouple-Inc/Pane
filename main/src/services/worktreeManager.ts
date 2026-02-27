@@ -697,11 +697,11 @@ export class WorktreeManager {
         const resetResult = await execForProject(command, worktreePath, wslContext);
         lastOutput = resetResult.stdout || resetResult.stderr || '';
 
-        // Get config to check if foozol footer is enabled (default: true)
+        // Get config to check if Pane footer is enabled (default: true)
         const config = this.configManager?.getConfig();
         const enableCommitFooter = config?.enableCommitFooter !== false;
 
-        // Add foozol footer if enabled
+        // Add Pane footer if enabled
         const fullMessage = enableCommitFooter ? `${commitMessage}
 
 Co-Authored-By: Pane <runpane@users.noreply.github.com>` : commitMessage;
@@ -989,7 +989,7 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : commitMessage;
 
   async gitStash(worktreePath: string, message?: string, wslContext?: WSLContext | null): Promise<{ output: string }> {
     try {
-      const stashMessage = message || 'foozol stash';
+      const stashMessage = message || 'pane stash';
       const escapedMessage = stashMessage.replace(/"/g, '\\"');
       const { stdout, stderr } = await execForProject(`git stash push -m "${escapedMessage}"`, worktreePath, wslContext);
       const output = stdout || stderr || 'Changes stashed successfully';

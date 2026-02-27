@@ -14,10 +14,10 @@ import { formatKeyDisplay } from '../../utils/hotkeyUtils';
 import { Tooltip } from '../ui/Tooltip';
 
 // Prompt for setting up intelligent dev command
-export const SETUP_RUN_SCRIPT_PROMPT = `I use foozol to manage multiple AI coding sessions with git worktrees.
+export const SETUP_RUN_SCRIPT_PROMPT = `I use Pane to manage multiple AI coding sessions with git worktrees.
 Each worktree needs its own dev server on a unique port.
 
-Create scripts/foozol-run-script.js (Node.js, cross-platform) that:
+Create scripts/pane-run-script.js (Node.js, cross-platform) that:
 1. Auto-detects git worktrees vs main repo
 2. Assigns unique ports using hash(cwd) % 1000 + base_port, with separate ranges for main vs worktrees
 3. Auto-detects if deps need installing (package.json mtime > node_modules mtime)
@@ -32,9 +32,9 @@ CRITICAL EDGE CASES — these cause the most bugs:
 - Clean up stale framework lock files before starting (.next/dev/lock, .cache/lock, .vite/ temp files, etc.) — these are left by crashed/killed sessions and prevent restart
 - Cross-platform process management (taskkill /F /T on Windows, kill process group on Unix)
 
-Analyze this project's actual framework and structure first, then create the complete foozol-run-script.js tailored to it.
+Analyze this project's actual framework and structure first, then create the complete pane-run-script.js tailored to it.
 
-IMPORTANT: After creating the script, TEST THE RESTART PATH — run 'node scripts/foozol-run-script.js', then kill it ungracefully (Ctrl+C or kill the terminal), then run it again. It must reclaim the same port without EADDRINUSE or lock file errors. A single happy-path run proves nothing. Then commit and merge to main so all future worktrees have it.`;
+IMPORTANT: After creating the script, TEST THE RESTART PATH — run 'node scripts/pane-run-script.js', then kill it ungracefully (Ctrl+C or kill the terminal), then run it again. It must reclaim the same port without EADDRINUSE or lock file errors. A single happy-path run proves nothing. Then commit and merge to main so all future worktrees have it.`;
 
 export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
   panels,
@@ -630,16 +630,16 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
             <button
               className="inline-flex items-center h-9 px-2 text-text-tertiary hover:text-status-success hover:bg-surface-hover transition-colors flex-shrink-0"
               onClick={async () => {
-                // Check if foozol-run-script.js exists in this session's worktree
+                // Check if pane-run-script.js exists in this session's worktree
                 const scriptExists = await window.electronAPI?.invoke('file:exists', {
                   sessionId: session.id,
-                  filePath: 'scripts/foozol-run-script.js'
+                  filePath: 'scripts/pane-run-script.js'
                 });
 
                 if (scriptExists) {
                   // Script exists - run it
                   handleAddPanel('terminal', {
-                    initialCommand: 'node scripts/foozol-run-script.js',
+                    initialCommand: 'node scripts/pane-run-script.js',
                     title: 'Dev Server'
                   });
                 } else {

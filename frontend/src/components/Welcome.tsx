@@ -1,6 +1,6 @@
 import React from 'react';
 import { Zap, CheckCircle, GitBranch } from 'lucide-react';
-import foozolLogo from '../assets/foozol-logo.svg';
+import paneLogo from '../assets/pane-logo.svg';
 import { Modal, ModalBody, ModalFooter } from './ui/Modal';
 import { Button } from './ui/Button';
 
@@ -46,9 +46,9 @@ export default function Welcome({ isOpen, onClose }: WelcomeProps) {
       {/* Header */}
       <div className="p-6 border-b border-border-primary">
         <div className="flex items-center">
-          <img src={foozolLogo} alt="foozol" className="h-10 w-10 mr-3" />
+          <img src={paneLogo} alt="Pane" className="h-10 w-10 mr-3" />
           <div>
-            <h1 className="text-xl font-semibold text-text-primary">Welcome to foozol</h1>
+            <h1 className="text-xl font-semibold text-text-primary">Welcome to Pane</h1>
             <p className="text-sm text-text-tertiary">Multi-Session Claude Code Manager</p>
           </div>
         </div>
@@ -80,7 +80,7 @@ export default function Welcome({ isOpen, onClose }: WelcomeProps) {
                   </li>
                   <li className="flex items-start">
                     <span className="mr-2">•</span>
-                    <span>foozol runs Claude Code with <code className="bg-status-warning/20 px-1 rounded text-sm">--dangerously-ignore-permissions</code></span>
+                    <span>Pane runs Claude Code with <code className="bg-status-warning/20 px-1 rounded text-sm">--dangerously-ignore-permissions</code></span>
                   </li>
                 </ul>
               </div>
@@ -94,7 +94,7 @@ export default function Welcome({ isOpen, onClose }: WelcomeProps) {
                   <div className="ml-4 flex-1">
                     <h4 className="font-semibold text-text-primary mb-1">Create or Select a Project</h4>
                     <ul className="text-text-secondary space-y-1 text-sm">
-                      <li>• Point to a <strong>new directory</strong> - foozol will create it and initialize git</li>
+                      <li>• Point to a <strong>new directory</strong> - Pane will create it and initialize git</li>
                       <li>• Or select an <strong>existing git repository</strong></li>
                     </ul>
                   </div>

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Windows Build Script for foozol
+ * Windows Build Script for Pane
  *
- * This script handles the complexities of building foozol on Windows,
+ * This script handles the complexities of building Pane on Windows,
  * particularly dealing with pnpm + node-gyp compatibility issues.
  *
  * Usage:
@@ -40,7 +40,7 @@ if (!['x64', 'arm64', 'both'].includes(arch)) {
   process.exit(1);
 }
 
-console.log(`\n🔨 Building foozol for Windows ${arch}\n`);
+console.log(`\n🔨 Building Pane for Windows ${arch}\n`);
 
 /**
  * Execute a command and print output

@@ -1638,7 +1638,7 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
         }
       }
 
-      // Create images directory in FOOZOL_DIR/artifacts/{sessionId}
+      // Create images directory in PANE_DIR/artifacts/{sessionId}
       const imagesDir = getAppSubdirectory('artifacts', sessionId);
       if (!existsSync(imagesDir)) {
         await fs.mkdir(imagesDir, { recursive: true });
@@ -1687,7 +1687,7 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
         }
       }
 
-      // Create text directory in FOOZOL_DIR/artifacts/{sessionId}
+      // Create text directory in PANE_DIR/artifacts/{sessionId}
       const textDir = getAppSubdirectory('artifacts', sessionId);
       if (!existsSync(textDir)) {
         await fs.mkdir(textDir, { recursive: true });

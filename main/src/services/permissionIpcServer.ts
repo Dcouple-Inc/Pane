@@ -32,7 +32,7 @@ export class PermissionIpcServer {
       socketDir = os.tmpdir();
     }
     
-    this.socketPath = path.join(socketDir, `foozol-permissions-${process.pid}.sock`);
+    this.socketPath = path.join(socketDir, `pane-permissions-${process.pid}.sock`);
   }
 
   start(): Promise<void> {

@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Development environment setup script for foozol
+# Development environment setup script for Pane
 
-echo "🔧 Setting up foozol development environment..."
+echo "🔧 Setting up Pane development environment..."
 
 # Check if homebrew is installed
 if ! command -v brew &> /dev/null; then

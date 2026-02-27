@@ -69,7 +69,7 @@ interface HelpProps {
 export default function Help({ isOpen, onClose }: HelpProps) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="xl" showCloseButton={false}>
-      <ModalHeader>foozol Help</ModalHeader>
+      <ModalHeader>Pane Help</ModalHeader>
       <ModalBody>
         <div className="space-y-8">
             {/* Quick Start */}
@@ -84,7 +84,7 @@ export default function Help({ isOpen, onClose }: HelpProps) {
                   <ul className="list-disc list-inside space-y-1 text-sm">
                     <li>Claude Code must be installed with credentials configured</li>
                     <li>We recommend using a MAX plan for best performance</li>
-                    <li>foozol runs Claude Code with <code className="bg-surface-tertiary px-1 rounded">--dangerously-ignore-permissions</code></li>
+                    <li>Pane runs Claude Code with <code className="bg-surface-tertiary px-1 rounded">--dangerously-ignore-permissions</code></li>
                   </ul>
                 </div>
                 
@@ -93,7 +93,7 @@ export default function Help({ isOpen, onClose }: HelpProps) {
                   <ol className="list-decimal list-inside space-y-2">
                     <li><strong>Create or select a project:</strong>
                       <ul className="list-disc list-inside ml-4 mt-1 text-sm">
-                        <li>Point to a new directory - foozol will create it and initialize git</li>
+                        <li>Point to a new directory - Pane will create it and initialize git</li>
                         <li>Or select an existing git repository</li>
                       </ul>
                     </li>
@@ -289,7 +289,7 @@ export default function Help({ isOpen, onClose }: HelpProps) {
       </ModalBody>
       
       <div className="p-4 border-t border-border-primary text-center text-sm text-text-muted">
-        foozol - Manage multiple Claude Code instances with git worktrees
+        Pane - Manage multiple Claude Code instances with git worktrees
       </div>
     </Modal>
   );

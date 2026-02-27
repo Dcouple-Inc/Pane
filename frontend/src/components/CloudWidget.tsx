@@ -135,7 +135,7 @@ export function CloudWidget() {
           onClick={handleOpenSetupTerminal}
           disabled={setupLoading}
           className="flex items-center gap-2 px-3 py-2 bg-bg-secondary/95 backdrop-blur-sm border border-border-primary rounded-xl shadow-lg hover:bg-bg-tertiary transition-colors disabled:opacity-50"
-          title="Set up foozol Cloud VM"
+          title="Set up Pane Cloud VM"
         >
           {setupLoading ? (
             <Loader2 className="w-4 h-4 animate-spin text-interactive" />

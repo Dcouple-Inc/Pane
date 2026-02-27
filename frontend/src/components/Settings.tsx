@@ -262,7 +262,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="xl" showCloseButton={false}>
       <ModalHeader
-        title="foozol Settings"
+        title="Pane Settings"
         icon={<SettingsIcon className="w-5 h-5" />}
         onClose={onClose}
       />
@@ -307,7 +307,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
             {/* Appearance */}
             <CollapsibleCard
               title="Appearance & Theme"
-              subtitle="Customize how foozol looks and feels"
+              subtitle="Customize how Pane looks and feels"
               icon={<Palette className="w-5 h-5" />}
               defaultExpanded={true}
             >
@@ -487,17 +487,17 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
               </SettingsSection>
 
               <SettingsSection
-                title="foozol Attribution"
-                description="Add foozol branding to commit messages"
+                title="Pane Attribution"
+                description="Add Pane branding to commit messages"
                 icon={<FileText className="w-4 h-4" />}
               >
                 <Checkbox
-                  label="Include foozol footer in commits"
+                  label="Include Pane footer in commits"
                   checked={enableCommitFooter}
                   onChange={(e) => setEnableCommitFooter(e.target.checked)}
                 />
                 <p className="text-xs text-text-tertiary mt-1">
-                  When enabled, commits made through foozol will include a footer crediting foozol. This helps others know you're using foozol for AI-powered development.
+                  When enabled, commits made through Pane will include a footer crediting Pane. This helps others know you're using Pane for AI-powered development.
                 </p>
               </SettingsSection>
 
@@ -527,7 +527,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                   onChange={(e) => setDisableAutoContext(e.target.checked)}
                 />
                 <p className="text-xs text-text-tertiary mt-1">
-                  When checked, foozol will not automatically run /context after each
+                  When checked, Pane will not automatically run /context after each
                   Claude response. This reduces wait time and Claude quota usage.
                   You can still manually run /context when needed.
                 </p>
@@ -537,7 +537,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
             {/* Cloud VM */}
             <CollapsibleCard
               title="Cloud VM"
-              subtitle="Run foozol on a persistent cloud VM"
+              subtitle="Run Pane on a persistent cloud VM"
               icon={<Cloud className="w-5 h-5" />}
               defaultExpanded={false}
             >
@@ -581,7 +581,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                     label="Server ID"
                     value={cloudServerId}
                     onChange={(e) => setCloudServerId(e.target.value)}
-                    placeholder="e.g. foozol-user123"
+                    placeholder="e.g. pane-user123"
                     fullWidth
                     helperText="GCP instance name from terraform output"
                   />
@@ -704,7 +704,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
             {/* System Updates */}
             <CollapsibleCard
               title="Updates & Maintenance"
-              subtitle="Keep foozol up to date with the latest features"
+              subtitle="Keep Pane up to date with the latest features"
               icon={<RefreshCw className="w-5 h-5" />}
               defaultExpanded={false}
             >
@@ -732,7 +732,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                           if (response.data.hasUpdate) {
                             // Update will be shown via the version update event
                           } else {
-                            alert('You are running the latest version of foozol!');
+                            alert('You are running the latest version of Pane!');
                           }
                         }
                       } catch (error) {
@@ -807,7 +807,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                       platform === 'win32' 
                         ? "Windows: Use backslashes (C:\\path) or forward slashes (C:/path). Environment variables like %USERPROFILE% are supported."
                         : "Unix/macOS: Use forward slashes (/path). The tilde (~) expands to your home directory."
-                    }\nNote: Changes require restarting foozol to take full effect.`
+                    }\nNote: Changes require restarting Pane to take full effect.`
                   }
                 />
               </SettingsSection>
@@ -894,14 +894,14 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
             {/* Analytics Overview */}
             <CollapsibleCard
               title="About Analytics"
-              subtitle="Help improve foozol by sharing anonymous usage data"
+              subtitle="Help improve Pane by sharing anonymous usage data"
               icon={<BarChart3 className="w-5 h-5" />}
               defaultExpanded={true}
               variant="subtle"
             >
               <div className="space-y-4">
                 <p className="text-sm text-text-secondary leading-relaxed">
-                  foozol collects anonymous usage analytics to understand how the application is used and to help prioritize improvements. All data is completely anonymous and privacy-focused.
+                  Pane collects anonymous usage analytics to understand how the application is used and to help prioritize improvements. All data is completely anonymous and privacy-focused.
                 </p>
 
                 <div className="bg-surface-tertiary rounded-lg p-4 border border-border-secondary">
@@ -943,7 +943,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
             >
               <SettingsSection
                 title="Enable Analytics"
-                description="Allow foozol to collect anonymous usage data to improve the product"
+                description="Allow Pane to collect anonymous usage data to improve the product"
                 icon={<BarChart3 className="w-4 h-4" />}
               >
                 <Checkbox
@@ -958,7 +958,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                 )}
                 {analyticsEnabled && (
                   <p className="text-xs text-status-success mt-2">
-                    Analytics is enabled. Thank you for helping improve foozol!
+                    Analytics is enabled. Thank you for helping improve Pane!
                   </p>
                 )}
               </SettingsSection>

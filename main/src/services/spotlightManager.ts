@@ -2,6 +2,7 @@ import { EventEmitter } from 'events';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'fs';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
+import { getAppSubdirectory } from '../utils/appDirectory';
 import { GitFileWatcher } from './gitFileWatcher';
 import { execSync } from '../utils/commandExecutor';
 import type { SessionManager } from './sessionManager';
@@ -41,7 +42,7 @@ export class SpotlightManager extends EventEmitter {
     private getMainWindow: () => BrowserWindow | null
   ) {
     super();
-    this.SPOTLIGHT_STATE_FILE = join(homedir(), '.foozol', 'spotlight-state.json');
+    this.SPOTLIGHT_STATE_FILE = getAppSubdirectory('spotlight-state.json');
     this.setMaxListeners(100);
   }
 

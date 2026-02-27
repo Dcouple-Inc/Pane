@@ -13,6 +13,7 @@ import { findNodeExecutable } from '../../../utils/nodeFinder';
 import { AbstractCliManager } from '../cli/AbstractCliManager';
 import { withLock } from '../../../utils/mutex';
 import { enhancePromptForStructuredCommit } from '../../../utils/promptEnhancer';
+import { getAppDirectory } from '../../../utils/appDirectory';
 
 // Extend global object for MCP configuration storage  
 interface GlobalMcpStorage {
@@ -192,10 +193,10 @@ export class ClaudeCodeManager extends AbstractCliManager {
       if (claudeSessionId) {
         // Use --resume flag with Claude's actual session ID
         args.push('--resume', claudeSessionId);
-        console.log(`[ClaudeCodeManager] Resuming Claude session ${claudeSessionId} for foozol session ${sessionId}`);
+        console.log(`[ClaudeCodeManager] Resuming Claude session ${claudeSessionId} for Pane session ${sessionId}`);
       } else {
         // Do not resume without explicit ID; this will be handled as an error
-        throw new Error(`Cannot resume: no Claude session_id stored for foozol session ${sessionId}`);
+        throw new Error(`Cannot resume: no Claude session_id stored for Pane session ${sessionId}`);
       }
       // If a new prompt is provided, add it (unless interactive mode - then sent via stdin)
       if (prompt && prompt.trim() && !isInteractive) {
@@ -220,12 +221,12 @@ export class ClaudeCodeManager extends AbstractCliManager {
     if (mcpConfigPath) {
       args.push('--mcp-config', mcpConfigPath);
 
-      // Only add permission-specific flags if foozol's permission server is included
+      // Only add permission-specific flags if Pane's permission server is included
       // (which happens when permission mode is 'approve')
       const defaultMode = this.configManager?.getConfig()?.defaultPermissionMode || 'ignore';
       const effectiveMode = permissionMode || defaultMode;
       if (effectiveMode === 'approve' && this.permissionIpcPath) {
-        args.push('--permission-prompt-tool', 'mcp__foozol-permissions__approve_permission', '--allowedTools', 'mcp__foozol-permissions__approve_permission');
+        args.push('--permission-prompt-tool', 'mcp__pane-permissions__approve_permission', '--allowedTools', 'mcp__pane-permissions__approve_permission');
       }
     }
 
@@ -432,7 +433,7 @@ export class ClaudeCodeManager extends AbstractCliManager {
       '',
       'If Claude is installed but not in your PATH:',
       '- Add the Claude installation directory to your PATH environment variable',
-      '- Or set a custom Claude executable path in foozol Settings',
+      '- Or set a custom Claude executable path in Pane Settings',
       '',
       `Current PATH: ${process.env.PATH}`,
       `Attempted command: claude --version`
@@ -454,7 +455,7 @@ export class ClaudeCodeManager extends AbstractCliManager {
         const claudeSessionId = this.sessionManager.getPanelClaudeSessionId(panelId);
         
         if (!claudeSessionId) {
-          const errMsg = `Cannot resume: no Claude session_id stored for foozol session ${sessionId}`;
+          const errMsg = `Cannot resume: no Claude session_id stored for Pane session ${sessionId}`;
           this.logger?.error(`[ClaudeCodeManager] ${errMsg}`);
           
           const errorMessage = {
@@ -852,8 +853,7 @@ export class ClaudeCodeManager extends AbstractCliManager {
     // Use a directory without spaces for better compatibility
     let tempDir: string;
     try {
-      const homeDir = os.homedir();
-      tempDir = path.join(homeDir, '.foozol');
+      tempDir = getAppDirectory();
 
       // Ensure the directory exists
       if (!fs.existsSync(tempDir)) {
@@ -903,7 +903,7 @@ export class ClaudeCodeManager extends AbstractCliManager {
       }
     }
 
-    const mcpConfigPath = path.join(tempDir, `foozol-mcp-${sessionId}.json`);
+    const mcpConfigPath = path.join(tempDir, `pane-mcp-${sessionId}.json`);
 
     // Try to find node executable
     let nodePath = 'node';
@@ -976,8 +976,8 @@ export class ClaudeCodeManager extends AbstractCliManager {
       "mcpServers": {
         // Include base project MCP servers first
         ...baseProjectMcp.mcpServers,
-        // foozol's permission server takes precedence (added last)
-        "foozol-permissions": {
+        // Pane's permission server takes precedence (added last)
+        "pane-permissions": {
           "command": mcpCommand,
           "args": mcpArgs
         }
@@ -1040,7 +1040,7 @@ export class ClaudeCodeManager extends AbstractCliManager {
   }
 
   /**
-   * Set up MCP configuration for base project servers only (without foozol permission server).
+   * Set up MCP configuration for base project servers only (without Pane permission server).
    * Used when permission mode is not 'approve' but we still need to pass base project MCP.
    */
   private async setupBaseProjectMcpConfig(sessionId: string): Promise<string | null> {
@@ -1055,12 +1055,12 @@ export class ClaudeCodeManager extends AbstractCliManager {
 
     // If there are servers from ~/.claude.json, create a temp config file
     if (Object.keys(baseProjectMcp.mcpServers).length > 0) {
-      const tempDir = path.join(os.homedir(), '.foozol');
+      const tempDir = getAppDirectory();
       if (!fs.existsSync(tempDir)) {
         fs.mkdirSync(tempDir, { recursive: true });
       }
 
-      const mcpConfigPath = path.join(tempDir, `foozol-base-mcp-${sessionId}.json`);
+      const mcpConfigPath = path.join(tempDir, `pane-base-mcp-${sessionId}.json`);
       const mcpConfig = { mcpServers: baseProjectMcp.mcpServers };
 
       try {

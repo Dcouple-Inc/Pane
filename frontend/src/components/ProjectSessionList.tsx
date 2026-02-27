@@ -16,6 +16,8 @@ import { cycleIndex } from '../utils/arrayUtils';
 import type { Session, GitStatus } from '../types/session';
 import type { Project, CreateProjectRequest } from '../types/project';
 
+
+
 interface ProjectSessionListProps {
   sessionSortAscending: boolean;
 }
@@ -595,7 +597,7 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
             {newProject.path && (
               <FieldWithTooltip
                 label="Detected Branch"
-                tooltip="The main branch foozol will use as the base for worktrees"
+                tooltip="The main branch Pane will use as the base for worktrees"
               >
                 <Card variant="bordered" padding="md">
                   <div className="flex items-center gap-2 text-sm text-text-secondary">

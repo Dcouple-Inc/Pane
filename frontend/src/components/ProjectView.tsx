@@ -42,13 +42,13 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
 
   // Detail panel state
   const [detailVisible, setDetailVisible] = useState(() => {
-    const stored = localStorage.getItem('foozol-project-detail-panel-visible');
+    const stored = localStorage.getItem('pane-project-detail-panel-visible');
     return stored !== null ? stored === 'true' : true;
   });
 
   // Persist detail panel visibility
   useEffect(() => {
-    localStorage.setItem('foozol-project-detail-panel-visible', String(detailVisible));
+    localStorage.setItem('pane-project-detail-panel-visible', String(detailVisible));
   }, [detailVisible]);
 
   // Right-side resizable
@@ -56,7 +56,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     defaultWidth: 280,
     minWidth: 200,
     maxWidth: 500,
-    storageKey: 'foozol-project-detail-panel-width',
+    storageKey: 'pane-project-detail-panel-width',
     side: 'right'
   });
 

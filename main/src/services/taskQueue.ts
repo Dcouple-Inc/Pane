@@ -635,7 +635,7 @@ export class TaskQueue {
       const worktreeNameExists = db.checkSessionNameExists(uniqueWorktreeName);
       
       // Check if worktree directory exists on filesystem
-      // This handles cases where a worktree was created outside of foozol
+      // This handles cases where a worktree was created outside of Pane
       let worktreePathExists = false;
       try {
         if (project) {

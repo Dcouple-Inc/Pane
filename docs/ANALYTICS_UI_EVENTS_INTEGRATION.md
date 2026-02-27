@@ -1,6 +1,6 @@
 # Analytics UI Events Integration Guide
 
-This document describes how to integrate UI interaction event tracking into foozol's frontend components.
+This document describes how to integrate UI interaction event tracking into Pane's frontend components.
 
 ## Overview
 

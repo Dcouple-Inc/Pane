@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to foozol will be documented in this file.
+All notable changes to Pane will be documented in this file.
 
 ## [0.0.1] - 2026-02-19
 

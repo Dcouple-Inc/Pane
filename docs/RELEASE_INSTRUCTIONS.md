@@ -1,6 +1,6 @@
-# foozol Release Instructions
+# Pane Release Instructions
 
-This document outlines the process for releasing new versions of foozol for macOS with automatic updates.
+This document outlines the process for releasing new versions of Pane for macOS with automatic updates.
 
 ## Prerequisites
 
@@ -89,7 +89,7 @@ Once you push the tag, GitHub Actions will automatically:
 
 ### 7. Verify Release
 
-1. Go to https://github.com/parsakhaz/foozol/releases
+1. Go to https://github.com/Dcouple-Inc/Pane/releases
 2. Verify the new release is created with:
    - Proper version tag
    - Release notes from the commit history
@@ -101,8 +101,8 @@ Once you push the tag, GitHub Actions will automatically:
 The build process automatically generates these files required for auto-updates:
 
 - **latest-mac.yml** - macOS update metadata
-- **foozol-[version]-mac.zip** - macOS update package
-- **foozol-[version].dmg** - macOS installer
+- **pane-[version]-mac.zip** - macOS update package
+- **pane-[version].dmg** - macOS installer
 
 ## Build Configuration
 
@@ -111,8 +111,8 @@ The release configuration is defined in `package.json`:
 ```json
 {
   "build": {
-    "appId": "com.dcouple.foozol",
-    "productName": "foozol",
+    "appId": "com.dcouple.pane",
+    "productName": "Pane",
     "mac": {
       "category": "public.app-category.developer-tools",
       "hardenedRuntime": true,
@@ -122,7 +122,7 @@ The release configuration is defined in `package.json`:
     "publish": {
       "provider": "github",
       "owner": "stravu",
-      "repo": "foozol"
+      "repo": "Pane"
     }
   }
 }
@@ -146,8 +146,8 @@ The release configuration is defined in `package.json`:
 
 To test auto-updates:
 
-1. Install an older version of foozol
-2. foozol will automatically check for updates on startup
+1. Install an older version of Pane
+2. Pane will automatically check for updates on startup
 3. When an update is found, the in-app dialog will appear
 4. Click "Download Update" to test the auto-update process
 
@@ -173,4 +173,4 @@ If a release has critical issues:
 - Development builds cannot auto-update
 - Users can always manually download from GitHub releases if auto-update fails
 - Settings and data are preserved during updates
-- foozol checks for updates on startup and every 24 hours
+- Pane checks for updates on startup and every 24 hours
