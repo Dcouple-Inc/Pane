@@ -18,7 +18,14 @@ async function generateIcons() {
   // Dynamically import sharp (ESM module)
   const sharp = (await import('sharp')).default;
 
-  const svgPath = path.join(__dirname, '../frontend/src/assets/foozol-logo.svg');
+  // Accept a source image path as argument, or fall back to defaults
+  const argSource = process.argv[2];
+  const defaultPng = path.join(__dirname, '../frontend/src/assets/pane-logo.png');
+  const defaultSvg = path.join(__dirname, '../frontend/src/assets/foozol-logo.svg');
+  const sourcePath = argSource
+    ? path.resolve(argSource)
+    : fs.existsSync(defaultPng) ? defaultPng : defaultSvg;
+
   const outputDir = path.join(__dirname, '../main/assets');
 
   // Ensure output directory exists
@@ -26,9 +33,9 @@ async function generateIcons() {
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
-  const svgBuffer = fs.readFileSync(svgPath);
+  const svgBuffer = fs.readFileSync(sourcePath);
 
-  console.log('Generating icons from:', svgPath);
+  console.log('Generating icons from:', sourcePath);
   console.log('Output directory:', outputDir);
 
   // Icon sizes needed for different platforms

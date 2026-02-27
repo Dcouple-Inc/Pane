@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="frontend/src/assets/foozol-logo.svg" alt="Pane" width="120" height="120">
+  <img src="frontend/src/assets/pane-logo.png" alt="Pane" width="120" height="120">
 </p>
 
 <h1 align="center">Pane</h1>
