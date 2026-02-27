@@ -9,5 +9,5 @@
  */
 export const GIT_ATTRIBUTION_ENV = {
   GIT_COMMITTER_NAME: 'Pane',
-  GIT_COMMITTER_EMAIL: 'use-pane@users.noreply.github.com',
+  GIT_COMMITTER_EMAIL: 'runpane@users.noreply.github.com',
 };
