@@ -1102,7 +1102,7 @@ export const useSessionView = (
       setDialogType('commit');
       setShowCommitMessageDialog(true);
     },
-    enabled: () => !isMerging && !isSessionBusy &&
+    enabled: () => !isMerging && !isSessionBusy && !activeSession?.isMainRepo &&
       ((activeSession?.gitStatus?.hasUncommittedChanges ?? false) || (activeSession?.gitStatus?.hasUntrackedFiles ?? false)),
   });
 
@@ -1112,7 +1112,7 @@ export const useSessionView = (
     keys: 'mod+shift+p',
     category: 'session',
     action: () => handleGitPush(),
-    enabled: () => !isMerging && !isSessionBusy && (activeSession?.gitStatus?.ahead ?? 0) > 0,
+    enabled: () => !isMerging && !isSessionBusy && !activeSession?.isMainRepo && (activeSession?.gitStatus?.ahead ?? 0) > 0,
   });
 
   useHotkey({
@@ -1121,7 +1121,7 @@ export const useSessionView = (
     keys: 'mod+shift+l',
     category: 'session',
     action: () => handleGitPull(),
-    enabled: () => !isMerging && !isSessionBusy,
+    enabled: () => !isMerging && !isSessionBusy && !activeSession?.isMainRepo,
   });
 
   useHotkey({
