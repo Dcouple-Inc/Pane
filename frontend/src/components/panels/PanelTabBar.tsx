@@ -28,7 +28,7 @@ Create scripts/foozol-run-script.js (Node.js, cross-platform) that:
 
 CRITICAL EDGE CASES — these cause the most bugs:
 - Port availability checks MUST test BOTH 0.0.0.0 AND :: (IPv6) — dev servers often bind to :: (all interfaces), so a check on 127.0.0.1 alone passes but the server fails with EADDRINUSE
-- Before auto-incrementing to a new port, try to RECLAIM the preferred port by killing orphaned dev server processes still holding it (use lsof/netstat to find the PID, then kill it)
+- Before auto-incrementing to a new port, try to RECLAIM the preferred port by finding the PID holding it (lsof/netstat), verifying it belongs to this project's dev server (match the command line against the project directory or dev server binary), and only then killing it — never kill unrelated processes
 - Clean up stale framework lock files before starting (.next/dev/lock, .cache/lock, .vite/ temp files, etc.) — these are left by crashed/killed sessions and prevent restart
 - Cross-platform process management (taskkill /F /T on Windows, kill process group on Unix)
 
