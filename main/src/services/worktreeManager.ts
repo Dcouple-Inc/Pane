@@ -704,7 +704,7 @@ export class WorktreeManager {
         // Add foozol footer if enabled
         const fullMessage = enableCommitFooter ? `${commitMessage}
 
-Co-Authored-By: Pane <use-pane@users.noreply.github.com>` : commitMessage;
+Co-Authored-By: Pane <runpane@users.noreply.github.com>` : commitMessage;
 
         // Properly escape commit message for cross-platform compatibility
         const escapedMessage = fullMessage.replace(/"/g, '\\"');
