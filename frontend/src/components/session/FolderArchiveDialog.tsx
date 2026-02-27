@@ -29,8 +29,8 @@ export const FolderArchiveDialog: React.FC<FolderArchiveDialogProps> = ({
 
       <ModalBody>
         <p className="text-text-secondary">
-          This session is in a folder with {sessionCount} session{sessionCount !== 1 ? 's' : ''}.
-          Would you like to archive all sessions in the folder?
+          This pane is in a folder with {sessionCount} pane{sessionCount !== 1 ? 's' : ''}.
+          Would you like to archive all panes in the folder?
         </p>
       </ModalBody>
 
@@ -39,7 +39,7 @@ export const FolderArchiveDialog: React.FC<FolderArchiveDialogProps> = ({
           Cancel
         </Button>
         <Button onClick={onArchiveSessionOnly} variant="secondary">
-          This Session Only
+          This Pane Only
         </Button>
         <Button onClick={onArchiveEntireFolder}>
           Archive Entire Folder

@@ -199,7 +199,7 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSet
               <button
                 onClick={() => setShowCreateDialog(true)}
                 className="w-8 h-8 rounded flex items-center justify-center text-text-tertiary hover:bg-surface-hover hover:text-interactive transition-colors"
-                title="New Session"
+                title="New Pane"
               >
                 <Plus className="w-4 h-4" />
               </button>
@@ -401,9 +401,9 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSet
                 </div>
               </div>
               
-              {/* Session Status Indicators */}
+              {/* Pane Status Indicators */}
               <div className="pb-3 border-b border-border-primary">
-                <h4 className="text-sm font-medium text-text-primary mb-2">Session Status</h4>
+                <h4 className="text-sm font-medium text-text-primary mb-2">Pane Status</h4>
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
                     <div className="w-3 h-3 bg-status-success rounded-full animate-pulse flex-shrink-0"></div>
@@ -441,7 +441,7 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSet
                     <div className="w-3 h-3 bg-status-info rounded-full animate-pulse flex-shrink-0"></div>
                     <div>
                       <span className="text-text-secondary font-medium">New Activity</span>
-                      <p className="text-text-tertiary text-sm">Session has new unviewed results</p>
+                      <p className="text-text-tertiary text-sm">Pane has new unviewed results</p>
                     </div>
                   </div>
                   
@@ -449,7 +449,7 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSet
                     <div className="w-3 h-3 bg-status-error rounded-full flex-shrink-0"></div>
                     <div>
                       <span className="text-text-secondary font-medium">Error</span>
-                      <p className="text-text-tertiary text-sm">Something went wrong with the session</p>
+                      <p className="text-text-tertiary text-sm">Something went wrong with the pane</p>
                     </div>
                   </div>
                 </div>

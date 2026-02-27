@@ -82,10 +82,10 @@ export function ResumeSessionsDialog({ isOpen, onClose, sessions }: ResumeSessio
 
   return (
     <Modal isOpen={isOpen} onClose={() => {}} size="md" closeOnOverlayClick={false} closeOnEscape={false} showCloseButton={false}>
-      <ModalHeader title="Resume Previous Sessions" icon={<RotateCcw className="w-5 h-5" />} />
+      <ModalHeader title="Resume Previous Panes" icon={<RotateCcw className="w-5 h-5" />} />
       <ModalBody>
         <p className="text-text-secondary text-sm mb-4">
-          {sessions.length} session{sessions.length !== 1 ? 's' : ''} with {totalPanels} panel{totalPanels !== 1 ? 's' : ''} were interrupted when the app was last closed. Would you like to resume them?
+          {sessions.length} pane{sessions.length !== 1 ? 's' : ''} with {totalPanels} panel{totalPanels !== 1 ? 's' : ''} were interrupted when the app was last closed. Would you like to resume them?
         </p>
         <div className="space-y-2 max-h-64 overflow-y-auto">
           {sessions.map(session => (

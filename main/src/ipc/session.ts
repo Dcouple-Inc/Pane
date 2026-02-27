@@ -1,3 +1,9 @@
+/**
+ * Session IPC handlers for Pane.
+ * Note: "Sessions" are called "Panes" in the UI. Internally they remain
+ * "sessions" in code, database, and IPC to avoid a massive refactor.
+ */
+
 import { IpcMain } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs/promises';

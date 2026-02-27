@@ -407,8 +407,8 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
               defaultExpanded={true}
             >
               <SettingsSection
-                title="Smart Session Names"
-                description="Let Claude automatically generate meaningful names for your sessions"
+                title="Smart Pane Names"
+                description="Let Claude automatically generate meaningful names for your panes"
                 icon={<FileText className="w-4 h-4" />}
               >
                 <Input
@@ -418,7 +418,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                   onChange={(e) => setAnthropicApiKey(e.target.value)}
                   placeholder="sk-ant-..."
                   fullWidth
-                  helperText="Optional: Used only for generating session names. Your main Claude Code API key is separate."
+                  helperText="Optional: Used only for generating pane names. Your main Claude Code API key is separate."
                 />
               </SettingsSection>
 
@@ -769,7 +769,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                   onChange={(e) => setVerbose(e.target.checked)}
                 />
                 <p className="text-xs text-text-tertiary mt-1">
-                  Shows detailed logs for session creation and Claude Code execution. Useful for debugging issues.
+                  Shows detailed logs for pane creation and Claude Code execution. Useful for debugging issues.
                 </p>
                 
                 <div className="mt-4">
@@ -779,7 +779,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                     onChange={(e) => setDevMode(e.target.checked)}
                   />
                   <p className="text-xs text-text-tertiary mt-1">
-                    Adds a "Messages" tab to each session showing raw JSON responses from Claude Code. Useful for debugging and development.
+                    Adds a "Messages" tab to each pane showing raw JSON responses from Claude Code. Useful for debugging and development.
                   </p>
                 </div>
               </SettingsSection>
@@ -908,7 +908,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                   <h4 className="font-medium text-text-primary mb-3 text-sm">✅ What we track:</h4>
                   <ul className="space-y-1 text-xs text-text-secondary">
                     <li>• Feature usage patterns (which features are used)</li>
-                    <li>• Session counts and statuses</li>
+                    <li>• Pane counts and statuses</li>
                     <li>• Git operation types (rebase, squash, etc.)</li>
                     <li>• UI interactions (view switches, button clicks)</li>
                     <li>• Error types (generic categories only)</li>

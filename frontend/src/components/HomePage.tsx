@@ -141,7 +141,7 @@ export function HomePage() {
         {/* Active Sessions */}
         {activeSessions.length > 0 && (
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-text-primary">Active Sessions</h2>
+            <h2 className="text-lg font-semibold text-text-primary">Active Panes</h2>
             <div className="space-y-2">
               {activeSessions.slice(0, 5).map((session) => (
                 <button
@@ -165,7 +165,7 @@ export function HomePage() {
 
         {/* Fallback message */}
         <p className="text-center text-sm text-text-tertiary">
-          Select a session from the sidebar or create a new one to get started.
+          Select a pane from the sidebar or create a new one to get started.
         </p>
       </div>
     </div>

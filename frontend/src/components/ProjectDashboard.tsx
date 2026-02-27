@@ -379,7 +379,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = React.memo(({ p
             <div className="flex-1 flex flex-col overflow-hidden">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-medium text-text-primary">
-                  Session Branches ({filteredSessions.length} of {dashboardData.sessionBranches.length})
+                  Pane Branches ({filteredSessions.length} of {dashboardData.sessionBranches.length})
                 </h3>
                 <div className="flex items-center gap-2">
                   <Filter className="w-4 h-4 text-text-tertiary" />
@@ -388,7 +388,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = React.memo(({ p
                     onChange={(e) => setFilterType(e.target.value as typeof filterType)}
                     className="text-sm border border-border-primary rounded px-2 py-1 bg-surface-primary text-text-primary focus:outline-none focus:ring-2 focus:ring-interactive focus:border-interactive"
                   >
-                    <option value="all">All Sessions</option>
+                    <option value="all">All Panes</option>
                     <option value="stale">Stale Only</option>
                     <option value="changes">With Changes</option>
                     <option value="pr">With PR</option>
@@ -400,7 +400,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = React.memo(({ p
                   <thead className="bg-surface-secondary">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-text-tertiary uppercase tracking-wider">
-                        Session
+                        Pane
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-text-tertiary uppercase tracking-wider">
                         Base Branch
@@ -428,7 +428,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = React.memo(({ p
           ) : (
             <div className="text-center py-8 text-text-tertiary">
               <GitBranch className="w-12 h-12 mx-auto mb-3 text-text-tertiary/50" />
-              <p>No active session branches</p>
+              <p>No active pane branches</p>
             </div>
           )}
         </div>

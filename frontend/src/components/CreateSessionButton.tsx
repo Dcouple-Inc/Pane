@@ -16,10 +16,10 @@ export function CreateSessionButton() {
       
       if (!response.success || !response.data) {
         // No active project, show alert
-        alert('Please select or create a project first before creating a session.');
+        alert('Please select or create a project first before creating a pane.');
         return;
       }
-      
+
       // Active project exists, open the dialog
       setIsOpen(true);
     } catch (error) {
@@ -36,7 +36,7 @@ export function CreateSessionButton() {
       const projectResponse = await API.projects.getActive();
       
       if (!projectResponse.success || !projectResponse.data) {
-        alert('Please select or create a project first before creating a session.');
+        alert('Please select or create a project first before creating a pane.');
         return;
       }
 
@@ -64,11 +64,11 @@ export function CreateSessionButton() {
 
       if (!response.success) {
         console.error('Failed to create quick session:', response.error);
-        alert('Failed to create session. Please try again.');
+        alert('Failed to create pane. Please try again.');
       }
     } catch (error) {
       console.error('Error creating quick session:', error);
-      alert('Error creating session. Please try again.');
+      alert('Error creating pane. Please try again.');
     } finally {
       setIsCreatingQuick(false);
     }
@@ -84,14 +84,14 @@ export function CreateSessionButton() {
           fullWidth
         >
           <Plus className="w-4 h-4 mr-1" />
-          New Session
+          New Pane
         </Button>
         <Button
           onClick={handleQuickAdd}
           data-testid="quick-add-session-button"
           variant="secondary"
           disabled={isCreatingQuick}
-          title="Quick add new session"
+          title="Quick add new pane"
         >
           <Zap className="w-4 h-4" />
         </Button>

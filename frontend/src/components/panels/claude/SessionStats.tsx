@@ -191,7 +191,7 @@ export const SessionStats: React.FC<SessionStatsProps> = ({ sessionId }) => {
             </div>
             <div className="text-right">
               <div className="text-2xl font-bold text-text-primary">{formatDuration(session.duration)}</div>
-              <div className="text-sm text-text-quaternary">Session Duration</div>
+              <div className="text-sm text-text-quaternary">Pane Duration</div>
             </div>
           </div>
         </div>

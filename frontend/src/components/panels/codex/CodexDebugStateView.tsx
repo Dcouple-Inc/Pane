@@ -182,11 +182,11 @@ export const CodexDebugStateView: React.FC<CodexDebugStateViewProps> = ({ sessio
             <div className="bg-surface-secondary rounded-lg p-4">
               <h4 className="text-sm font-medium text-text-primary mb-3 flex items-center gap-2">
                 <Hash className="w-4 h-4" />
-                Session Information
+                Pane Information
               </h4>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="text-text-secondary">Pane Session ID:</span>
+                  <span className="text-text-secondary">Pane ID:</span>
                   <div className="text-text-primary font-mono mt-1 text-xs break-all">
                     {debugState.sessionId}
                   </div>
@@ -198,7 +198,7 @@ export const CodexDebugStateView: React.FC<CodexDebugStateViewProps> = ({ sessio
                   </div>
                 </div>
                 <div className="col-span-2">
-                  <span className="text-text-secondary">Codex Session ID (for resume):</span>
+                  <span className="text-text-secondary">Codex Pane ID (for resume):</span>
                   <div className="text-text-primary font-mono mt-1 text-xs break-all">
                     {debugState.codexSessionId ? (
                       <>

@@ -339,7 +339,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                 </button>
                 <span className="text-text-primary font-medium flex items-center gap-2">
                   <Terminal className="w-4 h-4" />
-                  Session Information
+                  Pane Information
                 </span>
                 {sessionInfo.timestamp && (
                   <span className="text-text-quaternary text-xs">
@@ -361,7 +361,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                     ? "text-status-success bg-status-success/10"
                     : "text-text-tertiary hover:text-text-primary hover:bg-surface-hover"
                 )}
-                title={copiedIndex === -1 ? "Copied!" : "Copy Session Info"}
+                title={copiedIndex === -1 ? "Copied!" : "Copy Pane Info"}
               >
                 {copiedIndex === -1 ? (
                   <Check className="w-4 h-4" />

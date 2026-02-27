@@ -521,7 +521,7 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
   // Register keyboard shortcut for quick session creation
   useHotkey({
     id: 'quick-create-session',
-    label: 'New Workspace',
+    label: 'New Pane',
     keys: 'mod+n',
     category: 'session',
     action: () => {
@@ -715,7 +715,7 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
     } catch (error) {
       console.error('Failed to load archived sessions:', error);
       showError({
-        title: 'Failed to load archived sessions',
+        title: 'Failed to load archived panes',
         error: error instanceof Error ? error.message : 'Unknown error occurred'
       });
     } finally {
@@ -901,7 +901,7 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
     
     // Show confirmation dialog
     const message = folderSessions.length > 0
-      ? `Delete folder "${folder.name}" and permanently delete ${folderSessions.length} session${folderSessions.length > 1 ? 's' : ''} inside it? This action cannot be undone.`
+      ? `Delete folder "${folder.name}" and permanently delete ${folderSessions.length} pane${folderSessions.length > 1 ? 's' : ''} inside it? This action cannot be undone.`
       : `Delete empty folder "${folder.name}"?`;
     
     const confirmed = window.confirm(message);
@@ -921,13 +921,13 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
             try {
               const sessionResponse = await API.sessions.delete(session.id);
               if (!sessionResponse.success) {
-                throw new Error(`Failed to delete session "${session.name}": ${sessionResponse.error}`);
+                throw new Error(`Failed to delete pane "${session.name}": ${sessionResponse.error}`);
               }
               console.log(`Deleted session: ${session.name}`);
             } catch (error: unknown) {
               console.error(`Error deleting session ${session.name}:`, error);
               showError({
-                title: `Failed to delete session "${session.name}"`,
+                title: `Failed to delete pane "${session.name}"`,
                 error: error instanceof Error ? error.message : 'Unknown error occurred'
               });
               // Clear deleting state and stop the operation if a session fails to delete
@@ -1152,14 +1152,14 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
       if (!response.success) {
         console.error('Failed to create quick session:', response.error);
         showError({
-          title: 'Failed to create session',
-          error: response.error || 'An error occurred while creating the session.'
+          title: 'Failed to create pane',
+          error: response.error || 'An error occurred while creating the pane.'
         });
       }
     } catch (error) {
       console.error('Error creating quick session:', error);
       showError({
-        title: 'Error creating session',
+        title: 'Error creating pane',
         error: 'An unexpected error occurred. Please try again.'
       });
     }
@@ -1716,14 +1716,14 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
           setExpandedFolders(prev => new Set([...prev, folder.id]));
         } else {
           showError({
-            title: 'Failed to move session',
+            title: 'Failed to move pane',
             error: response.error || 'Unknown error occurred'
           });
         }
       } catch (error: unknown) {
         console.error('Failed to move session:', error);
         showError({
-          title: 'Failed to move session',
+          title: 'Failed to move pane',
           error: error instanceof Error ? error.message : 'Unknown error occurred'
         });
       }
@@ -1790,14 +1790,14 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
           }));
         } else {
           showError({
-            title: 'Failed to move session',
+            title: 'Failed to move pane',
             error: response.error || 'Unknown error occurred'
           });
         }
       } catch (error: unknown) {
         console.error('Failed to move session:', error);
         showError({
-          title: 'Failed to move session',
+          title: 'Failed to move pane',
           error: error instanceof Error ? error.message : 'Unknown error occurred'
         });
       }
@@ -2109,7 +2109,7 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
           <EmptyState
             icon={FolderIcon}
             title="No Projects Yet"
-            description="Add your first project to start managing Claude Code sessions."
+            description="Add your first project to start managing Claude Code panes."
             action={{
               label: 'Add Project',
               onClick: () => setShowAddProjectDialog(true)
@@ -2198,10 +2198,10 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
                     }
                   }}
                   className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-surface-hover rounded transition-all opacity-0 group-hover:opacity-100"
-                  title={`New Session${navigator.platform.includes('Mac') ? ' (⌘' : ' (Ctrl'}+click for quick session)`}
+                  title={`New Pane${navigator.platform.includes('Mac') ? ' (⌘' : ' (Ctrl'}+click for quick pane)`}
                 >
                   <Plus className="w-3 h-3" />
-                  <span>New Session</span>
+                  <span>New Pane</span>
                   {isActiveProject && (
                     <kbd className="text-xs text-text-tertiary bg-surface-tertiary px-1 py-0.5 rounded font-mono shrink-0 ml-1">
                       {formatKeyDisplay('mod+n')}
@@ -2215,7 +2215,7 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
                   className={`p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-all opacity-0 group-hover:opacity-100 ${
                     refreshingProjects.has(project.id) ? 'cursor-wait' : ''
                   }`}
-                  title="Refresh git status for all sessions"
+                  title="Refresh git status for all panes"
                 >
                   <RefreshCw className={`w-3 h-3 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 ${
                     refreshingProjects.has(project.id) ? 'animate-spin' : ''
@@ -2403,18 +2403,18 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
               <ChevronRight className="w-4 h-4" />
             )}
             <Archive className="w-4 h-4" />
-            <span>Archived Sessions</span>
+            <span>Archived Panes</span>
           </button>
           
           {showArchivedSessions && (
             <div className="mt-2 space-y-1">
               {isLoadingArchived ? (
                 <div className="flex items-center justify-center py-4">
-                  <LoadingSpinner text="Loading archived sessions..." size="small" />
+                  <LoadingSpinner text="Loading archived panes..." size="small" />
                 </div>
               ) : archivedProjectsWithSessions.length === 0 ? (
                 <div className="px-4 py-4 text-center text-sm text-text-tertiary">
-                  No archived sessions
+                  No archived panes
                 </div>
               ) : (
                 archivedProjectsWithSessions.map((project) => {
@@ -2663,7 +2663,7 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
               
               <FieldWithTooltip
                 label="Build Script"
-                tooltip="Command to build your project. This runs automatically before each Claude Code session starts."
+                tooltip="Command to build your project. This runs automatically before each Claude Code pane starts."
               >
                 <EnhancedInput
                   type="text"
@@ -2677,7 +2677,7 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
 
               <FieldWithTooltip
                 label="Run Script"
-                tooltip="Command to start your development server. You can run this manually from the Terminal view during sessions."
+                tooltip="Command to start your development server. You can run this manually from the Terminal view during panes."
               >
                 <EnhancedInput
                   type="text"

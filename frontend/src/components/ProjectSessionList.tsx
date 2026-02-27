@@ -142,7 +142,7 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
       const id = `switch-session-${i}`;
       ids.push(id);
       const session = allVisibleSessionsRef.current[i - 1];
-      let label = `Switch to session ${i}`;
+      let label = `Switch to pane ${i}`;
       if (session) {
         const project = projectsRef.current.find(p => p.id === session.projectId);
         label = project
@@ -206,7 +206,7 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
       ids.push(id);
       register({
         id,
-        label: 'Next Session',
+        label: 'Next Pane',
         keys,
         category: 'session',
         enabled: () => allActiveSessionsRef.current.length > 1,
@@ -219,7 +219,7 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
       ids.push(id);
       register({
         id,
-        label: 'Previous Session',
+        label: 'Previous Pane',
         keys,
         category: 'session',
         enabled: () => allActiveSessionsRef.current.length > 1,
@@ -403,7 +403,7 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
               icon: Trash2,
               variant: 'danger',
               onClick: () => {
-                if (confirm(`Delete project "${project.name}"? Sessions will be archived.`)) {
+                if (confirm(`Delete project "${project.name}"? Panes will be archived.`)) {
                   handleDeleteProject(project.id);
                 }
               },
@@ -963,7 +963,7 @@ export function ArchivedSessions() {
             </div>
           ) : archivedProjects.length === 0 ? (
             <div className="px-6 py-3 text-xs text-text-tertiary">
-              No archived sessions
+              No archived panes
             </div>
           ) : (
             archivedProjects.map(project => {
