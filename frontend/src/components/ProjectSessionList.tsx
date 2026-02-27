@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { ChevronDown, ChevronRight, Plus, GitBranch, GitFork, MoreHorizontal, Home, Archive, ArchiveRestore, Pencil, Play, Trash2, Settings as SettingsIcon, FolderPlus, Loader2, Brain, Code2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, GitBranch, GitFork, MoreHorizontal, Home, Archive, ArchiveRestore, Pencil, Play, Trash2, Settings as SettingsIcon, FolderPlus, Loader2 } from 'lucide-react';
 import { useSessionStore } from '../stores/sessionStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import { useHotkeyStore } from '../stores/hotkeyStore';
@@ -11,30 +11,10 @@ import { Button } from './ui/Button';
 import { EnhancedInput } from './ui/EnhancedInput';
 import { FieldWithTooltip } from './ui/FieldWithTooltip';
 import { Card } from './ui/Card';
-import { TogglePillImproved } from './ui/TogglePillImproved';
 import { API } from '../utils/api';
 import { cycleIndex } from '../utils/arrayUtils';
 import type { Session, GitStatus } from '../types/session';
 import type { Project, CreateProjectRequest } from '../types/project';
-
-const RUN_SCRIPT_PROMPT = `I use foozol to manage multiple AI coding sessions with git worktrees.
-Each worktree needs its own dev server on a unique port.
-
-Make the dev command intelligent:
-
-1. **Worktree detection** - Auto-detect if running from main repo or a git worktree, resolve paths correctly
-2. **Dynamic port allocation** - Assign unique, deterministic port using hash(cwd) % 1000 + base_port
-3. **Port conflict resolution** - Check if port is in use and auto-resolve by incrementing
-4. **Cross-platform** - Use Node.js (not bash) for Windows/macOS/Linux compatibility
-5. **Smart dependency detection** - Auto-detect if deps need installing (compare package.json mtime vs node_modules)
-6. **Build staleness check** - Auto-detect if build is stale (compare src mtime vs dist)
-7. **Clean termination** - Handle Ctrl+C gracefully (use taskkill on Windows)
-8. **Modify package.json directly** - Don't create separate shell scripts
-9. **Auto-detect project type** - Look for package.json, requirements.txt, Cargo.toml, go.mod, etc.
-10. **Clear output** - Print the URL/port being used so user knows where to access the app
-
-First analyze the project structure, then implement the intelligent dev command.
-This enables running 3+ instances of the same project in different worktrees with zero manual config.`;
 
 interface ProjectSessionListProps {
   sessionSortAscending: boolean;
@@ -51,10 +31,6 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
   const [newProject, setNewProject] = useState<CreateProjectRequest>({ name: '', path: '', buildScript: '', runScript: '' });
   const [detectedBranch, setDetectedBranch] = useState<string | null>(null);
   const [showValidationErrors, setShowValidationErrors] = useState(false);
-
-  // AI-assisted run script state
-  const [generateRunScript, setGenerateRunScript] = useState(true);
-  const [selectedAiTool, setSelectedAiTool] = useState<'claude' | 'codex'>('claude');
 
   // Inline rename state
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
@@ -338,11 +314,9 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
       return;
     }
     try {
-      // Set run script path if AI generation is enabled
       const projectToCreate = {
         ...newProject,
         active: false,
-        runScript: generateRunScript ? './foozol-run.sh' : newProject.runScript
       };
 
       const response = await API.projects.create(projectToCreate);
@@ -353,21 +327,11 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
 
       const newProjectId = response.data.id;
 
-      // Store pending AI prompt if enabled
-      if (generateRunScript) {
-        localStorage.setItem(`pending-ai-prompt-${newProjectId}`, JSON.stringify({
-          aiTool: selectedAiTool,
-          prompt: RUN_SCRIPT_PROMPT
-        }));
-      }
-
       // Reset form state
       setShowAddProjectDialog(false);
       setNewProject({ name: '', path: '', buildScript: '', runScript: '' });
       setDetectedBranch(null);
       setShowValidationErrors(false);
-      setGenerateRunScript(true);
-      setSelectedAiTool('claude');
 
       // Refresh projects list
       loadProjects();
@@ -646,46 +610,6 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
               </FieldWithTooltip>
             )}
 
-            {/* AI-Assisted Run Script */}
-            <div className="pt-4 border-t border-border-primary">
-              <FieldWithTooltip
-                label="Run Script Setup"
-                tooltip="Let AI analyze your project and create a foozol-run.sh script that works with git worktrees and handles dynamic port allocation."
-              >
-                <div className="space-y-3">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={generateRunScript}
-                      onChange={(e) => setGenerateRunScript(e.target.checked)}
-                      className="w-4 h-4 rounded border-border-primary text-interactive focus:ring-interactive"
-                    />
-                    <span className="text-sm text-text-primary">Help me create a run script</span>
-                  </label>
-
-                  {generateRunScript && (
-                    <div className="ml-6 flex items-center gap-2">
-                      <TogglePillImproved
-                        checked={selectedAiTool === 'claude'}
-                        onCheckedChange={() => setSelectedAiTool('claude')}
-                        icon={<Brain className="w-3 h-3" />}
-                        size="sm"
-                      >
-                        Claude
-                      </TogglePillImproved>
-                      <TogglePillImproved
-                        checked={selectedAiTool === 'codex'}
-                        onCheckedChange={() => setSelectedAiTool('codex')}
-                        icon={<Code2 className="w-3 h-3" />}
-                        size="sm"
-                      >
-                        Codex
-                      </TogglePillImproved>
-                    </div>
-                  )}
-                </div>
-              </FieldWithTooltip>
-            </div>
           </div>
         </ModalBody>
         <ModalFooter>

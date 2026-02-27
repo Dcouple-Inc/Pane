@@ -19,20 +19,22 @@ Each worktree needs its own dev server on a unique port.
 
 Create scripts/foozol-run-script.js (Node.js, cross-platform) that:
 1. Auto-detects git worktrees vs main repo
-2. Assigns unique ports using hash(cwd) % 1000 + base_port
-3. Checks port availability, auto-increments if in use
-4. Auto-detects if deps need installing (package.json mtime > node_modules mtime)
-5. Auto-detects if build is stale (src mtime > dist mtime)
-6. Clean Ctrl+C termination (taskkill on Windows, SIGTERM on Unix)
+2. Assigns unique ports using hash(cwd) % 1000 + base_port, with separate ranges for main vs worktrees
+3. Auto-detects if deps need installing (package.json mtime > node_modules mtime)
+4. Auto-detects if build is stale (src mtime > dist mtime)
+5. Clean Ctrl+C termination (taskkill on Windows, SIGTERM on Unix)
+6. Auto-detects project type (package.json, requirements.txt, Cargo.toml, go.mod, etc.)
+7. Prints the URL/port being used so user knows where to access the app
 
-PITFALLS TO WATCH OUT FOR:
-- Port collisions between main repo and worktrees - use separate port ranges
-- Electron apps need native module rebuilding after install (electron-rebuild)
-- Cross-platform compatibility (Windows vs Unix process management)
+CRITICAL EDGE CASES — these cause the most bugs:
+- Port availability checks MUST test BOTH 0.0.0.0 AND :: (IPv6) — dev servers often bind to :: (all interfaces), so a check on 127.0.0.1 alone passes but the server fails with EADDRINUSE
+- Before auto-incrementing to a new port, try to RECLAIM the preferred port by killing orphaned dev server processes still holding it (use lsof/netstat to find the PID, then kill it)
+- Clean up stale framework lock files before starting (.next/dev/lock, .cache/lock, .vite/ temp files, etc.) — these are left by crashed/killed sessions and prevent restart
+- Cross-platform process management (taskkill /F /T on Windows, kill process group on Unix)
 
-Analyze this project and create the complete foozol-run-script.js.
+Analyze this project's actual framework and structure first, then create the complete foozol-run-script.js tailored to it.
 
-IMPORTANT: After creating the script, test it by running 'node scripts/foozol-run-script.js' to ensure it works seamlessly. Then commit and merge to main so all future worktrees have it.`;
+IMPORTANT: After creating the script, TEST THE RESTART PATH — run 'node scripts/foozol-run-script.js', then kill it ungracefully (Ctrl+C or kill the terminal), then run it again. It must reclaim the same port without EADDRINUSE or lock file errors. A single happy-path run proves nothing. Then commit and merge to main so all future worktrees have it.`;
 
 export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
   panels,

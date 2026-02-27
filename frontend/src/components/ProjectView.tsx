@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { API } from '../utils/api';
 import { useSessionStore } from '../stores/sessionStore';
-import { useErrorStore } from '../stores/errorStore';
 import { Session } from '../types/session';
 import { PanelTabBar } from './panels/PanelTabBar';
 import { PanelContainer } from './panels/PanelContainer';
@@ -31,9 +30,6 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
   const [mainRepoSessionId, setMainRepoSessionId] = useState<string | null>(null);
   const [mainRepoSession, setMainRepoSession] = useState<Session | null>(null);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
-  const [pendingAiPrompt, setPendingAiPrompt] = useState<{ aiTool: 'claude' | 'codex'; prompt: string } | null>(null);
-  const { showError } = useErrorStore();
-
   // Panel store state and actions
   const {
     panels,
@@ -286,89 +282,6 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
       unsubscribeCreated?.();
     };
   }, [mainRepoSessionId, addPanel]);
-
-  // Check for pending AI prompt from project creation
-  useEffect(() => {
-    if (mainRepoSessionId && !isLoadingSession) {
-      const pendingKey = `pending-ai-prompt-${projectId}`;
-      const pendingData = localStorage.getItem(pendingKey);
-
-      if (pendingData) {
-        try {
-          const parsed = JSON.parse(pendingData) as unknown;
-          // Validate the parsed data
-          if (parsed && typeof parsed === 'object' &&
-              'aiTool' in parsed && 'prompt' in parsed &&
-              (parsed.aiTool === 'claude' || parsed.aiTool === 'codex') &&
-              typeof parsed.prompt === 'string') {
-            setPendingAiPrompt(parsed as { aiTool: 'claude' | 'codex'; prompt: string });
-          }
-          localStorage.removeItem(pendingKey);
-        } catch (e) {
-          console.error('Failed to parse pending AI prompt:', e);
-          localStorage.removeItem(pendingKey);
-        }
-      }
-    }
-  }, [mainRepoSessionId, projectId, isLoadingSession]);
-
-  // Cleanup pending prompt on unmount
-  useEffect(() => {
-    return () => {
-      // If we unmount before processing, clean up the pending prompt
-      const pendingKey = `pending-ai-prompt-${projectId}`;
-      localStorage.removeItem(pendingKey);
-    };
-  }, [projectId]);
-
-  // Create terminal panel with AI CLI when pending prompt is set
-  useEffect(() => {
-    if (pendingAiPrompt && mainRepoSessionId && !isLoadingSession) {
-      const createAiTerminalPanel = async () => {
-        try {
-          // Determine the CLI command based on the AI tool
-          const cliCommand = pendingAiPrompt.aiTool === 'claude'
-            ? 'claude --dangerously-skip-permissions'
-            : 'codex';
-          const panelTitle = pendingAiPrompt.aiTool === 'claude' ? 'Claude CLI' : 'Codex CLI';
-
-          // Create a terminal panel with the AI CLI command
-          const newPanel = await panelApi.createPanel({
-            sessionId: mainRepoSessionId,
-            type: 'terminal',
-            title: panelTitle,
-            initialState: {
-              customState: {
-                initialCommand: cliCommand
-              }
-            }
-          });
-
-          // Add panel to store
-          addPanel(newPanel);
-
-          // Activate the panel
-          setActivePanelInStore(mainRepoSessionId, newPanel.id);
-          await panelApi.setActivePanel(mainRepoSessionId, newPanel.id);
-
-          // Store the pending input for the panel to pick up (will be sent after CLI starts)
-          localStorage.setItem(`pending-panel-input-${newPanel.id}`, pendingAiPrompt.prompt);
-
-          // Clear the pending prompt
-          setPendingAiPrompt(null);
-        } catch (error) {
-          console.error('Failed to create AI terminal panel:', error);
-          showError({
-            title: 'Failed to Create AI Terminal',
-            error: 'Could not create terminal for run script generation. You can manually add a Terminal (Claude) panel.'
-          });
-          setPendingAiPrompt(null);
-        }
-      };
-
-      createAiTerminalPanel();
-    }
-  }, [pendingAiPrompt, mainRepoSessionId, isLoadingSession, addPanel, setActivePanelInStore, showError]);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-bg-primary">
