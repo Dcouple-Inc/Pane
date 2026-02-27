@@ -132,6 +132,9 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
         terminal.loadAddon(fitAddon);
         console.log('[TerminalPanel] FitAddon loaded');
 
+        // Dedup paste: track when we handle paste via key handler to avoid double-paste
+        let lastPasteTime = 0;
+
         // Intercept app-level shortcuts before xterm consumes them
         terminal.attachCustomKeyEventHandler((e: KeyboardEvent) => {
           const ctrlOrMeta = e.ctrlKey || e.metaKey;
@@ -171,6 +174,22 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           if (ctrlOrMeta && e.key === ',') return false;
           // Ctrl/Cmd+Shift+E: focus sidebar
           if (ctrlOrMeta && e.shiftKey && e.key.toLowerCase() === 'e') return false;
+
+          // Right Alt: let OS/browser handle (e.g. voice transcription, IME)
+          // Use e.code for physical key (e.key may report 'AltGraph' on some layouts)
+          if (e.code === 'AltRight') return false;
+
+          // Ctrl/Cmd+V or Ctrl/Cmd+Shift+V: handle paste from clipboard explicitly
+          // XTerm.js in Electron sends raw control chars instead of pasting clipboard content
+          if (ctrlOrMeta && e.key.toLowerCase() === 'v' && e.type === 'keydown') {
+            lastPasteTime = Date.now();
+            navigator.clipboard.readText().then((text) => {
+              if (text && terminal) {
+                terminal.paste(text);
+              }
+            }).catch(() => { /* clipboard access denied, fall through */ });
+            return false;
+          }
 
           return true; // Let terminal handle everything else
         });
@@ -267,6 +286,19 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
             }
           }
 
+          // Handle paste events from external sources (e.g. voice transcription tools)
+          // that inject text via clipboard paste rather than direct keystrokes
+          // Skip if we just handled paste via the Ctrl+V key handler (dedup)
+          const handlePaste = (e: ClipboardEvent) => {
+            if (Date.now() - lastPasteTime < 500) return;
+            const text = e.clipboardData?.getData('text');
+            if (text && terminal && !disposed) {
+              e.preventDefault();
+              terminal.paste(text);
+            }
+          };
+          terminalRef.current.addEventListener('paste', handlePaste);
+
           setIsInitialized(true);
           console.log('[TerminalPanel] Terminal initialization complete, isInitialized set to true');
 
@@ -327,6 +359,7 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           resizeObserver.observe(terminalRef.current);
 
           // FIX: Return comprehensive cleanup function
+          const terminalElement = terminalRef.current;
           return () => {
             disposed = true;
             clearInterval(heartbeatInterval);
@@ -335,6 +368,7 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
             resizeObserver.disconnect();
             unsubscribeOutput(); // Use the unsubscribe function
             inputDisposable.dispose();
+            terminalElement?.removeEventListener('paste', handlePaste);
           };
         }
       } catch (error) {
