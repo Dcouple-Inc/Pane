@@ -350,14 +350,14 @@ async function main() {
   console.log(`[vite] Frontend dev server starting on port ${port}`);
 
   // 3. Wait for Vite to be ready, then launch Electron
-  const waitAndLaunch = spawn('npx', ['wait-on', `http://localhost:${port}`, '&&', 'npx', 'electron', '.'], {
+  const waitAndLaunch = spawn('npx', ['wait-on', `http-get://localhost:${port}`, '&&', 'npx', 'electron', '.'], {
     cwd: projectRoot,
     env,
     stdio: ['ignore', 'inherit', 'inherit'],
     shell: true
   });
   children.push(waitAndLaunch);
-  console.log(`[electron] Waiting for http://localhost:${port} then launching Electron`);
+  console.log(`[electron] Waiting for http-get://localhost:${port} then launching Electron`);
 
   // Handle cleanup on exit
   let cleanedUp = false;

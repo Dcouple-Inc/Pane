@@ -176,6 +176,15 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           // Ctrl/Cmd+Shift+E: focus sidebar
           if (ctrlOrMeta && e.shiftKey && e.key.toLowerCase() === 'e') return false;
 
+          // Right Alt: let OS/browser handle (e.g. voice transcription, IME)
+          // Use e.code for physical key (e.key may report 'AltGraph' on some layouts)
+          if (e.code === 'AltRight') return false;
+
+          // Ctrl/Cmd+V: stop xterm from sending raw \x16 to PTY
+          // Returning false lets the browser trigger a native paste event instead,
+          // which is handled by our paste event listener on the terminal container
+          if (ctrlOrMeta && e.key.toLowerCase() === 'v') return false;
+
           return true; // Let terminal handle everything else
         });
 
@@ -271,6 +280,18 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
             }
           }
 
+          // Handle paste events (Ctrl+V, voice transcription, external text injection)
+          // XTerm.js in Electron doesn't handle clipboard paste natively, so we
+          // intercept the paste event and feed it to the terminal explicitly
+          const handlePaste = (e: ClipboardEvent) => {
+            const text = e.clipboardData?.getData('text');
+            if (text && terminal && !disposed) {
+              e.preventDefault();
+              terminal.paste(text);
+            }
+          };
+          terminalRef.current.addEventListener('paste', handlePaste);
+
           setIsInitialized(true);
           console.log('[TerminalPanel] Terminal initialization complete, isInitialized set to true');
 
@@ -331,6 +352,7 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           resizeObserver.observe(terminalRef.current);
 
           // FIX: Return comprehensive cleanup function
+          const terminalElement = terminalRef.current;
           return () => {
             disposed = true;
             clearInterval(heartbeatInterval);
@@ -339,6 +361,7 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
             resizeObserver.disconnect();
             unsubscribeOutput(); // Use the unsubscribe function
             inputDisposable.dispose();
+            terminalElement?.removeEventListener('paste', handlePaste);
           };
         }
       } catch (error) {
