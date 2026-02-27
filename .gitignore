@@ -113,3 +113,6 @@ backend-debug.log
 
 # Research docs (AI-generated planning/research)
 docs/research/
+
+# Draft posts (local only)
+docs/posts/
