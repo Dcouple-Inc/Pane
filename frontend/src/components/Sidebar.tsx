@@ -4,7 +4,7 @@ import { CreateSessionDialog } from './CreateSessionDialog';
 import { ProjectSessionList, ArchivedSessions } from './ProjectSessionList';
 import { ArchiveProgress } from './ArchiveProgress';
 import { Info, Clock, Check, Edit, CircleArrowDown, AlertTriangle, GitMerge, ArrowUpDown, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Settings as SettingsIcon, Plus, RefreshCw } from 'lucide-react';
-import paneLogo from '../assets/pane-logo.svg';
+import { usePaneLogo } from '../hooks/usePaneLogo';
 import { IconButton } from './ui/Button';
 import { Modal, ModalHeader, ModalBody } from './ui/Modal';
 import { Dropdown } from './ui/Dropdown';
@@ -28,6 +28,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSettingsClick, isSettingsOpen, onSettingsClose, width, onResize, collapsed, onToggleCollapse }: SidebarProps) {
+  const paneLogo = usePaneLogo();
   const [showStatusGuide, setShowStatusGuide] = useState(false);
   const [version, setVersion] = useState<string>('');
   const [gitCommit, setGitCommit] = useState<string>('');

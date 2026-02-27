@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { X, Download, Check, Loader2, Github } from 'lucide-react';
 import { UpdateDialog } from './UpdateDialog';
+import { usePaneLogo } from '../hooks/usePaneLogo';
 
 interface VersionInfo {
   current: string;
@@ -23,6 +24,7 @@ interface AboutDialogProps {
 }
 
 export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
+  const paneLogo = usePaneLogo();
   const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -116,7 +118,7 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
           {/* Logo and branding */}
           <div className="flex flex-col items-center mb-8">
             <img
-              src="/pane-logo.svg"
+              src={paneLogo}
               alt="Pane"
               className="w-16 h-16 mb-4"
               onError={(e) => {

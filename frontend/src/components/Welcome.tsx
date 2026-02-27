@@ -1,6 +1,6 @@
 import React from 'react';
 import { Zap, CheckCircle, GitBranch } from 'lucide-react';
-import paneLogo from '../assets/pane-logo.svg';
+import { usePaneLogo } from '../hooks/usePaneLogo';
 import { Modal, ModalBody, ModalFooter } from './ui/Modal';
 import { Button } from './ui/Button';
 
@@ -10,6 +10,7 @@ interface WelcomeProps {
 }
 
 export default function Welcome({ isOpen, onClose }: WelcomeProps) {
+  const paneLogo = usePaneLogo();
   const [dontShowAgain, setDontShowAgain] = React.useState(false);
   
   React.useEffect(() => {

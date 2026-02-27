@@ -1,6 +1,6 @@
 import React from 'react';
 import { BarChart3 } from 'lucide-react';
-import paneLogo from '../assets/pane-logo.svg';
+import { usePaneLogo } from '../hooks/usePaneLogo';
 import { Modal, ModalBody, ModalFooter } from './ui/Modal';
 import { Button } from './ui/Button';
 import { useConfigStore } from '../stores/configStore';
@@ -12,6 +12,7 @@ interface AnalyticsConsentDialogProps {
 }
 
 export default function AnalyticsConsentDialog({ isOpen, onClose }: AnalyticsConsentDialogProps) {
+  const paneLogo = usePaneLogo();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const { config, updateConfig } = useConfigStore();
 
