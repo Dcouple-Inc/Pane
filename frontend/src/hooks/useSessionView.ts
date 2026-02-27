@@ -1091,16 +1091,57 @@ export const useSessionView = (
     },
   });
 
+  const isSessionBusy = activeSession?.status === 'running' || activeSession?.status === 'initializing';
+
   useHotkey({
-    id: 'force-reset',
-    label: 'Force Reset Loading State',
-    keys: 'mod+shift+r',
-    category: 'debug',
-    devOnly: true,
+    id: 'git-commit',
+    label: 'Git: Commit',
+    keys: 'mod+shift+k',
+    category: 'session',
     action: () => {
-      forceResetLoadingState();
-      setShouldReloadOutput(true);
+      setDialogType('commit');
+      setShowCommitMessageDialog(true);
     },
+    enabled: () => !isMerging && !isSessionBusy &&
+      ((activeSession?.gitStatus?.hasUncommittedChanges ?? false) || (activeSession?.gitStatus?.hasUntrackedFiles ?? false)),
+  });
+
+  useHotkey({
+    id: 'git-push',
+    label: 'Git: Push',
+    keys: 'mod+shift+p',
+    category: 'session',
+    action: () => handleGitPush(),
+    enabled: () => !isMerging && !isSessionBusy && (activeSession?.gitStatus?.ahead ?? 0) > 0,
+  });
+
+  useHotkey({
+    id: 'git-pull',
+    label: 'Git: Pull',
+    keys: 'mod+shift+l',
+    category: 'session',
+    action: () => handleGitPull(),
+    enabled: () => !isMerging && !isSessionBusy,
+  });
+
+  useHotkey({
+    id: 'git-rebase-from-main',
+    label: 'Git: Rebase from Main',
+    keys: 'mod+shift+r',
+    category: 'session',
+    action: () => handleRebaseMainIntoWorktree(),
+    enabled: () => !isMerging && !isSessionBusy && !activeSession?.isMainRepo && hasChangesToRebase,
+  });
+
+  useHotkey({
+    id: 'git-merge-to-main',
+    label: 'Git: Merge to Main',
+    keys: 'mod+shift+m',
+    category: 'session',
+    action: () => handleSquashAndRebaseToMain(),
+    enabled: () => !isMerging && !isSessionBusy && !activeSession?.isMainRepo &&
+      !!activeSession?.gitStatus?.totalCommits && activeSession.gitStatus.totalCommits > 0 &&
+      (activeSession?.gitStatus?.ahead ?? 0) > 0,
   });
 
   const handleSendInput = async (attachedImages?: AttachedImage[], attachedTexts?: AttachedText[]) => {

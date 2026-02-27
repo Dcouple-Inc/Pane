@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, ReactNode, CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '../../utils/cn';
+import { formatKeyDisplay } from '../../utils/hotkeyUtils';
 
 export interface DropdownItem {
   id: string;
@@ -13,6 +14,7 @@ export interface DropdownItem {
   variant?: 'default' | 'success' | 'warning' | 'danger';
   showDot?: boolean;
   dotColor?: string;
+  shortcut?: string;
 }
 
 export interface DropdownProps {
@@ -271,6 +273,12 @@ export function Dropdown({
                           </div>
                         )}
                       </div>
+
+                      {item.shortcut && (
+                        <kbd className="text-xs text-text-tertiary bg-surface-tertiary px-1.5 py-0.5 rounded font-mono shrink-0">
+                          {formatKeyDisplay(item.shortcut)}
+                        </kbd>
+                      )}
 
                       {(isSelected || item.showDot) && (
                         <div className="flex items-center justify-center w-5 h-5 flex-shrink-0">

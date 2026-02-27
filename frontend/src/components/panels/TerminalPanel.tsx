@@ -154,6 +154,10 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           if (ctrlOrMeta && e.shiftKey && e.key.toLowerCase() === 'd') return false;
           // Ctrl/Cmd+Shift+R: toggle run
           if (ctrlOrMeta && e.shiftKey && e.key.toLowerCase() === 'r') return false;
+          // Git shortcuts - release to DOM for hotkeyStore
+          if (ctrlOrMeta && e.shiftKey && e.key.toLowerCase() === 'm') return false;
+          if (ctrlOrMeta && e.shiftKey && e.key.toLowerCase() === 'p') return false;
+          if (ctrlOrMeta && e.shiftKey && e.key.toLowerCase() === 'l') return false;
 
           // Session cycling - Tab
           if (ctrlOrMeta && e.key === 'Tab') return false;
