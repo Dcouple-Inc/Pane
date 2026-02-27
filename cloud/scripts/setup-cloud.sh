@@ -561,7 +561,7 @@ if [ -f "${TERRAFORM_DIR}/terraform.tfstate" ]; then
           --zone="$GCP_ZONE" \
           --project="$PROJECT_ID" \
           --tunnel-through-iap \
-          --command="cat /home/Pane/.vnc_password 2>/dev/null" \
+          --command="cat /home/Pane/.vnc_password 2>/dev/null || cat /home/foozol/.vnc_password 2>/dev/null" \
           2>/dev/null || echo "")
 
         if [ -n "$VNC_PASSWORD" ]; then
@@ -579,7 +579,7 @@ if [ -f "${TERRAFORM_DIR}/terraform.tfstate" ]; then
     else
       warn "Could not retrieve VNC password."
       warn "You can get it later with:"
-      echo "  gcloud compute ssh ${INSTANCE_NAME} --zone=${GCP_ZONE} --project=${PROJECT_ID} --tunnel-through-iap --command='cat /home/Pane/.vnc_password'"
+      echo "  gcloud compute ssh ${INSTANCE_NAME} --zone=${GCP_ZONE} --project=${PROJECT_ID} --tunnel-through-iap --command='cat /home/Pane/.vnc_password 2>/dev/null || cat /home/foozol/.vnc_password'"
     fi
     echo ""
 
