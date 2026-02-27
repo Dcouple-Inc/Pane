@@ -558,10 +558,10 @@ async function getSessionBranchInfo(
     let pullRequest: SessionBranchInfo['pullRequest'];
     try {
       const prOutput = execSync(
-        `gh pr list --head ${branchName} --json number,title,state,url --limit 1`,
+        `gh pr list --head ${branchName} --state all --json number,title,state,url --limit 1`,
         { cwd: projectPath }
       ).toString().trim();
-      
+
       if (prOutput) {
         const prs = JSON.parse(prOutput);
         if (prs.length > 0) {
@@ -696,7 +696,7 @@ async function getSessionBranchInfoAsync(
     let pullRequest: SessionBranchInfo['pullRequest'];
     try {
       const prResult = await execAsync(
-        `gh pr list --head ${branchName} --json number,title,state,url --limit 1`,
+        `gh pr list --head ${branchName} --state all --json number,title,state,url --limit 1`,
         { cwd: projectPath, timeout: 10000 },
         wslContext
       );

@@ -57,7 +57,7 @@ interface RawCommitData {
 const prCache = new Map<string, { prNumber?: number; prUrl?: string; prTitle?: string; prState?: string; fetchedAt: number }>();
 const PR_CACHE_TTL = 2.5 * 60 * 1000; // 2.5 minutes
 
-async function fetchPrForSession(
+export async function fetchPrForSession(
   branchName: string,
   projectPath: string,
   wslContext?: WSLContext | null
@@ -70,7 +70,7 @@ async function fetchPrForSession(
 
   try {
     const result = await execAsync(
-      `gh pr list --head "${branchName}" --json number,url,title,state --limit 1`,
+      `gh pr list --head "${branchName}" --state all --json number,url,title,state --limit 1`,
       { cwd: projectPath, timeout: 5000 },
       wslContext
     );

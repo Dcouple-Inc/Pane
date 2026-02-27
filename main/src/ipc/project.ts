@@ -4,7 +4,8 @@ import type { CreateProjectRequest, UpdateProjectRequest } from '../../../fronte
 import { scriptExecutionTracker } from '../services/scriptExecutionTracker';
 import { panelManager } from '../services/panelManager';
 import { parseWSLPath, wrapCommandForWSL, validateWSLAvailable } from '../utils/wslUtils';
-import { invalidatePrCache } from './git';
+import { invalidatePrCache, fetchPrForSession } from './git';
+import { getWSLContextFromProject } from '../utils/wslUtils';
 
 // Helper function to stop a running project script
 async function stopProjectScriptInternal(projectId?: number): Promise<{ success: boolean; error?: string }> {
@@ -518,6 +519,23 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
           const refreshedCount = results.filter(result => result.status === 'fulfilled').length;
           console.log(`[Main] Background refresh completed: ${refreshedCount}/${sessionCount} sessions`);
         });
+
+        // Also refresh PR data for each session (fire-and-forget)
+        const wslCtx = getWSLContextFromProject(project);
+        for (const session of sessionsToRefresh) {
+          if (!session.worktreePath) continue;
+          const branchName = session.worktreePath.replace(/\\/g, '/').split('/').pop();
+          if (!branchName) continue;
+          fetchPrForSession(branchName, project.path, wslCtx).then(prData => {
+            if (prData.prNumber !== undefined) {
+              const currentStatus = gitStatusManager.getCachedStatus(session.id)?.status;
+              if (currentStatus) {
+                const enrichedStatus = { ...currentStatus, prNumber: prData.prNumber, prUrl: prData.prUrl, prTitle: prData.prTitle, prState: prData.prState };
+                gitStatusManager.emit('git-status-updated', session.id, enrichedStatus);
+              }
+            }
+          }).catch(() => { /* PR enrichment is best-effort */ });
+        }
       });
 
       // Return immediately with the count of sessions that will be refreshed
