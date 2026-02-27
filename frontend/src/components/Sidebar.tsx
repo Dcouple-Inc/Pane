@@ -5,6 +5,7 @@ import { ProjectSessionList, ArchivedSessions } from './ProjectSessionList';
 import { ArchiveProgress } from './ArchiveProgress';
 import { Info, Clock, Check, Edit, CircleArrowDown, AlertTriangle, GitMerge, ArrowUpDown, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Settings as SettingsIcon, Plus, RefreshCw } from 'lucide-react';
 import { usePaneLogo } from '../hooks/usePaneLogo';
+import { isMac } from '../utils/platformUtils';
 import { IconButton } from './ui/Button';
 import { Modal, ModalHeader, ModalBody } from './ui/Modal';
 import { Dropdown } from './ui/Dropdown';
@@ -141,8 +142,10 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSet
           className="bg-surface-primary text-text-primary h-full flex flex-col flex-shrink-0 border-r border-border-primary"
           style={{ width: '48px' }}
         >
-          {/* Drag handle for window */}
-          <div className="h-3 flex-shrink-0" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties} />
+          {/* Drag handle for window (not needed on macOS — handled by App-level spacer) */}
+          {!isMac() && (
+            <div className="h-3 flex-shrink-0" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties} />
+          )}
           {/* Logo */}
           <div className="flex items-center justify-center px-1 py-2 border-b border-border-primary">
             <img src={paneLogo} alt="Pane" className="h-6 w-6" />
@@ -244,8 +247,10 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSet
         className="bg-surface-primary text-text-primary h-full flex flex-col relative flex-shrink-0 border-r border-border-primary"
         style={{ width: `${width}px` }}
       >
-        {/* Drag handle for window */}
-        <div className="h-3 flex-shrink-0" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties} />
+        {/* Drag handle for window (not needed on macOS — handled by App-level spacer) */}
+        {!isMac() && (
+          <div className="h-3 flex-shrink-0" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties} />
+        )}
         {/* Resize handle */}
         <div
           className="absolute top-0 right-0 w-1 h-full cursor-col-resize group z-10"
