@@ -1102,8 +1102,8 @@ export const useSessionView = (
       setDialogType('commit');
       setShowCommitMessageDialog(true);
     },
-    enabled: () => !isMerging && !isSessionBusy && !activeSession?.isMainRepo &&
-      ((activeSession?.gitStatus?.hasUncommittedChanges ?? false) || (activeSession?.gitStatus?.hasUntrackedFiles ?? false)),
+    enabled: () => !!activeSession && !isMerging && !isSessionBusy && !activeSession.isMainRepo &&
+      ((activeSession.gitStatus?.hasUncommittedChanges ?? false) || (activeSession.gitStatus?.hasUntrackedFiles ?? false)),
   });
 
   useHotkey({
@@ -1112,7 +1112,7 @@ export const useSessionView = (
     keys: 'mod+shift+p',
     category: 'session',
     action: () => handleGitPush(),
-    enabled: () => !isMerging && !isSessionBusy && !activeSession?.isMainRepo && (activeSession?.gitStatus?.ahead ?? 0) > 0,
+    enabled: () => !!activeSession && !isMerging && !isSessionBusy && !activeSession.isMainRepo && (activeSession.gitStatus?.ahead ?? 0) > 0,
   });
 
   useHotkey({
@@ -1121,7 +1121,7 @@ export const useSessionView = (
     keys: 'mod+shift+l',
     category: 'session',
     action: () => handleGitPull(),
-    enabled: () => !isMerging && !isSessionBusy && !activeSession?.isMainRepo,
+    enabled: () => !!activeSession && !isMerging && !isSessionBusy && !activeSession.isMainRepo,
   });
 
   useHotkey({
@@ -1130,7 +1130,7 @@ export const useSessionView = (
     keys: 'mod+shift+r',
     category: 'session',
     action: () => handleRebaseMainIntoWorktree(),
-    enabled: () => !isMerging && !isSessionBusy && !activeSession?.isMainRepo && hasChangesToRebase,
+    enabled: () => !!activeSession && !isMerging && !isSessionBusy && !activeSession.isMainRepo && hasChangesToRebase,
   });
 
   useHotkey({
@@ -1139,9 +1139,9 @@ export const useSessionView = (
     keys: 'mod+shift+m',
     category: 'session',
     action: () => handleSquashAndRebaseToMain(),
-    enabled: () => !isMerging && !isSessionBusy && !activeSession?.isMainRepo &&
-      !!activeSession?.gitStatus?.totalCommits && activeSession.gitStatus.totalCommits > 0 &&
-      (activeSession?.gitStatus?.ahead ?? 0) > 0,
+    enabled: () => !!activeSession && !isMerging && !isSessionBusy && !activeSession.isMainRepo &&
+      !!activeSession.gitStatus?.totalCommits && activeSession.gitStatus.totalCommits > 0 &&
+      (activeSession.gitStatus?.ahead ?? 0) > 0,
   });
 
   const handleSendInput = async (attachedImages?: AttachedImage[], attachedTexts?: AttachedText[]) => {
