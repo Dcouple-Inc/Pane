@@ -59,7 +59,7 @@ interface CliSpawnedEvent {
 }
 
 /**
- * Abstract base class for managing CLI tool processes in foozol
+ * Abstract base class for managing CLI tool processes in Pane
  * Provides common functionality for spawning, managing, and communicating with CLI tools
  */
 export abstract class AbstractCliManager extends EventEmitter {
@@ -547,7 +547,7 @@ export abstract class AbstractCliManager extends EventEmitter {
       '',
       `If ${this.getCliToolName()} is installed but not in your PATH:`,
       `- Add the ${this.getCliToolName()} installation directory to your PATH environment variable`,
-      '- Or set a custom executable path in foozol Settings',
+      '- Or set a custom executable path in Pane Settings',
       '',
       `Enhanced PATH searched: ${getShellPath()}`,
       `Attempted command: ${this.getCliToolName()} --version`

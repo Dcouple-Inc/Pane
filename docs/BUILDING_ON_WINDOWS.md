@@ -1,6 +1,6 @@
-# Building foozol on Windows
+# Building Pane on Windows
 
-This document explains how to build foozol for Windows.
+This document explains how to build Pane for Windows.
 
 > **Note:** As of February 2026, the Windows build works without major issues. The primary native modules (`@lydell/node-pty` and `better-sqlite3-multiple-ciphers`) have prebuilt binaries for Windows.
 
@@ -18,9 +18,9 @@ pnpm run build:win
 ```
 
 Output files will be in `dist-electron/`:
-- `foozol-{version}-Windows-x64.exe` - x64 installer
-- `foozol-{version}-Windows-arm64.exe` - ARM64 installer
-- `foozol-{version}-Windows.exe` - Multi-arch installer (both x64 and ARM64)
+- `pane-{version}-Windows-x64.exe` - x64 installer
+- `pane-{version}-Windows-arm64.exe` - ARM64 installer
+- `pane-{version}-Windows.exe` - Multi-arch installer (both x64 and ARM64)
 
 ## Prerequisites
 

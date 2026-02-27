@@ -559,13 +559,13 @@ export const SessionView = memo(() => {
 
   // Detail panel state
   const [detailVisible, setDetailVisible] = useState(() => {
-    const stored = localStorage.getItem('foozol-detail-panel-visible');
+    const stored = localStorage.getItem('pane-detail-panel-visible');
     return stored !== null ? stored === 'true' : true;
   });
 
   // Persist detail panel visibility
   useEffect(() => {
-    localStorage.setItem('foozol-detail-panel-visible', String(detailVisible));
+    localStorage.setItem('pane-detail-panel-visible', String(detailVisible));
   }, [detailVisible]);
 
   // Right-side resizable
@@ -573,7 +573,7 @@ export const SessionView = memo(() => {
     defaultWidth: 170,
     minWidth: 140,
     maxWidth: 350,
-    storageKey: 'foozol-detail-panel-width',
+    storageKey: 'pane-detail-panel-width',
     side: 'right'
   });
   
@@ -612,19 +612,19 @@ export const SessionView = memo(() => {
     defaultHeight: 200,
     minHeight: 100,
     maxHeight: 500,
-    storageKey: 'foozol-bottom-terminal-height',
+    storageKey: 'pane-bottom-terminal-height',
   });
 
   // Terminal collapse state with localStorage persistence (collapsed by default)
   const [isTerminalCollapsed, setIsTerminalCollapsed] = useState(() => {
-    const stored = localStorage.getItem('foozol-terminal-collapsed');
+    const stored = localStorage.getItem('pane-terminal-collapsed');
     return stored === null ? true : stored === 'true';
   });
 
   const toggleTerminalCollapse = useCallback(() => {
     setIsTerminalCollapsed(prev => {
       const newValue = !prev;
-      localStorage.setItem('foozol-terminal-collapsed', String(newValue));
+      localStorage.setItem('pane-terminal-collapsed', String(newValue));
       return newValue;
     });
   }, []);

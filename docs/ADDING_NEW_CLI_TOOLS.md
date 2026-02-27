@@ -1,6 +1,6 @@
-# Adding New CLI Tools to foozol
+# Adding New CLI Tools to Pane
 
-This guide explains how to extend foozol to support additional CLI tools beyond Claude Code. foozol's architecture has been designed with extensibility in mind, using abstract base classes and a registry pattern.
+This guide explains how to extend Pane to support additional CLI tools beyond Claude Code. Pane's architecture has been designed with extensibility in mind, using abstract base classes and a registry pattern.
 
 ## Table of Contents
 - [Overview](#overview)
@@ -12,7 +12,7 @@ This guide explains how to extend foozol to support additional CLI tools beyond 
 
 ## Overview
 
-foozol uses a modular architecture that allows you to add support for new CLI tools (like Aider, Continue, Cursor, etc.) by:
+Pane uses a modular architecture that allows you to add support for new CLI tools (like Aider, Continue, Cursor, etc.) by:
 1. Creating a manager class that extends `AbstractCliManager`
 2. Registering the tool in the CLI tool registry
 3. Adding frontend panel components
@@ -206,7 +206,7 @@ export class AiderManager extends AbstractCliManager {
       '',
       'If Aider is installed but not in your PATH:',
       '- Add the Aider installation directory to your PATH',
-      '- Or set a custom Aider path in foozol Settings'
+      '- Or set a custom Aider path in Pane Settings'
     ].join('\n');
   }
 
@@ -492,7 +492,7 @@ console.log('Parsed output:', output);
 
 ## Database Considerations
 
-foozol's database schema is flexible and can accommodate new CLI tools without migration:
+Pane's database schema is flexible and can accommodate new CLI tools without migration:
 
 - The `tool_panels` table has a `type` column that accepts any string value
 - Panel-specific state is stored as JSON in the `state` column
@@ -704,7 +704,7 @@ export class AdvancedCliManager extends AbstractCliManager {
 
 ## Contributing
 
-When adding a new CLI tool to foozol:
+When adding a new CLI tool to Pane:
 
 1. Follow the existing code style and patterns
 2. Add comprehensive error handling
@@ -717,4 +717,4 @@ When adding a new CLI tool to foozol:
 For questions or issues with CLI integration:
 1. Check existing CLI implementations (ClaudeCodeManager) for examples
 2. Review the AbstractCliManager base class documentation
-3. Open an issue on the foozol GitHub repository
+3. Open an issue on the Pane GitHub repository

@@ -139,7 +139,7 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
             
             <FieldWithTooltip
               label="Project Name"
-              tooltip="Display name for this project in foozol's interface."
+              tooltip="Display name for this project in Pane's interface."
             >
               <EnhancedInput
                 type="text"
@@ -153,7 +153,7 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
 
             <FieldWithTooltip
               label="Repository Path"
-              tooltip="Local path to the git repository where foozol will manage worktrees."
+              tooltip="Local path to the git repository where Pane will manage worktrees."
             >
               <div className="space-y-3">
                 <EnhancedInput
@@ -265,8 +265,8 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
             <div className="flex items-center gap-2 pb-3 border-b border-border-primary">
               <Code2 className="w-5 h-5 text-interactive" />
               <div>
-                <h3 className="text-heading-3 font-semibold text-text-primary">Session Behavior</h3>
-                <p className="text-sm text-text-tertiary">Commands and scripts that run during Claude sessions</p>
+                <h3 className="text-heading-3 font-semibold text-text-primary">Pane Behavior</h3>
+                <p className="text-sm text-text-tertiary">Commands and scripts that run during Claude panes</p>
               </div>
             </div>
 
@@ -326,7 +326,7 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
 
             <FieldWithTooltip
               label="Run Commands"
-              tooltip="Commands that run continuously during sessions. Perfect for development servers and test watchers."
+              tooltip="Commands that run continuously during panes. Perfect for development servers and test watchers."
             >
               <Card variant="bordered" padding="sm" className="bg-surface-secondary/50">
                 <Textarea
@@ -354,7 +354,7 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
 
             <FieldWithTooltip
               label="Project System Prompt"
-              tooltip="Custom instructions that will be added to every Claude session for this project. Use this to provide context about your codebase, coding standards, or preferred approaches."
+              tooltip="Custom instructions that will be added to every Claude pane for this project. Use this to provide context about your codebase, coding standards, or preferred approaches."
             >
               <Card variant="bordered" padding="sm" className="bg-surface-secondary/50">
                 <Textarea
@@ -392,7 +392,7 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
                 <div className="space-y-4">
                   <Card variant="bordered" padding="md" className="bg-status-error/5 border-status-error/20">
                     <p className="text-sm text-text-secondary mb-3">
-                      Are you sure you want to delete this project? This action cannot be undone and will remove all project data from foozol.
+                      Are you sure you want to delete this project? This action cannot be undone and will remove all project data from Pane.
                     </p>
                     <div className="flex space-x-3">
                       <Button

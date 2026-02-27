@@ -36,7 +36,7 @@ export class AnalyticsManager extends EventEmitter {
 
     // Generate new random UUID for this installation
     const uuid = crypto.randomUUID();
-    const distinctId = `foozol_${uuid}`;
+    const distinctId = `pane_${uuid}`;
 
     // Store it for future use (async, but don't wait)
     this.configManager.setAnalyticsDistinctId(distinctId).catch(err => {

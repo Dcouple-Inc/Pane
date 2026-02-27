@@ -1,10 +1,10 @@
-# foozol Database Documentation
+# Pane Database Documentation
 
-This document provides a comprehensive overview of all SQLite database tables and local storage mechanisms used in the foozol application.
+This document provides a comprehensive overview of all SQLite database tables and local storage mechanisms used in the Pane application.
 
 ## Overview
 
-foozol uses a SQLite database located at `~/.foozol/foozol.db` for persistent data storage. The database is managed using Better-SQLite3 for synchronous operations and includes a migration system for schema evolution.
+Pane uses a SQLite database located at `~/.pane/pane.db` for persistent data storage. The database is managed using Better-SQLite3 for synchronous operations and includes a migration system for schema evolution.
 
 ## Database Tables
 
@@ -148,9 +148,9 @@ The database includes several indexes for performance optimization:
 ### 1. Electron Store
 
 Location: Platform-specific (handled by electron-store)
-- macOS: `~/Library/Application Support/foozol/config.json`
-- Windows: `%APPDATA%/foozol/config.json`
-- Linux: `~/.config/foozol/config.json`
+- macOS: `~/Library/Application Support/Pane/config.json`
+- Windows: `%APPDATA%/Pane/config.json`
+- Linux: `~/.config/Pane/config.json`
 
 **Stored Data**:
 ```json
@@ -172,10 +172,10 @@ Location: Platform-specific (handled by electron-store)
 
 ### 2. Application Directory
 
-Location: `~/.foozol/`
+Location: `~/.pane/`
 
 **Contents**:
-- `foozol.db` - Main SQLite database
+- `pane.db` - Main SQLite database
 - Automatically created on first application run
 
 ### 3. Git Worktrees
@@ -224,7 +224,7 @@ Migrations are applied automatically on application startup if the database vers
 ## Backup Recommendations
 
 Users should periodically backup:
-1. `~/.foozol/foozol.db` - Contains all session data
+1. `~/.pane/pane.db` - Contains all session data
 2. The Electron Store config file - Contains application settings
 3. Project directories - Contains the actual code and git history
 

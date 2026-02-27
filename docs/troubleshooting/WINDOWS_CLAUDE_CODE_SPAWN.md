@@ -6,7 +6,7 @@ Both issues have been resolved. Claude Code now spawns correctly on Windows.
 
 ## Problem Summary
 
-Claude Code was failing to spawn properly on Windows when foozol runs it in a worktree directory different from where `@anthropic-ai/claude-code` is installed.
+Claude Code was failing to spawn properly on Windows when Pane runs it in a worktree directory different from where `@anthropic-ai/claude-code` is installed.
 
 ## Root Cause Analysis
 
@@ -66,7 +66,7 @@ The `findCliNodeScript()` function in `main/src/utils/nodeFinder.ts` was enhance
 
 ### npm Bin Stub Structure (Windows)
 
-The file at `foozol/node_modules/.bin/claude` is a shell script that:
+The file at `Pane/node_modules/.bin/claude` is a shell script that:
 1. Sets `NODE_PATH` with pnpm-specific paths
 2. Executes: `node "$basedir/../@anthropic-ai/claude-code/cli.js" "$@"`
 

@@ -1,6 +1,6 @@
 # Progressive Disclosure & UX Guidelines
 
-Guidelines for foozol's UI design, informed by Linear and Claude Code CLI patterns.
+Guidelines for Pane's UI design, informed by Linear and Claude Code CLI patterns.
 
 ## Core Principles
 
@@ -49,7 +49,7 @@ Linear deliberately constrains flexibility in favor of purpose-built workflows:
 - Opinionated at the atomic level (labels and due dates are issue properties, not configurable)
 - Purpose-built over flexible
 
-**foozol equivalent:** Session creation needs only a **prompt**. Name is auto-generated. Tool defaults to Claude Code. Branch defaults to main.
+**Pane equivalent:** Session creation needs only a **prompt**. Name is auto-generated. Tool defaults to Claude Code. Branch defaults to main.
 
 ### Claude Code CLI's Minimalism
 
@@ -58,7 +58,7 @@ Linear deliberately constrains flexibility in favor of purpose-built workflows:
 - Status line is optional and customizable
 - Updates debounced at 300ms to prevent visual flicker
 
-**foozol equivalent:** Replace flashy ThinkingPlaceholder with clean text. Keep status dots simple. No animations unless state actually changes.
+**Pane equivalent:** Replace flashy ThinkingPlaceholder with clean text. Keep status dots simple. No animations unless state actually changes.
 
 ### Collapsible Section Pattern
 

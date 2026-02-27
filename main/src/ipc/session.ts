@@ -1,3 +1,9 @@
+/**
+ * Session IPC handlers for Pane.
+ * Note: "Sessions" are called "Panes" in the UI. Internally they remain
+ * "sessions" in code, database, and IPC to avoid a massive refactor.
+ */
+
 import { IpcMain } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs/promises';
@@ -1638,7 +1644,7 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
         }
       }
 
-      // Create images directory in FOOZOL_DIR/artifacts/{sessionId}
+      // Create images directory in PANE_DIR/artifacts/{sessionId}
       const imagesDir = getAppSubdirectory('artifacts', sessionId);
       if (!existsSync(imagesDir)) {
         await fs.mkdir(imagesDir, { recursive: true });
@@ -1687,7 +1693,7 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
         }
       }
 
-      // Create text directory in FOOZOL_DIR/artifacts/{sessionId}
+      // Create text directory in PANE_DIR/artifacts/{sessionId}
       const textDir = getAppSubdirectory('artifacts', sessionId);
       if (!existsSync(textDir)) {
         await fs.mkdir(textDir, { recursive: true });

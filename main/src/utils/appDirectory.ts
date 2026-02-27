@@ -1,11 +1,12 @@
 import { homedir } from 'os';
 import { join } from 'path';
+import { existsSync, renameSync } from 'fs';
 import { app } from 'electron';
 
 let customAppDir: string | undefined;
 
 /**
- * Sets a custom foozol directory path. This should be called early in the
+ * Sets a custom Pane directory path. This should be called early in the
  * application lifecycle, before any services are initialized.
  */
 export function setAppDirectory(dir: string): void {
@@ -13,7 +14,7 @@ export function setAppDirectory(dir: string): void {
 }
 
 /**
- * Determines if foozol is running from an installed application (DMG/Applications folder)
+ * Determines if Pane is running from an installed application (DMG/Applications folder)
  * rather than a development build
  */
 function isInstalledApp(): boolean {
@@ -38,9 +39,9 @@ function isInstalledApp(): boolean {
 }
 
 /**
- * Gets the foozol directory path. Returns the custom directory if set,
- * otherwise falls back to the environment variable FOOZOL_DIR,
- * and finally defaults to ~/.foozol
+ * Gets the Pane directory path. Returns the custom directory if set,
+ * otherwise falls back to the environment variable PANE_DIR,
+ * and finally defaults to ~/.pane
  */
 export function getAppDirectory(): string {
   // 1. Check if custom directory was set programmatically
@@ -48,31 +49,69 @@ export function getAppDirectory(): string {
     return customAppDir;
   }
 
-  // 2. Check environment variable
-  const envDir = process.env.FOOZOL_DIR;
+  // 2. Check environment variable (with legacy FOOZOL_DIR fallback)
+  const envDir = process.env.PANE_DIR || process.env.FOOZOL_DIR;
   if (envDir) {
     return envDir;
   }
 
-  // 3. If running as an installed app (from DMG, /Applications, etc), always use ~/.foozol
+  // 3. If running as an installed app (from DMG, /Applications, etc), always use ~/.pane
   if (isInstalledApp()) {
-    console.log('[foozol] Running as installed app, using ~/.foozol');
-    return join(homedir(), '.foozol');
+    console.log('[Pane] Running as installed app, using ~/.pane');
+    return join(homedir(), '.pane');
   }
 
-  // 4. If running inside foozol (detected by bundle identifier) in development, use development directory
-  // This prevents development foozol from interfering with production foozol
-  if (process.env.__CFBundleIdentifier === 'com.dcouple.foozol' && !app.isPackaged) {
-    console.log('[foozol] Detected running inside foozol development, using ~/.foozol_dev for isolation');
-    return join(homedir(), '.foozol_dev');
+  // 4. If running inside Pane (detected by bundle identifier) in development, use development directory
+  // This prevents development Pane from interfering with production Pane
+  if (process.env.__CFBundleIdentifier === 'com.dcouple.pane' && !app.isPackaged) {
+    console.log('[Pane] Detected running inside Pane development, using ~/.pane_dev for isolation');
+    return join(homedir(), '.pane_dev');
   }
 
-  // 5. Default to ~/.foozol
-  return join(homedir(), '.foozol');
+  // 5. Default to ~/.pane
+  return join(homedir(), '.pane');
 }
 
 /**
- * Gets a subdirectory path within the foozol directory
+ * Migrates the data directory from ~/.foozol to ~/.pane on first launch.
+ * Should be called once during app startup, before any services are initialized.
+ */
+export function migrateDataDirectory(): void {
+  // Skip migration if a custom directory is set (via --pane-dir, --foozol-dir, or env vars)
+  // to avoid moving ~/.foozol out from under a running app that explicitly configured its path
+  if (customAppDir || process.env.PANE_DIR || process.env.FOOZOL_DIR) {
+    return;
+  }
+
+  const home = homedir();
+  const oldDir = join(home, '.foozol');
+  const newDir = join(home, '.pane');
+  const oldDevDir = join(home, '.foozol_dev');
+  const newDevDir = join(home, '.pane_dev');
+
+  // Migrate production directory
+  if (!existsSync(newDir) && existsSync(oldDir)) {
+    try {
+      renameSync(oldDir, newDir);
+      console.log(`[Pane] Migrated data directory: ${oldDir} → ${newDir}`);
+    } catch (err) {
+      console.error(`[Pane] Failed to migrate data directory: ${err}`);
+    }
+  }
+
+  // Migrate dev directory
+  if (!existsSync(newDevDir) && existsSync(oldDevDir)) {
+    try {
+      renameSync(oldDevDir, newDevDir);
+      console.log(`[Pane] Migrated dev directory: ${oldDevDir} → ${newDevDir}`);
+    } catch (err) {
+      console.error(`[Pane] Failed to migrate dev directory: ${err}`);
+    }
+  }
+}
+
+/**
+ * Gets a subdirectory path within the Pane directory
  */
 export function getAppSubdirectory(...subPaths: string[]): string {
   return join(getAppDirectory(), ...subPaths);

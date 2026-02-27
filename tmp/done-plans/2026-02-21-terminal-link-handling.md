@@ -9,7 +9,7 @@ Add VS Code-style clickable links and selection popover to xterm.js terminals. U
 - Terminal output contains URLs, file paths, git SHAs, and issue references that users want to interact with
 - Currently no way to click links or easily copy selected text
 - Improves developer workflow by enabling quick navigation from terminal to browser/editor
-- Brings foozol terminals closer to VS Code's terminal UX
+- Brings Pane terminals closer to VS Code's terminal UX
 
 ## What
 

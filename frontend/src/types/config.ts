@@ -48,7 +48,7 @@ export interface AppConfig {
       checkpointPrefix?: string;
     };
   };
-  // foozol commit footer setting (enabled by default)
+  // Pane commit footer setting (enabled by default)
   enableCommitFooter?: boolean;
   // Disable automatic context tracking after Claude responses
   disableAutoContext?: boolean;

@@ -72,4 +72,4 @@ Node.js native modules on Windows are built with Visual Studio's C++ compiler. R
 
 ### Alternative: Use Pre-built Binaries
 
-If you're having trouble with the build process, consider waiting for official Windows binaries to be released in future versions of foozol.
+If you're having trouble with the build process, consider waiting for official Windows binaries to be released in future versions of Pane.

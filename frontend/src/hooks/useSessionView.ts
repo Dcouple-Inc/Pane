@@ -151,7 +151,7 @@ export const useSessionView = (
     
     // Show loading message in terminal if this is the first load
     if (terminalInstance.current && retryCount === 0 && lastProcessedOutputLength.current === 0) {
-      terminalInstance.current.writeln('\r\n⏳ Loading session output...\r\n');
+      terminalInstance.current.writeln('\r\n⏳ Loading pane output...\r\n');
     }
     
     // Create new AbortController for this request
@@ -170,7 +170,7 @@ export const useSessionView = (
           // Clear any loading message
           if (terminalInstance.current && lastProcessedOutputLength.current === 0) {
             terminalInstance.current.clear();
-            terminalInstance.current.writeln('\r\n⚠️ Session has been archived\r\n');
+            terminalInstance.current.writeln('\r\n⚠️ Pane has been archived\r\n');
           }
           return;
         }
@@ -825,7 +825,7 @@ export const useSessionView = (
         // Clear terminal
         if (terminalInstance.current) {
           terminalInstance.current.clear();
-          terminalInstance.current.writeln('\r\n⚠️ Session has been archived\r\n');
+          terminalInstance.current.writeln('\r\n⚠️ Pane has been archived\r\n');
         }
       }
     };
@@ -1769,7 +1769,7 @@ export const useSessionView = (
       await API.sessions.rename(activeSession.id, editName.trim());
       setIsEditingName(false);
     } catch (error) {
-      alert('Failed to rename session');
+      alert('Failed to rename pane');
       setEditName(activeSession.name);
       setIsEditingName(false);
     }

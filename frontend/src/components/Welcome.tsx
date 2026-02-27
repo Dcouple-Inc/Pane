@@ -1,6 +1,6 @@
 import React from 'react';
 import { Zap, CheckCircle, GitBranch } from 'lucide-react';
-import foozolLogo from '../assets/foozol-logo.svg';
+import { usePaneLogo } from '../hooks/usePaneLogo';
 import { Modal, ModalBody, ModalFooter } from './ui/Modal';
 import { Button } from './ui/Button';
 
@@ -10,6 +10,7 @@ interface WelcomeProps {
 }
 
 export default function Welcome({ isOpen, onClose }: WelcomeProps) {
+  const paneLogo = usePaneLogo();
   const [dontShowAgain, setDontShowAgain] = React.useState(false);
   
   React.useEffect(() => {
@@ -46,10 +47,10 @@ export default function Welcome({ isOpen, onClose }: WelcomeProps) {
       {/* Header */}
       <div className="p-6 border-b border-border-primary">
         <div className="flex items-center">
-          <img src={foozolLogo} alt="foozol" className="h-10 w-10 mr-3" />
+          <img src={paneLogo} alt="Pane" className="h-10 w-10 mr-3" />
           <div>
-            <h1 className="text-xl font-semibold text-text-primary">Welcome to foozol</h1>
-            <p className="text-sm text-text-tertiary">Multi-Session Claude Code Manager</p>
+            <h1 className="text-xl font-semibold text-text-primary">Welcome to Pane</h1>
+            <p className="text-sm text-text-tertiary">Multi-Pane Claude Code Manager</p>
           </div>
         </div>
       </div>
@@ -80,7 +81,7 @@ export default function Welcome({ isOpen, onClose }: WelcomeProps) {
                   </li>
                   <li className="flex items-start">
                     <span className="mr-2">•</span>
-                    <span>foozol runs Claude Code with <code className="bg-status-warning/20 px-1 rounded text-sm">--dangerously-ignore-permissions</code></span>
+                    <span>Pane runs Claude Code with <code className="bg-status-warning/20 px-1 rounded text-sm">--dangerously-ignore-permissions</code></span>
                   </li>
                 </ul>
               </div>
@@ -94,7 +95,7 @@ export default function Welcome({ isOpen, onClose }: WelcomeProps) {
                   <div className="ml-4 flex-1">
                     <h4 className="font-semibold text-text-primary mb-1">Create or Select a Project</h4>
                     <ul className="text-text-secondary space-y-1 text-sm">
-                      <li>• Point to a <strong>new directory</strong> - foozol will create it and initialize git</li>
+                      <li>• Point to a <strong>new directory</strong> - Pane will create it and initialize git</li>
                       <li>• Or select an <strong>existing git repository</strong></li>
                     </ul>
                   </div>
@@ -105,10 +106,10 @@ export default function Welcome({ isOpen, onClose }: WelcomeProps) {
                     2
                   </div>
                   <div className="ml-4 flex-1">
-                    <h4 className="font-semibold text-text-primary mb-1">Create Sessions</h4>
+                    <h4 className="font-semibold text-text-primary mb-1">Create Panes</h4>
                     <ul className="text-text-secondary space-y-1 text-sm">
                       <li>• Enter a prompt describing what you want Claude to do</li>
-                      <li>• <strong>Create multiple sessions</strong> with different prompts to explore various approaches</li>
+                      <li>• <strong>Create multiple panes</strong> with different prompts to explore various approaches</li>
                       <li>• Or <strong>run the same prompt multiple times</strong> to choose the best result</li>
                     </ul>
                   </div>
@@ -139,7 +140,7 @@ export default function Welcome({ isOpen, onClose }: WelcomeProps) {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="flex items-center text-text-secondary">
                   <CheckCircle className="h-4 w-4 mr-2 text-status-success flex-shrink-0" />
-                  <span>Parallel sessions with git worktrees</span>
+                  <span>Parallel panes with git worktrees</span>
                 </div>
                 <div className="flex items-center text-text-secondary">
                   <CheckCircle className="h-4 w-4 mr-2 text-status-success flex-shrink-0" />
@@ -147,7 +148,7 @@ export default function Welcome({ isOpen, onClose }: WelcomeProps) {
                 </div>
                 <div className="flex items-center text-text-secondary">
                   <CheckCircle className="h-4 w-4 mr-2 text-status-success flex-shrink-0" />
-                  <span>Session persistence</span>
+                  <span>Pane persistence</span>
                 </div>
                 <div className="flex items-center text-text-secondary">
                   <CheckCircle className="h-4 w-4 mr-2 text-status-success flex-shrink-0" />

@@ -247,16 +247,16 @@ export const SessionListItem = memo(function SessionListItem({ session, isNested
       const response = await API.sessions.delete(session.id);
       
       if (!response.success) {
-        throw new Error(response.error || 'Failed to archive session');
+        throw new Error(response.error || 'Failed to archive pane');
       }
-      
+
       // If this was the active session, clear the selection
       if (isActive) {
         setActiveSession(null);
       }
     } catch (error) {
       console.error('Error archiving session:', error);
-      alert('Failed to archive session');
+      alert('Failed to archive pane');
     } finally {
       removeDeletingSessionId(session.id);
     }
@@ -277,12 +277,12 @@ export const SessionListItem = memo(function SessionListItem({ session, isNested
     try {
       const response = await API.sessions.rename(session.id, editName.trim());
       if (!response.success) {
-        throw new Error(response.error || 'Failed to rename session');
+        throw new Error(response.error || 'Failed to rename pane');
       }
       setIsEditing(false);
     } catch (error) {
       console.error('Error renaming session:', error);
-      alert('Failed to rename session');
+      alert('Failed to rename pane');
       setEditName(session.name);
       setIsEditing(false);
     }
@@ -485,7 +485,7 @@ export const SessionListItem = memo(function SessionListItem({ session, isNested
                     'hover:bg-status-warning/10',
                     isDeleting && 'cursor-not-allowed'
                   )}
-                  aria-label="Archive session"
+                  aria-label="Archive pane"
                   icon={
                     isDeleting ? (
                       <span className="text-text-tertiary">⏳</span>
@@ -563,8 +563,8 @@ export const SessionListItem = memo(function SessionListItem({ session, isNested
         isOpen={showArchiveConfirm}
         onClose={() => setShowArchiveConfirm(false)}
         onConfirm={handleConfirmArchive}
-        title={`Archive Session`}
-        message={`Archive session "${session.name}"? This will:\n\n• Move the session to the archived sessions list\n• Preserve all session history and outputs\n${session.isMainRepo ? '• Close the active Claude Code connection' : `• Remove the git worktree locally (${session.worktreePath?.split('/').pop() || 'worktree'})`}`}
+        title={`Archive Pane`}
+        message={`Archive pane "${session.name}"? This will:\n\n• Move the pane to the archived panes list\n• Preserve all pane history and outputs\n${session.isMainRepo ? '• Close the active Claude Code connection' : `• Remove the git worktree locally (${session.worktreePath?.split('/').pop() || 'worktree'})`}`}
         confirmText="Archive"
         variant="warning"
         icon={<Archive className="w-6 h-6 text-amber-500 flex-shrink-0" />}

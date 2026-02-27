@@ -76,9 +76,9 @@ const SetupTasksPanel: React.FC<SetupTasksPanelProps> = ({ panelId, isActive }) 
     if (!projectId) return;
     
     try {
-      // First, update the project's run script to "./foozol-run.sh"
+      // First, update the project's run script to "./pane-run.sh"
       const updateResponse = await API.projects.update(projectId, {
-        run_script: './foozol-run.sh'
+        run_script: './pane-run.sh'
       });
       
       if (!updateResponse.success) {
@@ -87,7 +87,7 @@ const SetupTasksPanel: React.FC<SetupTasksPanelProps> = ({ panelId, isActive }) 
         return;
       }
       
-      console.log('[SetupTasksPanel] Successfully set run script to ./foozol-run.sh');
+      console.log('[SetupTasksPanel] Successfully set run script to ./pane-run.sh');
       
       // Now open the session dialog with the specific prompt
       setShowSessionDialog(true);
@@ -105,7 +105,7 @@ const SetupTasksPanel: React.FC<SetupTasksPanelProps> = ({ panelId, isActive }) 
     
     // Show confirmation dialog
     const confirmed = window.confirm(
-      'foozol will add worktree patterns to .gitignore and create a new commit.\n\n' +
+      'Pane will add worktree patterns to .gitignore and create a new commit.\n\n' +
       'This will:\n' +
       '• Add /worktrees/ and /worktree-*/ patterns to .gitignore\n' +
       '• Create a commit with only these changes\n' +
@@ -139,7 +139,7 @@ const SetupTasksPanel: React.FC<SetupTasksPanelProps> = ({ panelId, isActive }) 
       
       // Add worktree patterns if not already present
       const patterns = [
-        '\n# Git worktrees (foozol)',
+        '\n# Git worktrees (Pane)',
         '/worktrees/',
         '/worktree-*/'
       ];
@@ -197,11 +197,11 @@ const SetupTasksPanel: React.FC<SetupTasksPanelProps> = ({ panelId, isActive }) 
         console.log('[SetupTasksPanel] Staged .gitignore file');
         
         // Create the commit
-        const commitMessage = 'Add foozol worktree patterns to .gitignore\n\n' +
-          'Added patterns to ignore foozol worktree directories:\n' +
+        const commitMessage = 'Add Pane worktree patterns to .gitignore\n\n' +
+          'Added patterns to ignore Pane worktree directories:\n' +
           '- /worktrees/\n' +
           '- /worktree-*/\n\n' +
-          'This prevents git from tracking temporary foozol session directories.';
+          'This prevents git from tracking temporary Pane session directories.';
         
         const gitCommitResponse = await window.electronAPI.git.executeProject(
           parseInt(projectId),
@@ -288,7 +288,7 @@ const SetupTasksPanel: React.FC<SetupTasksPanelProps> = ({ panelId, isActive }) 
     {
       id: 'gitignore',
       title: 'Add worktrees to .gitignore',
-      description: 'Prevents git from tracking temporary worktree directories created by foozol sessions. This keeps your repository clean and avoids committing session-specific files.',
+      description: 'Prevents git from tracking temporary worktree directories created by Pane sessions. This keeps your repository clean and avoids committing session-specific files.',
       icon: <GitBranch className="w-5 h-5" />,
       check: checkGitignore,
       action: addToGitignoreWithRefresh,
@@ -335,7 +335,7 @@ const SetupTasksPanel: React.FC<SetupTasksPanelProps> = ({ panelId, isActive }) 
       <div className="p-6">
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-text-primary mb-2">Setup Tasks</h2>
-          <p className="text-text-secondary">Complete these tasks to get the best experience with foozol</p>
+          <p className="text-text-secondary">Complete these tasks to get the best experience with Pane</p>
         </div>
 
         {/* Progress indicator */}

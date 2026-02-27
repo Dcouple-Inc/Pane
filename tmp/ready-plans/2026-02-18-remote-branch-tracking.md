@@ -2,7 +2,7 @@
 
 ## Goal
 
-When a user selects a **remote branch** (e.g., `origin/feature/foo`) as the base for a new worktree, foozol should automatically configure git tracking so that `git pull` and `git push` work immediately without additional configuration.
+When a user selects a **remote branch** (e.g., `origin/feature/foo`) as the base for a new worktree, Pane should automatically configure git tracking so that `git pull` and `git push` work immediately without additional configuration.
 
 Additionally, improve the branch selection UI to:
 1. Show both local and remote branches

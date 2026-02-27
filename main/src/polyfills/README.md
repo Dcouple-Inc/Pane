@@ -1,6 +1,6 @@
 # Polyfills
 
-This directory contains polyfills needed for the foozol application to run properly in different Node.js environments.
+This directory contains polyfills needed for the Pane application to run properly in different Node.js environments.
 
 ## ReadableStream Polyfill
 

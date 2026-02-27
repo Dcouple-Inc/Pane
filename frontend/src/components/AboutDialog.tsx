@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { X, Download, Check, Loader2, Github } from 'lucide-react';
 import { UpdateDialog } from './UpdateDialog';
+import { usePaneLogo } from '../hooks/usePaneLogo';
 
 interface VersionInfo {
   current: string;
@@ -23,6 +24,7 @@ interface AboutDialogProps {
 }
 
 export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
+  const paneLogo = usePaneLogo();
   const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -116,15 +118,15 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
           {/* Logo and branding */}
           <div className="flex flex-col items-center mb-8">
             <img
-              src="/foozol-logo.svg"
-              alt="foozol"
+              src={paneLogo}
+              alt="Pane"
               className="w-16 h-16 mb-4"
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = 'none';
               }}
             />
             <h1 className="text-xl font-semibold text-text-primary tracking-tight">
-              foozol
+              Pane
             </h1>
             <p className="text-sm text-text-tertiary mt-1">
               Run AI agents in parallel. Ship faster.
@@ -204,7 +206,7 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
           {/* Links - minimal style */}
           <div className="flex items-center justify-center gap-4 text-xs text-text-tertiary">
             <a
-              href="https://github.com/parsakhaz/foozol"
+              href="https://github.com/Dcouple-Inc/Pane"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1 hover:text-text-secondary transition-colors"
@@ -214,7 +216,7 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
             </a>
             <span className="text-border-primary">•</span>
             <a
-              href="https://foozol.com"
+              href="https://runpane.com"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-text-secondary transition-colors"

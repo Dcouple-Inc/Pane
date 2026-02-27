@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 ################################################################################
-# foozol-run.sh - Smart development server for foozol git worktrees
+# pane-run.sh - Smart development server for Pane git worktrees
 #
-# This script intelligently handles running the foozol Electron app from any
+# This script intelligently handles running the Pane Electron app from any
 # git worktree, with dynamic port allocation to prevent conflicts between
 # multiple concurrent worktree sessions.
 #
@@ -226,7 +226,7 @@ calculate_port() {
 # Main Logic
 ################################################################################
 
-log_section "foozol Development Server Launcher"
+log_section "Pane Development Server Launcher"
 
 # 1. Detect git repository and worktree status
 log_info "Detecting git repository structure..."
@@ -330,9 +330,9 @@ log_section "Starting Development Server"
 
 cd "$PROJECT_ROOT"
 
-# Check for Electron project (this is foozol)
+# Check for Electron project (this is Pane)
 if grep -q '"electron"' "$PACKAGE_JSON" && grep -q '"electron-dev"' "$PACKAGE_JSON"; then
-    log_info "Detected Electron application (foozol)"
+    log_info "Detected Electron application (Pane)"
 
     # Check if main process is built
     if [ ! -d "main/dist" ]; then
@@ -348,7 +348,7 @@ if grep -q '"electron"' "$PACKAGE_JSON" && grep -q '"electron-dev"' "$PACKAGE_JS
     export VITE_PORT="$FRONTEND_PORT"
     export PORT="$FRONTEND_PORT"
 
-    log_success "Starting foozol with:"
+    log_success "Starting Pane with:"
     echo -e "  ${GREEN}Frontend URL:${NC} http://localhost:$FRONTEND_PORT"
     echo -e "  ${GREEN}Electron Inspect:${NC} chrome://inspect (port $INSPECT_PORT)"
     echo -e "  ${GREEN}Worktree:${NC} $WORKTREE_NAME"

@@ -28,7 +28,7 @@ export function escapeShellArg(arg: string): string {
 /**
  * Build a safe git commit command with proper escaping
  * @param message The commit message
- * @param enableCommitFooter If true (default), add the foozol footer
+ * @param enableCommitFooter If true (default), add the Pane footer
  * @returns The safe commit command
  */
 export function buildGitCommitCommand(message: string, enableCommitFooter: boolean = true): string {

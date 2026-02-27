@@ -487,7 +487,7 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
   if (!sessionContext) {
     return (
       <div className="flex items-center justify-center h-full text-red-500">
-        Session context not available
+        Pane context not available
       </div>
     );
   }

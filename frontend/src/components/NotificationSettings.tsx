@@ -39,7 +39,7 @@ export function NotificationSettings({ settings, onUpdateSettings }: Notificatio
 
   const testNotification = () => {
     if (Notification.permission === 'granted') {
-      new Notification('foozol', {
+      new Notification('Pane', {
         body: 'This is a test notification! 🎉',
         icon: '/favicon.ico',
       });
@@ -71,13 +71,13 @@ export function NotificationSettings({ settings, onUpdateSettings }: Notificatio
       {/* Browser Permissions */}
       <CollapsibleCard
         title="Browser Permissions"
-        subtitle="Allow foozol to show desktop notifications"
+        subtitle="Allow Pane to show desktop notifications"
         icon={getPermissionIcon()}
         defaultExpanded={true}
       >
         <SettingsSection
           title="Notification Access"
-          description="foozol needs browser permission to show notifications when your sessions update"
+          description="Pane needs browser permission to show notifications when your sessions update"
           icon={getPermissionIcon()}
         >
           <div className="flex items-center justify-between p-4 bg-surface-secondary rounded-lg border border-border-secondary">
@@ -114,7 +114,7 @@ export function NotificationSettings({ settings, onUpdateSettings }: Notificatio
           {permissionStatus === 'denied' && (
             <div className="mt-3 p-3 bg-status-error/10 border border-status-error/20 rounded-lg">
               <p className="text-xs text-status-error">
-                Notifications are blocked. Please enable them in your browser settings and refresh foozol.
+                Notifications are blocked. Please enable them in your browser settings and refresh Pane.
               </p>
             </div>
           )}

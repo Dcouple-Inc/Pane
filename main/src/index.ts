@@ -31,7 +31,7 @@ import { ArchiveProgressManager } from './services/archiveProgressManager';
 import { AnalyticsManager } from './services/analyticsManager';
 import { SpotlightManager } from './services/spotlightManager';
 import { initializeCommitManager } from './services/commitManager';
-import { setAppDirectory } from './utils/appDirectory';
+import { setAppDirectory, migrateDataDirectory } from './utils/appDirectory';
 import { getCurrentWorktreeName } from './utils/worktreeUtils';
 import { registerIpcHandlers } from './ipc';
 import { setupAutoUpdater } from './autoUpdater';
@@ -58,7 +58,7 @@ function setAppTitle() {
   if (!app.isPackaged) {
     const worktreeName = getCurrentWorktreeName(process.cwd());
     if (worktreeName) {
-      const title = `foozol [${worktreeName}]`;
+      const title = `Pane [${worktreeName}]`;
       if (mainWindow) {
         mainWindow.setTitle(title);
       }
@@ -67,7 +67,7 @@ function setAppTitle() {
   }
   
   // Default title
-  const title = 'foozol';
+  const title = 'Pane';
   if (mainWindow) {
     mainWindow.setTitle(title);
   }
@@ -123,23 +123,37 @@ if (isDevelopment) {
 // Set up console wrapper to reduce logging in production
 setupConsoleWrapper();
 
-// Parse command-line arguments for custom foozol directory
+// Parse command-line arguments for custom Pane directory
 const args = process.argv.slice(2);
 for (let i = 0; i < args.length; i++) {
   const arg = args[i];
   
-  // Support both --foozol-dir=/path and --foozol-dir /path formats
-  if (arg.startsWith('--foozol-dir=')) {
+  // Support both --pane-dir=/path and --pane-dir /path formats
+  if (arg.startsWith('--pane-dir=')) {
+    const dir = arg.substring('--pane-dir='.length);
+    setAppDirectory(dir);
+    console.log(`[Main] Using custom Pane directory: ${dir}`);
+  } else if (arg === '--pane-dir' && i + 1 < args.length) {
+    const dir = args[i + 1];
+    setAppDirectory(dir);
+    console.log(`[Main] Using custom Pane directory: ${dir}`);
+    i++; // Skip the next argument since we've consumed it
+  }
+  // Deprecated: support old --foozol-dir for backward compatibility
+  else if (arg.startsWith('--foozol-dir=')) {
     const dir = arg.substring('--foozol-dir='.length);
     setAppDirectory(dir);
-    console.log(`[Main] Using custom foozol directory: ${dir}`);
+    console.log(`[Main] Using custom Pane directory (deprecated --foozol-dir): ${dir}`);
   } else if (arg === '--foozol-dir' && i + 1 < args.length) {
     const dir = args[i + 1];
     setAppDirectory(dir);
-    console.log(`[Main] Using custom foozol directory: ${dir}`);
-    i++; // Skip the next argument since we've consumed it
+    console.log(`[Main] Using custom Pane directory (deprecated --foozol-dir): ${dir}`);
+    i++;
   }
 }
+
+// Migrate data directory from ~/.foozol to ~/.pane (one-time migration for existing users)
+migrateDataDirectory();
 
 // Install Devtron in development
 if (isDevelopment) {
@@ -554,7 +568,7 @@ async function initializeServices() {
 
   // Initialize logger early so it can capture all logs
   logger = new Logger(configManager);
-  console.log('[Main] Logger initialized with file logging to ~/.foozol/logs');
+  console.log('[Main] Logger initialized with file logging to ~/.pane/logs');
   
   // Initialize commitManager with configManager
   initializeCommitManager(configManager, logger);
@@ -615,7 +629,7 @@ async function initializeServices() {
     logger,
     configManager,
     additionalOptions: { permissionIpcPath },
-    skipValidation: true  // Allow foozol to start even if Claude Code is not installed
+    skipValidation: true  // Allow Pane to start even if Claude Code is not installed
   });
   gitDiffManager = new GitDiffManager(logger, analyticsManager);
   gitStatusManager = new GitStatusManager(sessionManager, worktreeManager, gitDiffManager, logger);
@@ -794,7 +808,7 @@ app.on('before-quit', async (event) => {
       ? dialog.showMessageBoxSync(mainWindow, {
           type: 'warning',
           title: 'Archive Tasks In Progress',
-          message: `foozol is removing ${activeCount} worktree${activeCount > 1 ? 's' : ''} in the background.`,
+          message: `Pane is removing ${activeCount} worktree${activeCount > 1 ? 's' : ''} in the background.`,
           detail: 'Git worktree removal can take time, especially for large repositories with many files. If you quit now, the worktree directories may not be fully cleaned up and you may need to remove them manually.\n\nDo you want to quit anyway?',
           buttons: ['Wait', 'Quit Anyway'],
           defaultId: 0,
@@ -803,7 +817,7 @@ app.on('before-quit', async (event) => {
       : dialog.showMessageBoxSync({
           type: 'warning',
           title: 'Archive Tasks In Progress',
-          message: `foozol is removing ${activeCount} worktree${activeCount > 1 ? 's' : ''} in the background.`,
+          message: `Pane is removing ${activeCount} worktree${activeCount > 1 ? 's' : ''} in the background.`,
           detail: 'Git worktree removal can take time, especially for large repositories with many files. If you quit now, the worktree directories may not be fully cleaned up and you may need to remove them manually.\n\nDo you want to quit anyway?',
           buttons: ['Wait', 'Quit Anyway'],
           defaultId: 0,

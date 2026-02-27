@@ -1,3 +1,9 @@
+/**
+ * Panel and session types for Pane.
+ * Note: "Sessions" are called "Panes" in the UI. Internally they remain
+ * "sessions" in code, database, and IPC to avoid a massive refactor.
+ */
+
 export interface ToolPanel {
   id: string;                    // Unique panel instance ID (uuid)
   sessionId: string;             // Associated session/worktree

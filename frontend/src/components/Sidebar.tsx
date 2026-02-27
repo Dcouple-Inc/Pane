@@ -4,7 +4,7 @@ import { CreateSessionDialog } from './CreateSessionDialog';
 import { ProjectSessionList, ArchivedSessions } from './ProjectSessionList';
 import { ArchiveProgress } from './ArchiveProgress';
 import { Info, Clock, Check, Edit, CircleArrowDown, AlertTriangle, GitMerge, ArrowUpDown, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Settings as SettingsIcon, Plus, RefreshCw } from 'lucide-react';
-import foozolLogo from '../assets/foozol-logo.svg';
+import { usePaneLogo } from '../hooks/usePaneLogo';
 import { IconButton } from './ui/Button';
 import { Modal, ModalHeader, ModalBody } from './ui/Modal';
 import { Dropdown } from './ui/Dropdown';
@@ -28,6 +28,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSettingsClick, isSettingsOpen, onSettingsClose, width, onResize, collapsed, onToggleCollapse }: SidebarProps) {
+  const paneLogo = usePaneLogo();
   const [showStatusGuide, setShowStatusGuide] = useState(false);
   const [version, setVersion] = useState<string>('');
   const [gitCommit, setGitCommit] = useState<string>('');
@@ -144,7 +145,7 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSet
           <div className="h-3 flex-shrink-0" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties} />
           {/* Logo */}
           <div className="flex items-center justify-center px-1 py-2 border-b border-border-primary">
-            <img src={foozolLogo} alt="foozol" className="h-6 w-6" />
+            <img src={paneLogo} alt="Pane" className="h-6 w-6" />
           </div>
 
           {/* Project selector */}
@@ -199,7 +200,7 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSet
               <button
                 onClick={() => setShowCreateDialog(true)}
                 className="w-8 h-8 rounded flex items-center justify-center text-text-tertiary hover:bg-surface-hover hover:text-interactive transition-colors"
-                title="New Session"
+                title="New Pane"
               >
                 <Plus className="w-4 h-4" />
               </button>
@@ -265,8 +266,8 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSet
         </div>
         <div className="px-3 py-2 border-b border-border-primary flex items-center justify-between overflow-hidden">
           <div className="flex items-center space-x-2 min-w-0">
-            <img src={foozolLogo} alt="foozol" className="h-6 w-6 flex-shrink-0" />
-            <h1 className="text-xl font-bold truncate">foozol</h1>
+            <img src={paneLogo} alt="Pane" className="h-6 w-6 flex-shrink-0" />
+            <h1 className="text-xl font-bold truncate">Pane</h1>
           </div>
           <div className="flex items-center space-x-2 flex-shrink-0">
             {onToggleCollapse && (
@@ -401,9 +402,9 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSet
                 </div>
               </div>
               
-              {/* Session Status Indicators */}
+              {/* Pane Status Indicators */}
               <div className="pb-3 border-b border-border-primary">
-                <h4 className="text-sm font-medium text-text-primary mb-2">Session Status</h4>
+                <h4 className="text-sm font-medium text-text-primary mb-2">Pane Status</h4>
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
                     <div className="w-3 h-3 bg-status-success rounded-full animate-pulse flex-shrink-0"></div>
@@ -441,7 +442,7 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSet
                     <div className="w-3 h-3 bg-status-info rounded-full animate-pulse flex-shrink-0"></div>
                     <div>
                       <span className="text-text-secondary font-medium">New Activity</span>
-                      <p className="text-text-tertiary text-sm">Session has new unviewed results</p>
+                      <p className="text-text-tertiary text-sm">Pane has new unviewed results</p>
                     </div>
                   </div>
                   
@@ -449,7 +450,7 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSet
                     <div className="w-3 h-3 bg-status-error rounded-full flex-shrink-0"></div>
                     <div>
                       <span className="text-text-secondary font-medium">Error</span>
-                      <p className="text-text-tertiary text-sm">Something went wrong with the session</p>
+                      <p className="text-text-tertiary text-sm">Something went wrong with the pane</p>
                     </div>
                   </div>
                 </div>

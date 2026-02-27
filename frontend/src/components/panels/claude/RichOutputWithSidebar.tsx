@@ -36,7 +36,7 @@ export const RichOutputWithSidebar: React.FC<RichOutputWithSidebarProps> = React
   }
   
   // Create panel-specific localStorage keys
-  const sidebarCollapsedKey = `foozol-sidebar-collapsed-${id}`;
+  const sidebarCollapsedKey = `pane-sidebar-collapsed-${id}`;
   
   // Load collapsed state from localStorage (keyed by panel ID)
   // Default to collapsed for a cleaner UI

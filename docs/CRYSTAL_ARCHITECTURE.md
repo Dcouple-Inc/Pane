@@ -1,8 +1,8 @@
-# foozol Architecture Documentation
+# Pane Architecture Documentation
 
 ## Overview
 
-foozol is an Electron desktop application that manages multiple Claude Code instances using git worktrees. This document visualizes the architecture using Mermaid diagrams.
+Pane is an Electron desktop application that manages multiple Claude Code instances using git worktrees. This document visualizes the architecture using Mermaid diagrams.
 
 ## High-Level Architecture
 
@@ -420,4 +420,4 @@ flowchart LR
     Output[Claude Output] --> Stream
 ```
 
-This comprehensive set of Mermaid diagrams illustrates the various aspects of foozol's architecture, from high-level component relationships to detailed data flows and module dependencies.
+This comprehensive set of Mermaid diagrams illustrates the various aspects of Pane's architecture, from high-level component relationships to detailed data flows and module dependencies.

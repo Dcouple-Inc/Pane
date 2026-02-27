@@ -267,7 +267,7 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
   const handleBeforeMount = useCallback((_monaco: typeof monaco) => {
     // Temporarily commented out to test built-in themes
     // // Define custom themes before the editor mounts
-    // monaco.editor.defineTheme('foozol-dark', {
+    // monaco.editor.defineTheme('pane-dark', {
     //   base: 'vs-dark',
     //   inherit: true,
     //   rules: [],
@@ -283,7 +283,7 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
     //   }
     // });
     
-    // monaco.editor.defineTheme('foozol-light', {
+    // monaco.editor.defineTheme('pane-light', {
     //   base: 'vs',
     //   inherit: true,
     //   rules: [],
@@ -452,7 +452,7 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
   //   if (editorRef.current && isEditorReady) {
   //     // The monaco instance from @monaco-editor/react is available via the loader
   //     import('monaco-editor').then((monacoModule) => {
-  //       monacoModule.editor.setTheme(isDarkMode ? 'foozol-dark' : 'foozol-light');
+  //       monacoModule.editor.setTheme(isDarkMode ? 'pane-dark' : 'pane-light');
   //     });
   //   }
   // }, [isDarkMode, isEditorReady]);

@@ -1,10 +1,10 @@
 # Scripts Directory
 
-This directory contains build and maintenance scripts for the foozol application.
+This directory contains build and maintenance scripts for the Pane application.
 
 ## generate-notices.js
 
-Generates a NOTICES file containing all third-party licenses for dependencies included in the foozol distribution.
+Generates a NOTICES file containing all third-party licenses for dependencies included in the Pane distribution.
 
 ### Usage
 
@@ -31,7 +31,7 @@ node scripts/generate-notices.js
 
 ### License compliance
 
-The script helps ensure foozol complies with open source license requirements by:
+The script helps ensure Pane complies with open source license requirements by:
 - Including all third-party license texts in distributions
 - Identifying packages with missing license information
 - Supporting the license-compliance GitHub workflow

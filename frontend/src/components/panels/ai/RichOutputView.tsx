@@ -57,21 +57,21 @@ const sessionStatusStyles: Record<string, {
     icon: CheckCircle,
     container: 'bg-status-success/10 border-status-success/30',
     iconWrapper: 'bg-status-success/20 text-status-success',
-    title: 'Session Completed',
+    title: 'Pane Completed',
     titleClass: 'text-status-success'
   },
   running: {
     icon: Loader2,
     container: 'bg-interactive/10 border-interactive/30',
     iconWrapper: 'bg-interactive/20 text-interactive-on-dark',
-    title: 'Session Running',
+    title: 'Pane Running',
     titleClass: 'text-interactive-on-dark'
   },
   initializing: {
     icon: Loader2,
     container: 'bg-interactive/10 border-interactive/30',
     iconWrapper: 'bg-interactive/20 text-interactive-on-dark',
-    title: 'Session Initializing',
+    title: 'Pane Initializing',
     titleClass: 'text-interactive-on-dark'
   },
   waiting: {
@@ -85,21 +85,21 @@ const sessionStatusStyles: Record<string, {
     icon: Clock,
     container: 'bg-status-warning/10 border-status-warning/30',
     iconWrapper: 'bg-status-warning/20 text-status-warning',
-    title: 'Session Paused',
+    title: 'Pane Paused',
     titleClass: 'text-status-warning'
   },
   error: {
     icon: XCircle,
     container: 'bg-status-error/10 border-status-error/30',
     iconWrapper: 'bg-status-error/20 text-status-error',
-    title: 'Session Error',
+    title: 'Pane Error',
     titleClass: 'text-status-error'
   },
   default: {
     icon: Info,
     container: 'bg-surface-tertiary/50 border-border-primary',
     iconWrapper: 'bg-surface-secondary text-text-secondary',
-    title: 'Session Update',
+    title: 'Pane Update',
     titleClass: 'text-text-secondary'
   }
 };
@@ -803,7 +803,7 @@ export const RichOutputView = React.forwardRef<{ scrollToPrompt: (promptIndex: n
             </div>
             <div className="flex-1 space-y-4">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-semibold text-text-primary">Codex Session Ready</span>
+                <span className="font-semibold text-text-primary">Codex Pane Ready</span>
                 <span className="text-[11px] font-mono text-text-secondary bg-surface-secondary/70 border border-border-secondary px-2 py-0.5 rounded">
                   Resume ID: {resumeSessionId ?? 'none'}
                 </span>
@@ -882,7 +882,7 @@ export const RichOutputView = React.forwardRef<{ scrollToPrompt: (promptIndex: n
                 )}
                 {resumeSessionId && (
                   <div>
-                    <span className="text-text-quaternary uppercase tracking-wide text-[10px]">Resume Session ID</span>
+                    <span className="text-text-quaternary uppercase tracking-wide text-[10px]">Resume Pane ID</span>
                     <div className="text-text-secondary mt-1 font-mono truncate" title={resumeSessionId}>
                       {resumeSessionId}
                     </div>
@@ -998,7 +998,7 @@ export const RichOutputView = React.forwardRef<{ scrollToPrompt: (promptIndex: n
             <div className="flex-1 space-y-2">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-status-error">
-                  {errorMessage || 'Session Error'}
+                  {errorMessage || 'Pane Error'}
                 </span>
                 <span className="text-sm text-text-tertiary">
                   {formatDistanceToNow(parseTimestamp(message.timestamp))}
@@ -1040,7 +1040,7 @@ export const RichOutputView = React.forwardRef<{ scrollToPrompt: (promptIndex: n
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="font-semibold text-text-primary">Session Started</span>
+                  <span className="font-semibold text-text-primary">Pane Started</span>
                   <span className="text-sm text-text-tertiary">
                     {formatDistanceToNow(parseTimestamp(message.timestamp))}
                   </span>
@@ -1064,7 +1064,7 @@ export const RichOutputView = React.forwardRef<{ scrollToPrompt: (promptIndex: n
       const toString = (value: unknown): string => typeof value === 'string' ? value : '';
       
       const errorMessage = toString(errorInfo.message) || textContent;
-      const errorTitle = toString(errorInfo.error) || 'Session Error';
+      const errorTitle = toString(errorInfo.error) || 'Pane Error';
       
       return (
         <div
@@ -1313,7 +1313,7 @@ export const RichOutputView = React.forwardRef<{ scrollToPrompt: (promptIndex: n
 
         const statusMessage = typeof info.message === 'string' && info.message.trim().length > 0
           ? info.message
-          : `Session status updated to ${formatStatusLabel(rawStatus)}`;
+          : `Pane status updated to ${formatStatusLabel(rawStatus)}`;
 
         const detailsContent = info.details && typeof info.details === 'string'
           ? info.details

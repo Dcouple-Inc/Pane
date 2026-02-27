@@ -7,7 +7,7 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 const isVerboseEnabled = () => {
   // Check if verbose logging is enabled in settings
   try {
-    const verboseLogging = localStorage.getItem('foozol.verboseLogging');
+    const verboseLogging = localStorage.getItem('pane.verboseLogging');
     return verboseLogging === 'true';
   } catch {
     return false;

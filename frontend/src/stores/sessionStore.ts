@@ -1,3 +1,9 @@
+/**
+ * Session state management for Pane.
+ * Note: "Sessions" are called "Panes" in the UI. Internally they remain
+ * "sessions" in code, database, and IPC to avoid a massive refactor.
+ */
+
 import { create } from 'zustand';
 import type { Session, SessionOutput, GitStatus, ClaudeJsonMessage } from '../types/session';
 import { API } from '../utils/api';

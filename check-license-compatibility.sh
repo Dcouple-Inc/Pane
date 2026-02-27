@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# License compatibility check for foozol (MIT licensed)
+# License compatibility check for Pane (MIT licensed)
 # This script checks for licenses that are truly incompatible with MIT distribution
 
 echo "Validating license compatibility with MIT..."

@@ -5,7 +5,7 @@ import * as os from 'os';
 
 export async function setupTestProject() {
   // Create a temporary test project directory
-  const testProjectPath = path.join(os.tmpdir(), `foozol-test-${Date.now()}`);
+  const testProjectPath = path.join(os.tmpdir(), `pane-test-${Date.now()}`);
   fs.mkdirSync(testProjectPath, { recursive: true });
   
   // Initialize git in the test directory

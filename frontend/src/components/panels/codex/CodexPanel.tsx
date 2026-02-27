@@ -69,10 +69,10 @@ export const CodexPanel: React.FC<CodexPanelProps> = React.memo(({ panel, isActi
       <div className="h-full w-full flex items-center justify-center p-8">
         <div className="text-center max-w-md">
           <h3 className="text-lg font-medium text-text-primary mb-2">
-            No Session Found
+            No Pane Found
           </h3>
           <p className="text-sm text-text-secondary">
-            This Codex panel is not associated with an active session.
+            This Codex panel is not associated with an active pane.
           </p>
         </div>
       </div>

@@ -33,7 +33,7 @@ export interface CloudVmState {
 }
 
 /**
- * Manages cloud VM lifecycle (start/stop/status) for foozol Cloud.
+ * Manages cloud VM lifecycle (start/stop/status) for Pane Cloud.
  * Uses GCP Compute Engine with IAP-only access (no public IP).
  */
 export class CloudVmManager extends EventEmitter {
@@ -127,7 +127,7 @@ export class CloudVmManager extends EventEmitter {
   async startVm(): Promise<CloudVmState> {
     const config = this.getCloudConfig();
     if (!config) {
-      throw new Error('Cloud VM not configured. Set cloud settings in foozol Settings.');
+      throw new Error('Cloud VM not configured. Set cloud settings in Pane Settings.');
     }
     if (!config.serverId) {
       throw new Error('No server ID configured. Provision a VM first using Terraform.');

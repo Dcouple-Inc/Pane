@@ -69,7 +69,7 @@ interface HelpProps {
 export default function Help({ isOpen, onClose }: HelpProps) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="xl" showCloseButton={false}>
-      <ModalHeader>foozol Help</ModalHeader>
+      <ModalHeader>Pane Help</ModalHeader>
       <ModalBody>
         <div className="space-y-8">
             {/* Quick Start */}
@@ -84,7 +84,7 @@ export default function Help({ isOpen, onClose }: HelpProps) {
                   <ul className="list-disc list-inside space-y-1 text-sm">
                     <li>Claude Code must be installed with credentials configured</li>
                     <li>We recommend using a MAX plan for best performance</li>
-                    <li>foozol runs Claude Code with <code className="bg-surface-tertiary px-1 rounded">--dangerously-ignore-permissions</code></li>
+                    <li>Pane runs Claude Code with <code className="bg-surface-tertiary px-1 rounded">--dangerously-ignore-permissions</code></li>
                   </ul>
                 </div>
                 
@@ -93,14 +93,14 @@ export default function Help({ isOpen, onClose }: HelpProps) {
                   <ol className="list-decimal list-inside space-y-2">
                     <li><strong>Create or select a project:</strong>
                       <ul className="list-disc list-inside ml-4 mt-1 text-sm">
-                        <li>Point to a new directory - foozol will create it and initialize git</li>
+                        <li>Point to a new directory - Pane will create it and initialize git</li>
                         <li>Or select an existing git repository</li>
                       </ul>
                     </li>
-                    <li><strong>Create sessions:</strong>
+                    <li><strong>Create panes:</strong>
                       <ul className="list-disc list-inside ml-4 mt-1 text-sm">
                         <li>Enter a prompt describing what you want Claude to do</li>
-                        <li>Create multiple sessions with different prompts to explore various approaches</li>
+                        <li>Create multiple panes with different prompts to explore various approaches</li>
                         <li>Or run the same prompt multiple times to choose the best result</li>
                       </ul>
                     </li>
@@ -116,36 +116,36 @@ export default function Help({ isOpen, onClose }: HelpProps) {
               </div>
             </section>
 
-            {/* Session Management */}
+            {/* Pane Management */}
             <section>
               <h3 className="text-lg font-semibold text-text-primary mb-3 flex items-center">
                 <Terminal className="h-5 w-5 mr-2" />
-                Session Management
+                Pane Management
               </h3>
               <div className="space-y-3">
                 <div>
-                  <h4 className="font-medium text-text-primary">Creating Sessions</h4>
+                  <h4 className="font-medium text-text-primary">Creating Panes</h4>
                   <ul className="list-disc list-inside text-text-secondary mt-1 space-y-1">
                     <li>Enter a prompt describing what you want Claude to do</li>
                     <li>Optionally specify a worktree name template</li>
-                    <li>Create multiple sessions at once with the count field</li>
-                    <li>Each session gets its own git worktree branch</li>
+                    <li>Create multiple panes at once with the count field</li>
+                    <li>Each pane gets its own git worktree branch</li>
                   </ul>
                 </div>
                 <div>
-                  <h4 className="font-medium text-text-primary">Session States</h4>
+                  <h4 className="font-medium text-text-primary">Pane States</h4>
                   <ul className="list-disc list-inside text-text-secondary mt-1 space-y-1">
                     <li><span className="text-status-warning">Initializing</span> - Setting up git worktree</li>
                     <li><span className="text-interactive">Running</span> - Claude is processing</li>
                     <li><span className="text-status-success">Waiting</span> - Waiting for your input</li>
-                    <li><span className="text-text-tertiary">Stopped</span> - Session completed or stopped</li>
+                    <li><span className="text-text-tertiary">Stopped</span> - Pane completed or stopped</li>
                     <li><span className="text-status-error">Error</span> - Something went wrong</li>
                   </ul>
                 </div>
                 <div>
                   <h4 className="font-medium text-text-primary">Continuing Conversations</h4>
                   <ul className="list-disc list-inside text-text-secondary mt-1 space-y-1">
-                    <li>Click on a stopped session to resume it</li>
+                    <li>Click on a stopped pane to resume it</li>
                     <li>Use <kbd className="px-2 py-1 bg-surface-tertiary rounded text-sm">Cmd/Ctrl + Enter</kbd> to send input</li>
                     <li>Full conversation history is preserved</li>
                   </ul>
@@ -161,7 +161,7 @@ export default function Help({ isOpen, onClose }: HelpProps) {
               </h3>
               <div className="space-y-3">
                 <p className="text-text-secondary">
-                  Each session operates in its own git worktree, allowing parallel development without conflicts.
+                  Each pane operates in its own git worktree, allowing parallel development without conflicts.
                 </p>
                 <div>
                   <h4 className="font-medium text-text-primary">Git Operations</h4>
@@ -229,10 +229,10 @@ export default function Help({ isOpen, onClose }: HelpProps) {
               <div className="space-y-2 text-text-secondary">
                 <p>Access all prompts from the Prompts tab in the sidebar:</p>
                 <ul className="list-disc list-inside mt-1 space-y-1">
-                  <li>Search through all prompts and session names</li>
-                  <li>Click "Use" to create a new session with that prompt</li>
+                  <li>Search through all prompts and pane names</li>
+                  <li>Click "Use" to create a new pane with that prompt</li>
                   <li>Click "Copy" to copy prompt to clipboard</li>
-                  <li>Navigate to specific prompts within sessions</li>
+                  <li>Navigate to specific prompts within panes</li>
                 </ul>
               </div>
             </section>
@@ -260,7 +260,7 @@ export default function Help({ isOpen, onClose }: HelpProps) {
                   </h4>
                   <ul className="list-disc list-inside text-text-secondary mt-1 space-y-1">
                     <li>Desktop notifications for status changes</li>
-                    <li>Sound alerts when sessions need input</li>
+                    <li>Sound alerts when panes need input</li>
                     <li>Customizable notification triggers</li>
                   </ul>
                 </div>
@@ -276,11 +276,11 @@ export default function Help({ isOpen, onClose }: HelpProps) {
                 Tips & Tricks
               </h3>
               <ul className="list-disc list-inside text-text-secondary space-y-2">
-                <li>Run multiple sessions with different approaches to compare results</li>
+                <li>Run multiple panes with different approaches to compare results</li>
                 <li>Use descriptive worktree names to organize your experiments</li>
                 <li>Check the View Diff tab to review what Claude modified</li>
                 <li>Use the Terminal tab to run tests after Claude makes changes</li>
-                <li>Archive sessions you no longer need to keep your list clean</li>
+                <li>Archive panes you no longer need to keep your list clean</li>
                 <li>Set up project-specific system prompts for consistent behavior</li>
                 <li>Enable notifications to know when Claude needs your input</li>
               </ul>
@@ -289,7 +289,7 @@ export default function Help({ isOpen, onClose }: HelpProps) {
       </ModalBody>
       
       <div className="p-4 border-t border-border-primary text-center text-sm text-text-muted">
-        foozol - Manage multiple Claude Code instances with git worktrees
+        Pane - Manage multiple Claude Code instances with git worktrees
       </div>
     </Modal>
   );

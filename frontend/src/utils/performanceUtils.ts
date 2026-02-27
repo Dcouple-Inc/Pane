@@ -1,4 +1,4 @@
-// Performance utilities for foozol
+// Performance utilities for Pane
 
 /**
  * Checks if the document is visible (not minimized or in background tab)

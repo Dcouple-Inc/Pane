@@ -329,22 +329,22 @@ export function CreateSessionDialog({
     // Check for invalid git characters (excluding spaces which are now allowed)
     const invalidChars = /[~^:?*\[\]\\]/;
     if (invalidChars.test(name)) {
-      return 'Session name contains invalid characters (~^:?*[]\\)';
+      return 'Pane name contains invalid characters (~^:?*[]\\)';
     }
 
     // Check if it starts or ends with dot
     if (name.startsWith('.') || name.endsWith('.')) {
-      return 'Session name cannot start or end with a dot';
+      return 'Pane name cannot start or end with a dot';
     }
 
     // Check if it starts or ends with slash
     if (name.startsWith('/') || name.endsWith('/')) {
-      return 'Session name cannot start or end with a slash';
+      return 'Pane name cannot start or end with a slash';
     }
 
     // Check for consecutive dots
     if (name.includes('..')) {
-      return 'Session name cannot contain consecutive dots';
+      return 'Pane name cannot contain consecutive dots';
     }
 
     return null;
@@ -356,8 +356,8 @@ export function CreateSessionDialog({
     // Session name is always required
     if (!sessionName.trim()) {
       showError({
-        title: 'Session Name Required',
-        error: 'Please provide a session name.'
+        title: 'Pane Name Required',
+        error: 'Please provide a pane name.'
       });
       return;
     }
@@ -366,7 +366,7 @@ export function CreateSessionDialog({
     const validationError = validateWorktreeName(sessionName);
     if (validationError) {
       showError({
-        title: 'Invalid Session Name',
+        title: 'Invalid Pane Name',
         error: validationError
       });
       return;
@@ -419,8 +419,8 @@ export function CreateSessionDialog({
 
       if (!response.success) {
         showError({
-          title: 'Failed to Create Session',
-          error: response.error || 'An error occurred while creating the session.',
+          title: 'Failed to Create Pane',
+          error: response.error || 'An error occurred while creating the pane.',
           details: response.details,
           command: response.command
         });
@@ -435,10 +435,10 @@ export function CreateSessionDialog({
       onClose();
     } catch (error: unknown) {
       console.error('Error creating session:', error);
-      const errorMessage = error instanceof Error ? error.message : 'An error occurred while creating the session.';
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred while creating the pane.';
       const errorDetails = error instanceof Error ? (error.stack || error.toString()) : String(error);
       showError({
-        title: 'Failed to Create Session',
+        title: 'Failed to Create Pane',
         error: errorMessage,
         details: errorDetails
       });
@@ -458,7 +458,7 @@ export function CreateSessionDialog({
       closeOnOverlayClick={false}
     >
       <ModalHeader>
-        New Session{projectName && ` in ${projectName}`}
+        New Pane{projectName && ` in ${projectName}`}
       </ModalHeader>
 
       <ModalBody className="p-0">
@@ -619,10 +619,10 @@ export function CreateSessionDialog({
               </div>
             )}
 
-            {/* 2. Session Name (auto-populated from branch, editable) */}
+            {/* 2. Pane Name (auto-populated from branch, editable) */}
             <div className="p-6 border-b border-border-primary">
               <label className="block text-sm font-medium text-text-primary mb-1">
-                Session Name
+                Pane Name
               </label>
               <Input
                 id="worktreeTemplate"
@@ -638,7 +638,7 @@ export function CreateSessionDialog({
                   setWorktreeError(error);
                 }}
                 error={worktreeError || undefined}
-                placeholder="Enter a name for your session"
+                placeholder="Enter a name for your pane"
                 className="w-full"
               />
               {!worktreeError && (
@@ -648,10 +648,10 @@ export function CreateSessionDialog({
               )}
             </div>
 
-            {/* 3. Number of Sessions (compact with expand) */}
+            {/* 3. Number of Panes (compact with expand) */}
             <div className="px-6 py-4 border-b border-border-primary">
               <div className="flex items-center gap-3">
-                <span className="text-sm text-text-secondary">Sessions: {sessionCount}</span>
+                <span className="text-sm text-text-secondary">Panes: {sessionCount}</span>
                 {!showSessionOptions && sessionCount === 1 && (
                   <Button
                     type="button"
@@ -659,7 +659,7 @@ export function CreateSessionDialog({
                     size="sm"
                     onClick={() => setShowSessionOptions(true)}
                     className="text-text-tertiary hover:text-text-primary p-1"
-                    title="Create multiple sessions"
+                    title="Create multiple panes"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </Button>
@@ -698,7 +698,7 @@ export function CreateSessionDialog({
               </div>
               {sessionCount > 1 && (
                 <p className="text-xs text-text-tertiary mt-1">
-                  Creating multiple sessions with numbered suffixes
+                  Creating multiple panes with numbered suffixes
                 </p>
               )}
             </div>
@@ -762,13 +762,13 @@ export function CreateSessionDialog({
             disabled={isSubmitting || !!worktreeError || !sessionName.trim()}
             loading={isSubmitting}
             title={
-              isSubmitting ? 'Creating session...' :
-              worktreeError ? 'Please fix the session name error' :
-              !sessionName.trim() ? 'Please enter a session name' :
+              isSubmitting ? 'Creating pane...' :
+              worktreeError ? 'Please fix the pane name error' :
+              !sessionName.trim() ? 'Please enter a pane name' :
               undefined
             }
           >
-            {isSubmitting ? 'Creating...' : `Create${sessionCount > 1 ? ` ${sessionCount} Sessions` : ''}`}
+            {isSubmitting ? 'Creating...' : `Create${sessionCount > 1 ? ` ${sessionCount} Panes` : ''}`}
           </Button>
         </div>
       </ModalFooter>

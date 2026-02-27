@@ -69,16 +69,16 @@ function App() {
     defaultWidth: 320,  // ~20% of screen width
     minWidth: 200,
     maxWidth: 500,
-    storageKey: 'foozol-sidebar-width'
+    storageKey: 'pane-sidebar-width'
   });
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    return localStorage.getItem('foozol-sidebar-collapsed') === 'true';
+    return localStorage.getItem('pane-sidebar-collapsed') === 'true';
   });
   const toggleSidebarCollapsed = () => {
     setSidebarCollapsed(prev => {
       const next = !prev;
-      localStorage.setItem('foozol-sidebar-collapsed', String(next));
+      localStorage.setItem('pane-sidebar-collapsed', String(next));
       return next;
     });
   };
@@ -350,8 +350,8 @@ function App() {
       setUpdateVersionInfo(versionInfo);
       setIsUpdateDialogOpen(true);
       showNotification(
-        `🚀 Update Available - foozol v${versionInfo.latest}`,
-        'A new version of foozol is available!',
+        `🚀 Update Available - Pane v${versionInfo.latest}`,
+        'A new version of Pane is available!',
         '/favicon.ico',
         'version_update',
         `update:${versionInfo.latest}` // Deduplicate by version - only track once per version

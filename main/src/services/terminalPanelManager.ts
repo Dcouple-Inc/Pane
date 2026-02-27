@@ -163,8 +163,8 @@ export class TerminalPanelManager {
         COLORTERM: 'truecolor',
         LANG: process.env.LANG || 'en_US.UTF-8',
         WORKTREE_PATH: cwd,
-        FOOZOL_SESSION_ID: panel.sessionId,
-        FOOZOL_PANEL_ID: panel.id
+        PANE_SESSION_ID: panel.sessionId,
+        PANE_PANEL_ID: panel.id
       }
     });
     

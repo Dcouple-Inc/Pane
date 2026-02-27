@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 /**
- * foozol-run-script.js
+ * pane-run-script.js
  *
- * Intelligent dev server launcher for foozol with git worktree support.
+ * Intelligent dev server launcher for Pane with git worktree support.
  *
  * Features:
  * - Auto-detects git worktrees vs main repo
@@ -260,7 +260,7 @@ function killProcessUnix(pid) {
 async function main() {
   const cwd = process.cwd();
 
-  console.log('🚀 foozol-run-script.js starting...\n');
+  console.log('🚀 pane-run-script.js starting...\n');
 
   // Find git root
   let projectRoot;

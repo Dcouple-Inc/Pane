@@ -71,7 +71,7 @@ export const CodexStatsView: React.FC<CodexStatsViewProps> = ({ sessionId }) => 
   return (
     <div className="h-full overflow-y-auto p-6">
       <div className="max-w-4xl mx-auto">
-        <h3 className="text-lg font-medium text-text-primary mb-6">Codex Session Statistics</h3>
+        <h3 className="text-lg font-medium text-text-primary mb-6">Codex Pane Statistics</h3>
         
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {/* Total Messages */}
@@ -133,7 +133,7 @@ export const CodexStatsView: React.FC<CodexStatsViewProps> = ({ sessionId }) => 
           <div className="bg-surface-secondary rounded-lg p-4">
             <div className="flex items-center gap-3 mb-2">
               <GitBranch className="w-5 h-5 text-cyan-400" />
-              <span className="text-sm text-text-secondary">Session Duration</span>
+              <span className="text-sm text-text-secondary">Pane Duration</span>
             </div>
             <div className="text-2xl font-semibold text-text-primary">
               {formatDuration(stats.sessionDuration)}
@@ -143,10 +143,10 @@ export const CodexStatsView: React.FC<CodexStatsViewProps> = ({ sessionId }) => 
 
         {/* Additional Info */}
         <div className="mt-6 p-4 bg-surface-secondary rounded-lg">
-          <h4 className="text-sm font-medium text-text-primary mb-3">Session Info</h4>
+          <h4 className="text-sm font-medium text-text-primary mb-3">Pane Info</h4>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-text-secondary">Session ID:</span>
+              <span className="text-text-secondary">Pane ID:</span>
               <span className="text-text-primary font-mono">{sessionId.slice(0, 8)}...</span>
             </div>
             <div className="flex justify-between">

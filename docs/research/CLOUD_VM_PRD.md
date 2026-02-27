@@ -1,4 +1,4 @@
-# PRD: foozol Cloud — Persistent VM per User
+# PRD: Pane Cloud — Persistent VM per User
 
 **Author:** Dcouple Inc
 **Date:** 2026-02-24
@@ -9,7 +9,7 @@
 
 ## 1. Problem Statement
 
-foozol currently runs as a desktop Electron app. Users must keep their computer on and running for sessions to continue. If the laptop closes, sleeps, or loses power — Claude Code sessions stop, terminals die, and work is interrupted.
+Pane currently runs as a desktop Electron app. Users must keep their computer on and running for sessions to continue. If the laptop closes, sleeps, or loses power — Claude Code sessions stop, terminals die, and work is interrupted.
 
 Users want:
 - Sessions that **never stop** just because they closed their laptop
@@ -21,19 +21,19 @@ Users want:
 
 ## 2. Solution: "Mac Mini in the Cloud"
 
-Give each user a persistent cloud VM that runs foozol exactly as it runs locally. Stream the desktop to the user's browser. The VM is always on (or sleeps and wakes), and the user's entire environment — auth tokens, sessions, git worktrees, terminal history — persists on the VM's filesystem.
+Give each user a persistent cloud VM that runs Pane exactly as it runs locally. Stream the desktop to the user's browser. The VM is always on (or sleeps and wakes), and the user's entire environment — auth tokens, sessions, git worktrees, terminal history — persists on the VM's filesystem.
 
 **Mental model:** It's like having a dedicated Mac Mini in a closet that's always on, except it's in the cloud and you access it through your browser.
 
 ### What Changes
 
-- foozol binary: **Nothing.** Same Electron app, same code.
+- Pane binary: **Nothing.** Same Electron app, same code.
 - User experience: **Browser tab instead of native app.** Everything else identical.
 - Infrastructure: **New.** VM provisioning, display streaming, auth gateway.
 
 ### What Stays the Same
 
-- foozol UI and functionality: 100% identical
+- Pane UI and functionality: 100% identical
 - Auth flows (GitHub, Claude, API keys): Same flows, same UX
 - Git worktrees, SQLite database, config: Same files, same locations
 - Session resume/continue logic: Already works for process recovery
@@ -44,7 +44,7 @@ Give each user a persistent cloud VM that runs foozol exactly as it runs locally
 
 ### P0 — Must Have (MVP)
 
-1. **As a user**, I can open a URL in my browser and see my foozol desktop, so I can work from any device.
+1. **As a user**, I can open a URL in my browser and see my Pane desktop, so I can work from any device.
 
 2. **As a user**, I can close my browser and reopen it later, and my sessions are still running (or resumable), so I don't lose work.
 
@@ -62,7 +62,7 @@ Give each user a persistent cloud VM that runs foozol exactly as it runs locally
 
 ### P2 — Future / Phase 2
 
-8. **As a user**, clipboard copy/paste works natively between my local machine and remote foozol (requires WebSocket migration).
+8. **As a user**, clipboard copy/paste works natively between my local machine and remote Pane (requires WebSocket migration).
 
 9. **As a user**, I can toggle my VM on/off from a dashboard to manage costs.
 
@@ -102,13 +102,13 @@ Give each user a persistent cloud VM that runs foozol exactly as it runs locally
                        |
                        v
               +------------------+
-              |  foozol          |
+              |  Pane          |
               |  (Electron)      |
               +------------------+
                        |
               +--------+--------+
               |                 |
-        ~/.foozol/       ~/projects/
+        ~/.pane/       ~/projects/
         (SQLite,          (git worktrees)
          config)
 ```
@@ -118,7 +118,7 @@ Give each user a persistent cloud VM that runs foozol exactly as it runs locally
 ```
     User's Browser                          Cloud VM
     +-----------------+                +------------------+
-    | foozol web UI   |  -- HTTPS -->  | foozol backend   |
+    | Pane web UI   |  -- HTTPS -->  | Pane backend   |
     | (React, native) |  <-- WS ---   | (Node.js server) |
     | xterm.js        |                | node-pty + tmux  |
     | native clipboard|                | SQLite           |
@@ -144,14 +144,14 @@ Ubuntu 24.04 LTS
 │   ├── Electron dependencies (libnss3, libgtk-3-0, etc.)
 │   ├── tmux, git, gh (GitHub CLI), curl
 │   └── Node.js 20 LTS, pnpm
-├── foozol (pre-installed, latest version)
+├── Pane (pre-installed, latest version)
 ├── Claude Code CLI (pre-installed)
 ├── supervisord configuration
 │   ├── xvfb.conf
 │   ├── x11vnc.conf
 │   ├── websockify.conf
 │   ├── fluxbox.conf
-│   └── foozol.conf
+│   └── Pane.conf
 ├── NGINX configuration
 │   ├── TLS termination
 │   ├── WebSocket proxy to websockify
@@ -215,13 +215,13 @@ Drops to ~$21/mo with spot instances (accepts ~5% interruption risk).
 ### 5.4 Provisioning Flow
 
 ```
-User signs up at foozol.cloud
+User signs up at Pane.cloud
     → Authenticates with GitHub OAuth
     → Backend: Terraform provisions new VM from golden image
     → VM boots (~20-30 seconds)
-    → supervisord starts display stack + foozol
+    → supervisord starts display stack + Pane
     → Backend returns noVNC URL with auth token
-    → User sees foozol desktop in browser
+    → User sees Pane desktop in browser
     → First-run: user does gh auth login + claude login (same as local)
     → Done. Bookmark the URL. Works from any device.
 ```
@@ -233,7 +233,7 @@ States:
   PROVISIONING → RUNNING → IDLE → STOPPED → RUNNING (on reconnect)
                                           → TERMINATED (user request)
 
-RUNNING: User connected, foozol active
+RUNNING: User connected, Pane active
   → All processes alive, display streaming
 
 IDLE: User disconnected, no activity for 30 min
@@ -266,7 +266,7 @@ TERMINATED: User deletes account or VM
 
 ### 5.7 tmux Integration (Optional Enhancement)
 
-Wrap terminal PTY spawns in tmux for process persistence across foozol restarts:
+Wrap terminal PTY spawns in tmux for process persistence across Pane restarts:
 
 **Files to modify:**
 - `main/src/services/terminalPanelManager.ts` — terminal panel spawns
@@ -274,9 +274,9 @@ Wrap terminal PTY spawns in tmux for process persistence across foozol restarts:
 
 **Change:** ~50 lines. Replace `pty.spawn(shell, args, opts)` with `pty.spawn('tmux', ['new-session', '-A', '-s', panelId, shell, ...args], opts)`.
 
-**Benefit:** If foozol crashes or is restarted by supervisord, terminal sessions survive and can be reattached.
+**Benefit:** If Pane crashes or is restarted by supervisord, terminal sessions survive and can be reattached.
 
-**Note:** Not strictly required for MVP. foozol's existing `--resume` logic handles Claude session recovery. tmux adds resilience for interactive terminal sessions.
+**Note:** Not strictly required for MVP. Pane's existing `--resume` logic handles Claude session recovery. tmux adds resilience for interactive terminal sessions.
 
 ---
 
@@ -286,8 +286,8 @@ Wrap terminal PTY spawns in tmux for process persistence across foozol restarts:
 
 | Day | Task | Deliverable |
 |-----|------|------------|
-| **Day 1** | Build golden VM image | Packer/shell script that installs all packages, foozol, supervisord configs |
-| **Day 1** | Configure display stack | supervisord configs for Xvfb + x11vnc + websockify + fluxbox + foozol |
+| **Day 1** | Build golden VM image | Packer/shell script that installs all packages, Pane, supervisord configs |
+| **Day 1** | Configure display stack | supervisord configs for Xvfb + x11vnc + websockify + fluxbox + Pane |
 | **Day 2** | NGINX + TLS setup | NGINX config with Let's Encrypt, WebSocket proxy to websockify |
 | **Day 2** | Auth gateway | Simple token-based auth: user hits `/connect`, gets VNC URL with token |
 | **Day 3** | Terraform provisioning | Terraform configs to create/start/stop/destroy VMs per user on GCP |
@@ -323,7 +323,7 @@ Wrap terminal PTY spawns in tmux for process persistence across foozol restarts:
 
 ### MVP Success
 
-- [ ] User can sign up and access foozol in browser within 2 minutes
+- [ ] User can sign up and access Pane in browser within 2 minutes
 - [ ] Sessions survive browser close and reconnect
 - [ ] Auth (GitHub + Claude) works identically to local
 - [ ] VM cost stays at or under $26/user/month (on-demand, no CUD)
@@ -349,7 +349,7 @@ Wrap terminal PTY spawns in tmux for process persistence across foozol restarts:
 | **30-200ms input latency** | Noticeable for fast typists | Acceptable for AI-assisted coding (waiting on Claude anyway) |
 | **2-5 Mbps bandwidth** | Higher cost than text streaming | Acceptable for MVP. Fix in Phase 2 |
 | **Browser keyboard conflicts** | Cmd+W/T/Q intercepted by browser | Document alternative shortcuts. Fix in Phase 2 |
-| **Linux UI for Mac users** | Ctrl instead of Cmd in shortcuts | Minor UX issue. foozol already handles both |
+| **Linux UI for Mac users** | Ctrl instead of Cmd in shortcuts | Minor UX issue. Pane already handles both |
 
 ### Risks
 
@@ -371,9 +371,9 @@ Wrap terminal PTY spawns in tmux for process persistence across foozol restarts:
 
 3. **ARM compatibility?** Hetzner CAX31 (ARM) is cheapest at ~$14/mo but need to verify Electron + node-pty + Claude Code all run on ARM64 Linux. If yes, significant savings.
 
-4. **foozol updates on VMs?** How to push new foozol versions to existing user VMs? Options: apt repo, auto-updater, VM image rebuild + migration.
+4. **Pane updates on VMs?** How to push new Pane versions to existing user VMs? Options: apt repo, auto-updater, VM image rebuild + migration.
 
-5. **Billing model?** Flat monthly fee (~$25 to cover cost + margin)? Usage-based? Included with foozol subscription?
+5. **Billing model?** Flat monthly fee (~$25 to cover cost + margin)? Usage-based? Included with Pane subscription?
 
 6. **Hetzner API for Terraform?** Hetzner has a Terraform provider (`hetznercloud/hcloud`). Need to verify it supports all needed operations (create, snapshot, rebuild).
 
@@ -390,6 +390,6 @@ Wrap terminal PTY spawns in tmux for process persistence across foozol restarts:
 | Auth approach | Same as local (via noVNC desktop) | Zero code changes. User already knows the flow. Not headless — full display via Xvfb |
 | Backup strategy | Daily VM snapshots | Simple, automated, captures everything. ~$2/mo |
 | Persistence | VM filesystem (no external DB) | Simplest architecture. 1 user = 1 VM = 1 filesystem |
-| tmux | Optional enhancement, not MVP | foozol's existing --resume logic handles most recovery |
+| tmux | Optional enhancement, not MVP | Pane's existing --resume logic handles most recovery |
 | External DB / VM migration | Deferred to Phase 3 | Adds significant complexity. Not needed when 1 user = 1 VM |
 | VM spin up/down on demand | Deferred to future | Would require external DB for state. For now, always-on VMs on Hetzner are cheap enough |

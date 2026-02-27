@@ -1,3 +1,9 @@
+/**
+ * Session management for Pane.
+ * Note: "Sessions" are called "Panes" in the UI. Internally they remain
+ * "sessions" in code, database, and IPC to avoid a massive refactor.
+ */
+
 import { randomUUID } from 'crypto';
 import { EventEmitter } from 'events';
 import { spawn, ChildProcess, exec, execSync } from 'child_process';

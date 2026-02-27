@@ -16,6 +16,8 @@ import { cycleIndex } from '../utils/arrayUtils';
 import type { Session, GitStatus } from '../types/session';
 import type { Project, CreateProjectRequest } from '../types/project';
 
+
+
 interface ProjectSessionListProps {
   sessionSortAscending: boolean;
 }
@@ -140,7 +142,7 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
       const id = `switch-session-${i}`;
       ids.push(id);
       const session = allVisibleSessionsRef.current[i - 1];
-      let label = `Switch to session ${i}`;
+      let label = `Switch to pane ${i}`;
       if (session) {
         const project = projectsRef.current.find(p => p.id === session.projectId);
         label = project
@@ -204,7 +206,7 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
       ids.push(id);
       register({
         id,
-        label: 'Next Session',
+        label: 'Next Pane',
         keys,
         category: 'session',
         enabled: () => allActiveSessionsRef.current.length > 1,
@@ -217,7 +219,7 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
       ids.push(id);
       register({
         id,
-        label: 'Previous Session',
+        label: 'Previous Pane',
         keys,
         category: 'session',
         enabled: () => allActiveSessionsRef.current.length > 1,
@@ -401,7 +403,7 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
               icon: Trash2,
               variant: 'danger',
               onClick: () => {
-                if (confirm(`Delete project "${project.name}"? Sessions will be archived.`)) {
+                if (confirm(`Delete project "${project.name}"? Panes will be archived.`)) {
                   handleDeleteProject(project.id);
                 }
               },
@@ -595,7 +597,7 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
             {newProject.path && (
               <FieldWithTooltip
                 label="Detected Branch"
-                tooltip="The main branch foozol will use as the base for worktrees"
+                tooltip="The main branch Pane will use as the base for worktrees"
               >
                 <Card variant="bordered" padding="md">
                   <div className="flex items-center gap-2 text-sm text-text-secondary">
@@ -961,7 +963,7 @@ export function ArchivedSessions() {
             </div>
           ) : archivedProjects.length === 0 ? (
             <div className="px-6 py-3 text-xs text-text-tertiary">
-              No archived sessions
+              No archived panes
             </div>
           ) : (
             archivedProjects.map(project => {

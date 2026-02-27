@@ -63,7 +63,7 @@ export const ClaudeSettingsPanel: React.FC<ClaudeSettingsPanelProps> = ({
                 <div className="flex items-center justify-between py-1.5 hover:bg-surface-hover rounded px-2 -mx-2 transition-colors">
                   <div className="flex items-center gap-2">
                     <Terminal className="w-3.5 h-3.5 text-text-tertiary" />
-                    <span className="text-sm text-text-primary">Session Info</span>
+                    <span className="text-sm text-text-primary">Pane Info</span>
                   </div>
                   <SwitchSimple
                     checked={settings.showSessionInit}

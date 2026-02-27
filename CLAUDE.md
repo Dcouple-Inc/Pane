@@ -1,16 +1,16 @@
-# foozol - Terminal-First AI Code Assistant Manager
+# Pane - Terminal-First AI Code Assistant Manager
 
 By [Dcouple Inc](https://dcouple.ai). Terminal-first workflow with opinionated UI and Windows build support.
 
 ## Project Overview
 
-foozol is a fully-implemented Electron desktop application for managing multiple AI code assistant instances (Claude Code and Codex) against a single directory using git worktrees. It provides a streamlined interface for running parallel AI assistant sessions with different approaches to the same problem.
+Pane is a fully-implemented Electron desktop application for managing multiple AI code assistant instances (Claude Code and Codex) against a single directory using git worktrees. It provides a streamlined interface for running parallel AI assistant sessions with different approaches to the same problem.
 
 ## References
 Use these reference pages for more information:
 - How to invoke Claude Code through the command line as an SDK: https://docs.anthropic.com/en/docs/claude-code/sdk
 - How to run multiple Claude Code instances with Git Worktrees: https://docs.anthropic.com/en/docs/claude-code/tutorials#run-parallel-claude-code-sessions-with-git-worktrees
-- [**Adding New CLI Tools**](./docs/ADDING_NEW_CLI_TOOLS.md): Guide for extending foozol to support additional CLI tools beyond Claude Code
+- [**Adding New CLI Tools**](./docs/ADDING_NEW_CLI_TOOLS.md): Guide for extending Pane to support additional CLI tools beyond Claude Code
 - [**Implementing New CLI Agents**](./docs/IMPLEMENTING_NEW_CLI_AGENTS.md): Step-by-step instructions for adding new CLI agent tools with code examples and best practices
 - [**Codex Configuration**](./main/src/services/panels/codex/CODEX_CONFIG.md): Configuration guide for Codex CLI integration
 
@@ -126,9 +126,9 @@ All core features have been successfully implemented with significant enhancemen
   - `ui_state`: UI state persistence for application preferences
   - `app_opens`: Application launch tracking for analytics
   - `user_preferences`: User preference storage for application behavior
-- **Automatic initialization**: `~/.foozol` directory created on first run
+- **Automatic initialization**: `~/.pane` directory created on first run
 - **Migration system**: Dual migration system (TypeScript and SQL) for schema evolution
-- **JSON Configuration**: Application configuration stored in ~/.foozol/config.json
+- **JSON Configuration**: Application configuration stored in ~/.pane/config.json
 
 ### Developer Experience
 - **Task Queue**: Bull queue with optional Redis support
@@ -142,7 +142,7 @@ All core features have been successfully implemented with significant enhancemen
 ### Electron Application
 - **Main Process**: Electron main process with IPC communication
   - Window management with native OS integration
-  - Custom ConfigManager for configuration persistence (~/.foozol/config.json)
+  - Custom ConfigManager for configuration persistence (~/.pane/config.json)
   - IPC handlers for renderer communication
 
 ### Frontend (React 19 + TypeScript)
@@ -382,7 +382,7 @@ pnpm lint              # Linting across all workspaces
 ## Project Structure
 
 ```javascript
-foozol/
+Pane/
 ├── frontend/         # React renderer process
 │   ├── src/
 │   │   ├── components/      # React components (50+ files)
@@ -493,14 +493,14 @@ Enable verbose logging in Settings to see detailed logs for troubleshooting.
 
 ### Frontend Console Debugging (Development Only)
 
-In development mode, foozol automatically captures all frontend console logs and writes them to a file that Claude Code can read for debugging purposes.
+In development mode, Pane automatically captures all frontend console logs and writes them to a file that Claude Code can read for debugging purposes.
 
 **Location**: `frontend-debug.log` and `backend-debug.log` in the project root directory
 
 
 **Usage for Claude Code debugging**:
 1. Add debug console.log statements to frontend components
-2. Reproduce the issue in the foozol app
+2. Reproduce the issue in the Pane app
 3. Read `frontend-debug.log` and `backend-debug.log` to see what happened
 4. No need to manually check Chrome DevTools or ask humans to copy logs
 
@@ -531,7 +531,7 @@ In development mode, foozol automatically captures all frontend console logs and
 
 ## Disclaimer
 
-foozol is an independent project created by [Dcouple Inc](https://dcouple.ai). Claude™ is a trademark of Anthropic, PBC. foozol is not affiliated with, endorsed by, or sponsored by Anthropic. This tool is designed to work with Claude Code, which must be installed separately.
+Pane is an independent project created by [Dcouple Inc](https://dcouple.ai). Claude™ is a trademark of Anthropic, PBC. Pane is not affiliated with, endorsed by, or sponsored by Anthropic. This tool is designed to work with Claude Code, which must be installed separately.
 
 ## important-instruction-reminders
 Do what has been asked; nothing more, nothing less.

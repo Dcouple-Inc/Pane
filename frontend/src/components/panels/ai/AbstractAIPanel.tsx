@@ -171,10 +171,10 @@ export abstract class AbstractAIPanel<T extends AIPanelProps = AIPanelProps> ext
         <div className="h-full w-full flex items-center justify-center p-8">
           <div className="text-center max-w-md">
             <h3 className="text-lg font-medium text-text-primary mb-2">
-              No Session Found
+              No Pane Found
             </h3>
             <p className="text-sm text-text-secondary">
-              This {this.getAgentName()} panel is not associated with an active session.
+              This {this.getAgentName()} panel is not associated with an active pane.
             </p>
           </div>
         </div>
@@ -254,7 +254,7 @@ export abstract class AbstractAIPanel<T extends AIPanelProps = AIPanelProps> ext
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
               </svg>
               <p className="text-sm">
-                This session has been archived. You can view the conversation history but cannot send new messages.
+                This pane has been archived. You can view the conversation history but cannot send new messages.
               </p>
             </div>
           </div>

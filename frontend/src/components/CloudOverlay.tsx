@@ -39,7 +39,7 @@ export function CloudOverlay() {
       <iframe
         src={noVncUrl}
         className="w-full h-full border-none"
-        title="foozol Cloud Desktop"
+        title="Pane Cloud Desktop"
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
         onLoad={() => {
           if (!iframeReady) {

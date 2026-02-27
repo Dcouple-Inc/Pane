@@ -1,13 +1,13 @@
 # License Compatibility Guide
 
-foozol is licensed under the MIT License, which is a permissive open-source license. This document explains our approach to dependency license compatibility.
+Pane is licensed under the MIT License, which is a permissive open-source license. This document explains our approach to dependency license compatibility.
 
 ## Compatible Licenses
 
-The following licenses are compatible with MIT for use in foozol:
+The following licenses are compatible with MIT for use in Pane:
 
 ### Permissive Licenses (Fully Compatible)
-- **MIT**: Same as foozol's license
+- **MIT**: Same as Pane's license
 - **Apache-2.0**: Permissive with patent grant
 - **BSD** (2-clause, 3-clause): Permissive with attribution
 - **ISC**: Simplified BSD-style license

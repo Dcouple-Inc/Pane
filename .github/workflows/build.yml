@@ -77,7 +77,7 @@ jobs:
 
     - uses: actions/upload-artifact@v4
       with:
-        name: foozol-${{ matrix.os }}-${{ github.ref_name }}
+        name: pane-${{ matrix.os }}-${{ github.ref_name }}
         path: ${{ matrix.artifact_path }}
         if-no-files-found: error
         retention-days: 30
@@ -118,7 +118,7 @@ jobs:
 
     - uses: actions/upload-artifact@v4
       with:
-        name: foozol-windows-${{ github.ref_name }}
+        name: pane-windows-${{ github.ref_name }}
         path: |
           dist-electron/*.exe
           dist-electron/latest.yml

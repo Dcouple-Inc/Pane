@@ -1,11 +1,11 @@
-# Contributing to foozol
+# Contributing to Pane
 
-Thank you for your interest in contributing to foozol! We welcome contributions from the community and are excited to work with you.
+Thank you for your interest in contributing to Pane! We welcome contributions from the community and are excited to work with you.
 
-foozol is an open source project created by [Dcouple Inc](https://dcouple.ai). Dcouple builds AI software focused on decoupling humans from interfaces to make work feel less like work and more like thought.
+Pane is an open source project created by [Dcouple Inc](https://dcouple.ai). Dcouple builds AI software focused on decoupling humans from interfaces to make work feel less like work and more like thought.
 
 ## Right to Contribute this Code
-- You represent and warrant that You are legally entitled to contribute the code you contribute to foozol
+- You represent and warrant that You are legally entitled to contribute the code you contribute to Pane
 - You represent and warrant that each of Your Contributions is Your original creation. You represent and warrant that, to Your knowledge, none of Your Contributions infringe, violate, or misappropriate any third party intellectual property or other proprietary rights.
 
 ## Getting Started
@@ -49,7 +49,7 @@ pnpm lint
 ### Project Structure
 
 ```
-foozol/
+Pane/
 ├── frontend/         # React renderer process
 │   ├── src/
 │   │   ├── components/  # UI components
@@ -107,7 +107,7 @@ Fixes #42
 ## Testing
 
 ### Current Status
-foozol doesn't have automated tests yet - we welcome contributions to add them! If you'd like to help set up a testing framework, please open an issue to discuss the approach.
+Pane doesn't have automated tests yet - we welcome contributions to add them! If you'd like to help set up a testing framework, please open an issue to discuss the approach.
 
 ### Manual Testing Requirements
 
@@ -133,7 +133,7 @@ Manual testing checklist:
 ## Reporting Issues
 
 When reporting issues, please include:
-- foozol version
+- Pane version
 - Operating system
 - Steps to reproduce
 - Expected vs actual behavior
@@ -177,4 +177,4 @@ Feel free to:
 
 By contributing, you agree that your contributions will be licensed under the MIT License.
 
-Thank you for contributing to foozol! 🎉
+Thank you for contributing to Pane! 🎉

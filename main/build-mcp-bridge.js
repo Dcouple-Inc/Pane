@@ -138,7 +138,7 @@ class SimpleMCPServer {
             tools: {}
           },
           serverInfo: {
-            name: 'foozol-permissions',
+            name: 'pane-permissions',
             version: '1.0.0'
           }
         }

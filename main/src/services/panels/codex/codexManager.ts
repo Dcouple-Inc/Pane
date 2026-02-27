@@ -572,7 +572,7 @@ export class CodexManager extends AbstractCliManager {
       '',
       'If Codex is installed but not in your PATH:',
       '- Add the Codex installation directory to your PATH',
-      '- Or set a custom Codex path in foozol Settings'
+      '- Or set a custom Codex path in Pane Settings'
     ].join('\n');
   }
 

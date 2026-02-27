@@ -32,7 +32,7 @@
 ## Security & Configuration Tips
 - Node >= `22.14`; `pnpm` >= `8`. Use `pnpm` only.
 - Secrets via `.env` (dotenv) for local dev; never commit secrets.
-- To avoid clobbering local data when hacking on foozol with foozol: `FOOZOL_DIR=~/.foozol_test pnpm dev`.
+- To avoid clobbering local data when hacking on Pane with Pane: `PANE_DIR=~/.pane_test pnpm dev`.
 
 ## Agent Notes (for automation)
 - Keep changes minimal and scoped; prefer small patches.

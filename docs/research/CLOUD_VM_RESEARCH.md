@@ -1,7 +1,7 @@
-# foozol Cloud VM Research Findings
+# Pane Cloud VM Research Findings
 
 **Date:** 2026-02-24
-**Goal:** Run foozol on a persistent cloud VM per user, accessible from any device via browser.
+**Goal:** Run Pane on a persistent cloud VM per user, accessible from any device via browser.
 
 ---
 
@@ -13,7 +13,7 @@
 4. [Authentication: First-Run Setup](#4-authentication-first-run-setup)
 5. [VM Provisioning: GCP/AWS + Terraform](#5-vm-provisioning-gcpaws--terraform)
 6. [VM Pricing: 16GB RAM at $20/user Budget](#6-vm-pricing-16gb-ram-at-20user-budget)
-7. [Process Management: How foozol Spawns Processes](#7-process-management-how-foozol-spawns-processes)
+7. [Process Management: How Pane Spawns Processes](#7-process-management-how-pane-spawns-processes)
 8. [Session Resume: Existing Recovery Logic](#8-session-resume-existing-recovery-logic)
 9. [Security Considerations](#9-security-considerations)
 10. [Clipboard Problem & Future WebSocket Path](#10-clipboard-problem--future-websocket-path)
@@ -23,7 +23,7 @@
 
 ## 1. Architecture Overview
 
-The core idea: **1 user = 1 VM = 1 filesystem**. The VM runs foozol as a native Electron app with a virtual display (Xvfb), streamed to the user's browser via noVNC/Guacamole.
+The core idea: **1 user = 1 VM = 1 filesystem**. The VM runs Pane as a native Electron app with a virtual display (Xvfb), streamed to the user's browser via noVNC/Guacamole.
 
 ```
 User's Browser (any device)
@@ -53,16 +53,16 @@ User's Browser (any device)
     |
     v
 +------------------------------------------+
-|  foozol (Electron app)                   |
+|  Pane (Electron app)                   |
 |  - Same binary as local desktop          |
-|  - ~/.foozol/ (SQLite, config)           |
+|  - ~/.pane/ (SQLite, config)           |
 |  - ~/.claude/ (Claude Code auth)         |
 |  - ~/.config/gh/ (GitHub auth)           |
 |  - ~/projects/ (git worktrees)           |
 +------------------------------------------+
 ```
 
-**Key insight:** From foozol's perspective, nothing changes. It's running on a real (virtual) display with a real filesystem. Auth flows, git operations, terminal processes — all identical to local usage.
+**Key insight:** From Pane's perspective, nothing changes. It's running on a real (virtual) display with a real filesystem. Auth flows, git operations, terminal processes — all identical to local usage.
 
 ---
 
@@ -97,8 +97,8 @@ fluxbox &
 x11vnc -display :99 -passwd "$VNC_PASSWORD" -forever -shared -rfbport 5900 -localhost &
 websockify --web=/usr/share/novnc 6080 localhost:5900 &
 
-# Start foozol
-/path/to/foozol &
+# Start Pane
+/path/to/Pane &
 ```
 
 ### Production: supervisord
@@ -117,8 +117,8 @@ priority=20
 autorestart=true
 environment=DISPLAY=":99"
 
-[program:foozol]
-command=/path/to/foozol
+[program:Pane]
+command=/path/to/Pane
 priority=30
 autorestart=true
 environment=DISPLAY=":99"
@@ -146,7 +146,7 @@ autorestart=true
 - **Clipboard:** noVNC has its own clipboard buffer, separate from user's system clipboard. Copying between local machine and remote session requires Guacamole's clipboard sidebar.
 - **File drag/drop:** Only works with server files, not local files.
 - **Keyboard shortcuts:** Some (Cmd+W, Cmd+T, Cmd+Q) get intercepted by the browser before reaching the remote session.
-- **Platform detection:** foozol will detect the server OS (Linux), not the user's OS. Keyboard shortcuts show Ctrl instead of Cmd for Mac users.
+- **Platform detection:** Pane will detect the server OS (Linux), not the user's OS. Keyboard shortcuts show Ctrl instead of Cmd for Mac users.
 
 ---
 
@@ -154,14 +154,14 @@ autorestart=true
 
 ### Why tmux?
 
-foozol spawns PTY processes via `node-pty` for Claude Code, Codex, and terminal panels. These processes die if:
+Pane spawns PTY processes via `node-pty` for Claude Code, Codex, and terminal panels. These processes die if:
 - The Electron app restarts
 - The VM reboots (not sleeps — sleep preserves processes)
 - A crash occurs
 
 tmux wraps PTY sessions so they survive app restarts and can be reattached.
 
-### Where foozol Spawns Processes
+### Where Pane Spawns Processes
 
 Three locations use `pty.spawn()`:
 
@@ -185,7 +185,7 @@ const ptyProcess = pty.spawn(shellPath, shellArgs, {
 });
 
 // After (with tmux):
-const sessionName = `foozol-${panelId}`;
+const sessionName = `pane-${panelId}`;
 const ptyProcess = pty.spawn('tmux', [
   'new-session', '-A', '-s', sessionName,
   shellPath, ...shellArgs
@@ -223,7 +223,7 @@ tmux list-sessions
 
 ### Important Consideration
 
-tmux is most valuable for **terminal panels** (user shells). For Claude Code processes, foozol already has robust resume logic via `--resume <sessionId>` that reloads conversation history from `~/.claude/sessions/`. tmux adds redundancy but isn't strictly required for Claude sessions.
+tmux is most valuable for **terminal panels** (user shells). For Claude Code processes, Pane already has robust resume logic via `--resume <sessionId>` that reloads conversation history from `~/.claude/sessions/`. tmux adds redundancy but isn't strictly required for Claude sessions.
 
 ---
 
@@ -235,14 +235,14 @@ Because the VM has a virtual display streamed via noVNC, **all auth flows work i
 
 ### First-Run Experience
 
-User opens noVNC in their browser and sees the foozol desktop. First time setup:
+User opens noVNC in their browser and sees the Pane desktop. First time setup:
 
 | Step | How | Persists To |
 |------|-----|-------------|
 | GitHub auth | `gh auth login` in terminal → OAuth in browser | `~/.config/gh/hosts.yml` |
 | Claude Code auth | `claude login` → OAuth redirect works normally | `~/.claude/.credentials.json` |
-| Anthropic API key | Set in foozol Settings UI | `~/.foozol/config.json` |
-| OpenAI API key (Codex) | Set in foozol Settings or `~/.bashrc` | `~/.foozol/config.json` or env |
+| Anthropic API key | Set in Pane Settings UI | `~/.pane/config.json` |
+| OpenAI API key (Codex) | Set in Pane Settings or `~/.bashrc` | `~/.pane/config.json` or env |
 | Git SSH keys | `ssh-keygen` + add to GitHub | `~/.ssh/` |
 
 **All credentials persist on the VM filesystem.** Set once, works forever (until tokens expire, which is rare for GitHub and Claude OAuth tokens).
@@ -269,14 +269,14 @@ GCP Compute Engine with Terraform for provisioning/teardown.
 #### Terraform Configuration (Example)
 
 ```hcl
-resource "google_compute_instance" "foozol_vm" {
-  name         = "foozol-user-${var.user_id}"
+resource "google_compute_instance" "pane_vm" {
+  name         = "pane-user-${var.user_id}"
   machine_type = "e2-highmem-2"  # 2 vCPU, 16GB RAM
   zone         = "us-central1-a"
 
   boot_disk {
     initialize_params {
-      image = "projects/your-project/global/images/foozol-base-image"
+      image = "projects/your-project/global/images/pane-base-image"
       size  = 64  # GB
       type  = "pd-ssd"
     }
@@ -289,18 +289,18 @@ resource "google_compute_instance" "foozol_vm" {
 
   metadata_startup_script = <<-EOF
     #!/bin/bash
-    systemctl start foozol-stack
+    systemctl start pane-stack
   EOF
 
   labels = {
     user_id = var.user_id
-    purpose = "foozol-cloud"
+    purpose = "pane-cloud"
   }
 }
 
 # Snapshot schedule for daily backups
 resource "google_compute_resource_policy" "daily_backup" {
-  name   = "foozol-daily-backup"
+  name   = "pane-daily-backup"
   region = "us-central1"
 
   snapshot_schedule_policy {
@@ -321,32 +321,32 @@ resource "google_compute_resource_policy" "daily_backup" {
 
 ```bash
 # Stop VM (preserves disk, stops billing for compute)
-gcloud compute instances stop foozol-user-123
+gcloud compute instances stop pane-user-123
 
 # Start VM (~20-30 second boot)
-gcloud compute instances start foozol-user-123
+gcloud compute instances start pane-user-123
 
 # Create snapshot backup
-gcloud compute disks snapshot foozol-user-123 --zone=us-central1-a
+gcloud compute disks snapshot pane-user-123 --zone=us-central1-a
 
 # Restore from snapshot
-gcloud compute instances create foozol-user-123-restored \
-  --source-snapshot=foozol-user-123-snapshot-20260224
+gcloud compute instances create pane-user-123-restored \
+  --source-snapshot=pane-user-123-snapshot-20260224
 ```
 
 #### What Happens on Stop/Start
 
-- **Disk persists** — all files intact (`~/.foozol/`, `~/.claude/`, worktrees)
-- **Processes die** — foozol, tmux, x11vnc all stop
+- **Disk persists** — all files intact (`~/.pane/`, `~/.claude/`, worktrees)
+- **Processes die** — Pane, tmux, x11vnc all stop
 - **On start** — supervisord relaunches the entire stack
-- **foozol recovery** — detects interrupted sessions, offers resume via `--resume`
+- **Pane recovery** — detects interrupted sessions, offers resume via `--resume`
 - **Boot time** — ~20-30 seconds for GCP stop/start
 
 ### AWS Alternative
 
 ```hcl
-resource "aws_instance" "foozol_vm" {
-  ami           = "ami-foozol-base"
+resource "aws_instance" "pane_vm" {
+  ami           = "ami-pane-base"
   instance_type = "r6i.large"  # 2 vCPU, 16GB RAM
 
   root_block_device {
@@ -355,8 +355,8 @@ resource "aws_instance" "foozol_vm" {
   }
 
   tags = {
-    Name    = "foozol-user-${var.user_id}"
-    Purpose = "foozol-cloud"
+    Name    = "pane-user-${var.user_id}"
+    Purpose = "pane-cloud"
   }
 }
 ```
@@ -440,11 +440,11 @@ Hitting $20/user/month with 16GB RAM on hyperscalers (GCP/AWS) requires either *
 
 ---
 
-## 7. Process Management: How foozol Spawns Processes
+## 7. Process Management: How Pane Spawns Processes
 
 ### Process Tracking
 
-foozol tracks all processes in Maps keyed by `panelId`:
+Pane tracks all processes in Maps keyed by `panelId`:
 
 ```
 TerminalPanelManager.terminals: Map<panelId, TerminalProcess>
@@ -486,11 +486,11 @@ PTY output → outputBuffer → batch every 16ms (~60fps) → IPC to renderer
 
 ### How Resume Works Today
 
-foozol already handles process death and recovery:
+Pane already handles process death and recovery:
 
-1. **Claude session ID stored:** When Claude starts, it sends an `init` message with `session_id`. foozol stores this in `panel.state.customState.agentSessionId` (SQLite).
+1. **Claude session ID stored:** When Claude starts, it sends an `init` message with `session_id`. Pane stores this in `panel.state.customState.agentSessionId` (SQLite).
 
-2. **On continue/resume:** foozol spawns `claude --resume <sessionId>` which tells Claude Code to reload conversation history from `~/.claude/sessions/<uuid>.jsonl`.
+2. **On continue/resume:** Pane spawns `claude --resume <sessionId>` which tells Claude Code to reload conversation history from `~/.claude/sessions/<uuid>.jsonl`.
 
 3. **On app restart:** `sessionManager.initializeFromDatabase()` finds sessions in interrupted state, sets up `initialCommand = "claude --resume <id>"` which executes when the user views that panel.
 
@@ -499,7 +499,7 @@ foozol already handles process death and recovery:
 VM stop/start is functionally identical to an app crash and restart:
 - Filesystem persists (SQLite + Claude session files)
 - Processes die
-- On boot, foozol recovers all sessions automatically
+- On boot, Pane recovers all sessions automatically
 - User clicks a session → Claude resumes from where it left off
 
 **No additional work needed** for basic VM stop/start resilience.
@@ -529,13 +529,13 @@ A public-facing noVNC endpoint is equivalent to SSH access — full control of t
 ### Auth Flow
 
 ```
-User opens foozol.cloud/dashboard
+User opens Pane.cloud/dashboard
     → Authenticates with GitHub OAuth (or email/password)
     → Backend generates short-lived VNC token
     → Redirects to /vnc?token=abc123&autoconnect=true
     → noVNC connects via wss:// with token
     → Token validated by websockify, routes to user's VNC port
-    → User sees their foozol desktop
+    → User sees their Pane desktop
 ```
 
 ---
@@ -544,11 +544,11 @@ User opens foozol.cloud/dashboard
 
 ### The Problem
 
-noVNC's clipboard is **separate** from the user's system clipboard. Copy/paste between local machine and remote session requires using a clipboard sidebar panel. This affects 8+ places in foozol that use `navigator.clipboard`.
+noVNC's clipboard is **separate** from the user's system clipboard. Copy/paste between local machine and remote session requires using a clipboard sidebar panel. This affects 8+ places in Pane that use `navigator.clipboard`.
 
 ### The Solution: Hybrid WebSocket Architecture (Phase 2)
 
-Serve foozol's React frontend as a real web page. Stream only terminal data over WebSocket. Clipboard works natively because it's a real browser page, not a pixel stream.
+Serve Pane's React frontend as a real web page. Stream only terminal data over WebSocket. Clipboard works natively because it's a real browser page, not a pixel stream.
 
 ```
 User's Browser (native web app)                Remote VM
@@ -635,7 +635,7 @@ terminal.loadAddon(new ClipboardAddon());
 // can read/write the user's local clipboard transparently
 ```
 
-**Layer 3: foozol's existing `navigator.clipboard` calls** — all 8+ places (PromptHistory, LogsView, RichOutputView, MessagesView, GitErrorDialog, etc.) work unchanged because it's a real browser page.
+**Layer 3: Pane's existing `navigator.clipboard` calls** — all 8+ places (PromptHistory, LogsView, RichOutputView, MessagesView, GitErrorDialog, etc.) work unchanged because it's a real browser page.
 
 ### IPC → WebSocket Adapter
 
@@ -709,7 +709,7 @@ ws.on('message', (msg) => {
 | RAM per user | ~2GB (Xvfb + Electron + x11vnc) | **~512MB (Node.js + node-pty)** |
 | Keyboard shortcuts | Many intercepted by browser | **Full control** |
 | Mobile support | Unusable | **Possible** |
-| foozol code changes | Zero | Medium (~23 IPC handler files) |
+| Pane code changes | Zero | Medium (~23 IPC handler files) |
 | VM cost savings | — | **~50% less RAM needed** |
 
 ### Effort Estimate for Phase 2
@@ -735,15 +735,15 @@ ws.on('message', (msg) => {
 
 ```bash
 # GCP: Automated snapshot schedule
-gcloud compute resource-policies create snapshot-schedule foozol-daily \
+gcloud compute resource-policies create snapshot-schedule pane-daily \
   --region=us-central1 \
   --max-retention-days=7 \
   --daily-schedule \
   --start-time=04:00
 
 # Attach to disk
-gcloud compute disks add-resource-policies foozol-user-123 \
-  --resource-policies=foozol-daily \
+gcloud compute disks add-resource-policies pane-user-123 \
+  --resource-policies=pane-daily \
   --zone=us-central1-a
 ```
 
@@ -752,7 +752,7 @@ gcloud compute disks add-resource-policies foozol-user-123 \
 ### What's Backed Up
 
 Everything. The snapshot captures the entire disk:
-- `~/.foozol/` (SQLite database, config, logs)
+- `~/.pane/` (SQLite database, config, logs)
 - `~/.claude/` (Claude Code auth + session files)
 - `~/.config/gh/` (GitHub auth)
 - `~/.ssh/` (SSH keys)
@@ -763,8 +763,8 @@ Everything. The snapshot captures the entire disk:
 
 ```bash
 # Restore from snapshot (creates new instance)
-gcloud compute instances create foozol-user-123-restored \
-  --source-snapshot=foozol-user-123-20260224 \
+gcloud compute instances create pane-user-123-restored \
+  --source-snapshot=pane-user-123-20260224 \
   --zone=us-central1-a \
   --machine-type=e2-highmem-2
 ```
