@@ -316,13 +316,16 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
 
   ipcMain.handle('projects:update', async (_event, projectId: string, updates: UpdateProjectRequest) => {
     try {
+      const projectIdNum = parseInt(projectId);
+
+      // Invalidate cached PathResolver/CommandRunner in case WSL settings changed
+      sessionManager.invalidateProjectContext(projectIdNum);
+
       // Update the project
-      const project = databaseService.updateProject(parseInt(projectId), updates);
+      const project = databaseService.updateProject(projectIdNum, updates);
 
       // If run_script was updated, also update the run commands table
       if (updates.run_script !== undefined) {
-        const projectIdNum = parseInt(projectId);
-
         // Delete existing run commands
         databaseService.deleteProjectRunCommands(projectIdNum);
 

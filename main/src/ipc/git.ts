@@ -4,11 +4,9 @@ import { buildGitCommitCommand } from '../utils/shellEscape';
 import { mainWindow } from '../index';
 import { panelEventBus } from '../services/panelEventBus';
 import { PanelEventType, ToolPanelType, PanelEvent } from '../../../shared/types/panels';
-import type { ClaudePanelState } from '../../../shared/types/panels';
 import type { Session } from '../types/session';
 import type { GitCommit } from '../services/gitDiffManager';
 import type { CommandRunner } from '../utils/commandRunner';
-import { claudePanelManager } from './claudePanel';
 
 // Extended type for git system virtual panels
 type SystemPanelType = ToolPanelType | 'git';
@@ -103,7 +101,7 @@ export function invalidatePrCache(projectPath?: string): void {
 }
 
 export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): void {
-  const { sessionManager, gitDiffManager, worktreeManager, gitStatusManager, databaseService } = services;
+  const { sessionManager, gitDiffManager, worktreeManager, claudeCodeManager, gitStatusManager, databaseService } = services;
 
   // Helper function to emit git operation events to all sessions in a project
   const emitGitOperationToProject = (sessionId: string, eventType: PanelEventType, message: string, details?: Record<string, unknown>) => {
@@ -910,20 +908,9 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       const prompt = `Please rebase the local ${mainBranch} branch (not origin/${mainBranch}) into this branch and resolve all conflicts`;
 
       try {
-        // Create a new Claude panel
-        const panel = await panelManager.createPanel({
-          sessionId: sessionId,
-          type: 'claude',
-          title: 'Claude - Resolve Conflicts'
-        });
-
-        // Register the panel with the Claude panel manager
-        // The customState is a union type, but we know it's ClaudePanelState since we just created a claude panel
-        claudePanelManager.registerPanel(panel.id, sessionId, panel.state.customState as ClaudePanelState);
-
-        // Start Claude in the new panel with the rebase prompt
-        await claudePanelManager.startPanel(
-          panel.id,
+        // Start Claude session to handle rebase
+        await claudeCodeManager.startSession(
+          sessionId,
           session.worktreePath,
           prompt,
           session.permissionMode,
