@@ -137,20 +137,20 @@ export const MessageSegment: React.FC<MessageSegmentProps> = ({
           </button>
           
           {isDiffExpanded && (
-            <div className="mt-2 bg-black/20 rounded-lg p-3 overflow-hidden">
+            <div className="mt-2 bg-surface-secondary rounded-lg p-3 overflow-hidden">
               <pre className="text-xs font-mono overflow-x-auto">
                 {lines.map((line, i) => {
                   let className = 'text-text-tertiary';
                   if (line.startsWith('+++') || line.startsWith('---')) {
                     className = 'text-text-secondary font-semibold';
                   } else if (line.startsWith('@@')) {
-                    className = 'text-blue-400';
+                    className = 'text-blue-600 dark:text-blue-400';
                   } else if (line.startsWith('+') && !line.startsWith('+++')) {
-                    className = 'text-green-400 bg-green-900/20';
+                    className = 'text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/20';
                   } else if (line.startsWith('-') && !line.startsWith('---')) {
-                    className = 'text-red-400 bg-red-900/20';
+                    className = 'text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/20';
                   } else if (line.startsWith('diff --git')) {
-                    className = 'text-purple-400 font-semibold mt-2';
+                    className = 'text-purple-700 dark:text-purple-400 font-semibold mt-2';
                   }
                   
                   return (

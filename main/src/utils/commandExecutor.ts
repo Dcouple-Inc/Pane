@@ -122,13 +122,14 @@ class CommandExecutor {
 
       // Log success with a preview of the result
       if (result.stdout) {
-        const lines = result.stdout.split('\n');
+        const stdout = String(result.stdout);
+        const lines = stdout.split('\n');
         const preview = lines[0].substring(0, 100) +
                         (lines.length > 1 ? ` ... (${lines.length} lines)` : '');
         console.log(`[CommandExecutor] Async Success: ${preview}`);
       }
 
-      return result;
+      return { stdout: String(result.stdout), stderr: String(result.stderr) };
     } catch (error: unknown) {
       // Log error
       console.error(`[CommandExecutor] Async Failed: ${actualCommand}`);

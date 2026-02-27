@@ -155,6 +155,11 @@ body.light {
   width: 100%;
 }
 
+/* Light mode: invert the dark terminal instead of fighting ANSI color issues */
+.light .xterm {
+  filter: invert(1) hue-rotate(180deg);
+}
+
 .xterm-viewport {
   background-color: transparent !important;
 }
