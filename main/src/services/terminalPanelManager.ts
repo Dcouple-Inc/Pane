@@ -8,6 +8,7 @@ import { getShellPath } from '../utils/shellPath';
 import { ShellDetector } from '../utils/shellDetector';
 import type { AnalyticsManager } from './analyticsManager';
 import { getWSLShellSpawn, WSLContext } from '../utils/wslUtils';
+import { GIT_ATTRIBUTION_ENV } from '../utils/attribution';
 
 const HIGH_WATERMARK = 100_000; // 100KB — pause PTY when pending exceeds this
 const LOW_WATERMARK = 10_000;   // 10KB — resume PTY when pending drops below this
@@ -156,6 +157,7 @@ export class TerminalPanelManager {
       cwd: spawnCwd,
       env: {
         ...process.env,
+        ...GIT_ATTRIBUTION_ENV,
         PATH: enhancedPath,
         TERM: 'xterm-256color',
         COLORTERM: 'truecolor',

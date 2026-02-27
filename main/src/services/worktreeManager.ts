@@ -8,6 +8,7 @@ import { escapeShellArg } from '../utils/shellEscape';
 import type { ConfigManager } from './configManager';
 import type { AnalyticsManager } from './analyticsManager';
 import { WSLContext, posixJoin, wrapCommandForWSL, getWSLContextFromProject } from '../utils/wslUtils';
+import { GIT_ATTRIBUTION_ENV } from '../utils/attribution';
 
 // Interface for raw commit data
 interface RawCommitData {
@@ -29,6 +30,7 @@ async function execWithShellPath(command: string, options?: { cwd?: string }): P
     ...options,
     env: {
       ...process.env,
+      ...GIT_ATTRIBUTION_ENV,
       PATH: shellPath
     }
   });
@@ -39,7 +41,7 @@ async function execForProject(command: string, cwd: string, wslContext?: WSLCont
   if (wslContext) {
     const wrappedCommand = wrapCommandForWSL(command, wslContext.distribution, cwd);
     return execAsync(wrappedCommand, {
-      env: { ...process.env, PATH: getShellPath() }
+      env: { ...process.env, ...GIT_ATTRIBUTION_ENV, PATH: getShellPath() }
     });
   }
   return execWithShellPath(command, { cwd });
@@ -702,7 +704,7 @@ export class WorktreeManager {
         // Add foozol footer if enabled
         const fullMessage = enableCommitFooter ? `${commitMessage}
 
-Co-Authored-By: foozol <noreply@foozol.com>` : commitMessage;
+Co-Authored-By: Pane <use-pane@users.noreply.github.com>` : commitMessage;
 
         // Properly escape commit message for cross-platform compatibility
         const escapedMessage = fullMessage.replace(/"/g, '\\"');

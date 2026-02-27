@@ -35,7 +35,7 @@ export function buildGitCommitCommand(message: string, enableCommitFooter: boole
   // Create the full commit message with signature
   const fullMessage = enableCommitFooter ? `${message}
 
-Co-Authored-By: foozol <noreply@foozol.com>` : message;
+Co-Authored-By: Pane <use-pane@users.noreply.github.com>` : message;
   
   // For Windows, use a different approach
   if (process.platform === 'win32') {

@@ -6,6 +6,7 @@ import { glob } from 'glob';
 import type { AppServices } from './types';
 import type { Session } from '../types/session';
 import { linuxToUNCPath, getWSLContextFromProject } from '../utils/wslUtils';
+import { GIT_ATTRIBUTION_ENV } from '../utils/attribution';
 
 interface FileReadRequest {
   sessionId: string;
@@ -300,13 +301,13 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
         // Create the commit with foozol signature if enabled
         const commitMessage = enableCommitFooter ? `${request.message}
 
-Co-Authored-By: foozol <noreply@foozol.com>` : request.message;
+Co-Authored-By: Pane <use-pane@users.noreply.github.com>` : request.message;
 
         // Use a temporary file to handle commit messages with special characters
         const tmpFile = path.join(os.tmpdir(), `foozol-commit-${Date.now()}.txt`);
         try {
           await fs.writeFile(tmpFile, commitMessage, 'utf-8');
-          await execAsync(`git commit -F ${tmpFile}`, { cwd: session.worktreePath });
+          await execAsync(`git commit -F ${tmpFile}`, { cwd: session.worktreePath, env: { ...process.env, ...GIT_ATTRIBUTION_ENV } });
         } finally {
           // Clean up the temporary file
           await fs.unlink(tmpFile).catch(() => {
@@ -336,13 +337,13 @@ Co-Authored-By: foozol <noreply@foozol.com>` : request.message;
             
             const retryMessage = enableCommitFooter ? `${request.message}
 
-Co-Authored-By: foozol <noreply@foozol.com>` : request.message;
+Co-Authored-By: Pane <use-pane@users.noreply.github.com>` : request.message;
 
             // Use a temporary file for retry as well
             const tmpFile = path.join(os.tmpdir(), `foozol-commit-retry-${Date.now()}.txt`);
             try {
               await fs.writeFile(tmpFile, retryMessage, 'utf-8');
-              await execAsync(`git commit -F ${tmpFile}`, { cwd: session.worktreePath });
+              await execAsync(`git commit -F ${tmpFile}`, { cwd: session.worktreePath, env: { ...process.env, ...GIT_ATTRIBUTION_ENV } });
             } finally {
               // Clean up the temporary file
               await fs.unlink(tmpFile).catch(() => {

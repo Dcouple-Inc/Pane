@@ -9,6 +9,7 @@ import * as os from 'os';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { configManager } from '../index';
+import { GIT_ATTRIBUTION_ENV } from '../utils/attribution';
 
 interface RunProcess {
   process: pty.IPty;
@@ -63,6 +64,7 @@ export class RunCommandManager extends EventEmitter {
             const shellPath = isLinux ? (process.env.PATH || '') : getShellPath();
             const env = {
               ...process.env,
+              ...GIT_ATTRIBUTION_ENV,
               WORKTREE_PATH: worktreePath,
               PATH: shellPath
             } as { [key: string]: string };

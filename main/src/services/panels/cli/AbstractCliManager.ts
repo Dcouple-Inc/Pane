@@ -9,6 +9,7 @@ import type { ConfigManager } from '../../configManager';
 import type { ConversationMessage } from '../../../database/models';
 import { getShellPath, findExecutableInPath } from '../../../utils/shellPath';
 import { findNodeExecutable } from '../../../utils/nodeFinder';
+import { GIT_ATTRIBUTION_ENV } from '../../../utils/attribution';
 
 interface CliProcess {
   process: pty.IPty;
@@ -571,6 +572,7 @@ export abstract class AbstractCliManager extends EventEmitter {
 
     return {
       ...process.env,
+      ...GIT_ATTRIBUTION_ENV,
       PATH: pathWithNode
     } as { [key: string]: string };
   }

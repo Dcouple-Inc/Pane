@@ -148,7 +148,7 @@ export class LogsManager {
     let childProcess: ChildProcess;
 
     if (wslContext) {
-      childProcess = spawn('wsl.exe', ['-d', wslContext.distribution, '--cd', cwd, '--', 'bash', '-c', command], {
+      childProcess = spawn('wsl.exe', ['-d', wslContext.distribution, '--', 'bash', '-c', `cd '${cwd}' && ${command}`], {
         env: { ...process.env, PATH: shellPath }
       });
     } else {
