@@ -49,8 +49,8 @@ export function getAppDirectory(): string {
     return customAppDir;
   }
 
-  // 2. Check environment variable
-  const envDir = process.env.PANE_DIR;
+  // 2. Check environment variable (with legacy FOOZOL_DIR fallback)
+  const envDir = process.env.PANE_DIR || process.env.FOOZOL_DIR;
   if (envDir) {
     return envDir;
   }
