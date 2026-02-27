@@ -5,6 +5,7 @@ import { ShellDetector } from '../utils/shellDetector';
 import * as os from 'os';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { GIT_ATTRIBUTION_ENV } from '../utils/attribution';
 
 interface TerminalSession {
   pty: pty.IPty;
@@ -43,6 +44,7 @@ export class TerminalSessionManager extends EventEmitter {
       rows: 24,
       env: {
         ...process.env,
+        ...GIT_ATTRIBUTION_ENV,
         PATH: shellPath,
         WORKTREE_PATH: worktreePath,
         TERM: 'xterm-256color',  // Ensure TERM is set for color support
