@@ -546,15 +546,16 @@ export class ClaudeCodeManager extends AbstractCliManager {
   // Implementation of abstract methods from AbstractCliManager
 
   async startPanel(panelId: string, sessionId: string, worktreePath: string, prompt: string, permissionMode?: 'approve' | 'ignore', model?: string): Promise<void> {
-    // Validate panel ownership before starting
-    const { validatePanelSessionOwnership, logValidationFailure } = require('../../../utils/sessionValidation');
-    const validation = validatePanelSessionOwnership(panelId, sessionId);
-    if (!validation.valid) {
-      logValidationFailure('ClaudeCodeManager.startPanel', validation);
-      throw new Error(`Panel validation failed: ${validation.error}`);
+    // Validate panel ownership before starting (skip for virtual session-based panel IDs)
+    if (!panelId.startsWith('session-')) {
+      const { validatePanelSessionOwnership, logValidationFailure } = require('../../../utils/sessionValidation');
+      const validation = validatePanelSessionOwnership(panelId, sessionId);
+      if (!validation.valid) {
+        logValidationFailure('ClaudeCodeManager.startPanel', validation);
+        throw new Error(`Panel validation failed: ${validation.error}`);
+      }
+      console.log(`[ClaudeCodeManager] Validated panel ${panelId} belongs to session ${sessionId}`);
     }
-
-    console.log(`[ClaudeCodeManager] Validated panel ${panelId} belongs to session ${sessionId}`);
 
     // Check if interactive mode is enabled
     const config = this.configManager?.getConfig();
@@ -605,15 +606,16 @@ export class ClaudeCodeManager extends AbstractCliManager {
     model?: string
   ): Promise<void> {
     return await withLock(`claude-continue-${panelId}`, async () => {
-      // Validate panel ownership before continuing
-      const { validatePanelSessionOwnership, logValidationFailure } = require('../../../utils/sessionValidation');
-      const validation = validatePanelSessionOwnership(panelId, sessionId);
-      if (!validation.valid) {
-        logValidationFailure('ClaudeCodeManager.continuePanel', validation);
-        throw new Error(`Panel validation failed: ${validation.error}`);
+      // Validate panel ownership before continuing (skip for virtual session-based panel IDs)
+      if (!panelId.startsWith('session-')) {
+        const { validatePanelSessionOwnership, logValidationFailure } = require('../../../utils/sessionValidation');
+        const validation = validatePanelSessionOwnership(panelId, sessionId);
+        if (!validation.valid) {
+          logValidationFailure('ClaudeCodeManager.continuePanel', validation);
+          throw new Error(`Panel validation failed: ${validation.error}`);
+        }
+        console.log(`[ClaudeCodeManager] Validated panel ${panelId} belongs to session ${sessionId}`);
       }
-
-      console.log(`[ClaudeCodeManager] Validated panel ${panelId} belongs to session ${sessionId}`);
 
       // Get the session's permission mode from database
       const dbSession = this.sessionManager.getDbSession(sessionId);
