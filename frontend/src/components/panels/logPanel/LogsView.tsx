@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Search, X, Download, Trash2, ChevronUp, ChevronDown, Filter, Copy, Check } from 'lucide-react';
 import { cn } from '../../../utils/cn';
 import AnsiToHtml from 'ansi-to-html';
+import { useTheme } from '../../../contexts/ThemeContext';
 
 interface LogEntry {
   timestamp: string;
@@ -27,32 +28,36 @@ export const LogsView: React.FC<LogsViewProps> = ({ sessionId, isVisible }) => {
   const logContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const lastLogCount = useRef(0);
-  
-  // Create ANSI to HTML converter with dark theme colors
-  const ansiConverter = useMemo(() => new AnsiToHtml({
-    fg: '#e5e7eb', // text-gray-200
-    bg: '#0a0a0a', // bg-primary
-    newline: true,
-    escapeXML: true,
-    colors: {
-      0: '#000000', // Black
-      1: '#ef4444', // Red
-      2: '#10b981', // Green  
-      3: '#f59e0b', // Yellow
-      4: '#3b82f6', // Blue
-      5: '#a855f7', // Magenta
-      6: '#06b6d4', // Cyan
-      7: '#e5e7eb', // White
-      8: '#6b7280', // Bright Black (Gray)
-      9: '#f87171', // Bright Red
-      10: '#34d399', // Bright Green
-      11: '#fbbf24', // Bright Yellow
-      12: '#60a5fa', // Bright Blue
-      13: '#c084fc', // Bright Magenta
-      14: '#22d3ee', // Bright Cyan
-      15: '#ffffff', // Bright White
-    }
-  }), []);
+  const { theme } = useTheme();
+
+  // Create ANSI to HTML converter with theme-aware colors
+  const ansiConverter = useMemo(() => {
+    const isLight = theme === 'light';
+    return new AnsiToHtml({
+      fg: isLight ? '#1f2328' : '#e5e7eb',
+      bg: isLight ? '#ffffff' : '#0a0a0a',
+      newline: true,
+      escapeXML: true,
+      colors: {
+        0: isLight ? '#1f2328' : '#000000', // Black
+        1: isLight ? '#cf222e' : '#ef4444', // Red
+        2: isLight ? '#1a7f37' : '#10b981', // Green
+        3: isLight ? '#9a6700' : '#f59e0b', // Yellow
+        4: isLight ? '#2563eb' : '#3b82f6', // Blue
+        5: isLight ? '#8250df' : '#a855f7', // Magenta
+        6: isLight ? '#0891b2' : '#06b6d4', // Cyan
+        7: isLight ? '#6b7280' : '#e5e7eb', // White
+        8: isLight ? '#6b7280' : '#6b7280', // Bright Black (Gray)
+        9: isLight ? '#ef4444' : '#f87171', // Bright Red
+        10: isLight ? '#22c55e' : '#34d399', // Bright Green
+        11: isLight ? '#eab308' : '#fbbf24', // Bright Yellow
+        12: isLight ? '#3b82f6' : '#60a5fa', // Bright Blue
+        13: isLight ? '#a855f7' : '#c084fc', // Bright Magenta
+        14: isLight ? '#06b6d4' : '#22d3ee', // Bright Cyan
+        15: isLight ? '#1f2328' : '#ffffff', // Bright White
+      }
+    });
+  }, [theme]);
 
   // Load existing logs when component mounts or session changes
   useEffect(() => {
