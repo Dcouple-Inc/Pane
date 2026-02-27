@@ -668,6 +668,7 @@ export const SessionView = memo(() => {
         id: 'commit',
         label: 'Commit',
         icon: GitCommitHorizontal,
+        shortcut: 'mod+shift+k',
         onClick: () => {
           hook.setDialogType('commit');
           hook.setShowCommitMessageDialog(true);
@@ -681,6 +682,7 @@ export const SessionView = memo(() => {
         id: 'push',
         label: 'Push',
         icon: Upload,
+        shortcut: 'mod+shift+p',
         onClick: hook.handleGitPush,
         disabled: hook.isMerging || activeSession.status === 'running' || activeSession.status === 'initializing' || !activeSession.gitStatus?.ahead,
         variant: 'default' as const,
@@ -691,6 +693,7 @@ export const SessionView = memo(() => {
         id: 'pull',
         label: 'Pull',
         icon: Download,
+        shortcut: 'mod+shift+l',
         onClick: hook.handleGitPull,
         disabled: hook.isMerging || activeSession.status === 'running' || activeSession.status === 'initializing',
         variant: 'default' as const,
@@ -731,6 +734,7 @@ export const SessionView = memo(() => {
         id: 'rebase-from-main',
         label: `Rebase from ${hook.gitCommands?.mainBranch || 'main'}`,
         icon: GitMerge,
+        shortcut: 'mod+shift+r',
         onClick: hook.handleRebaseMainIntoWorktree,
         disabled: hook.isMerging || activeSession.status === 'running' || activeSession.status === 'initializing' || !hook.hasChangesToRebase,
         variant: 'default' as const,
@@ -740,6 +744,7 @@ export const SessionView = memo(() => {
         id: 'rebase-to-main',
         label: `Merge to ${hook.gitCommands?.mainBranch || 'main'}`,
         icon: GitMerge,
+        shortcut: 'mod+shift+m',
         onClick: hook.handleSquashAndRebaseToMain,
         disabled: hook.isMerging || activeSession.status === 'running' || activeSession.status === 'initializing' ||
                   (!activeSession.gitStatus?.totalCommits || activeSession.gitStatus?.totalCommits === 0 || activeSession.gitStatus?.ahead === 0),

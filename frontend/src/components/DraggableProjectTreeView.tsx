@@ -11,6 +11,7 @@ import { EmptyState } from './EmptyState';
 import { LoadingSpinner } from './LoadingSpinner';
 import { API } from '../utils/api';
 import { debounce } from '../utils/debounce';
+import { formatKeyDisplay } from '../utils/hotkeyUtils';
 import { throttle } from '../utils/performanceUtils';
 import type { Session } from '../types/session';
 import type { Project, CreateProjectRequest } from '../types/project';
@@ -520,8 +521,8 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
   // Register keyboard shortcut for quick session creation
   useHotkey({
     id: 'quick-create-session',
-    label: 'Quick Create Session',
-    keys: 'mod+shift+n',
+    label: 'New Workspace',
+    keys: 'mod+n',
     category: 'session',
     action: () => {
       const activeProject = projectsWithSessions.find(p => p.id === activeProjectId) || projectsWithSessions[0];
@@ -2201,6 +2202,11 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
                 >
                   <Plus className="w-3 h-3" />
                   <span>New Session</span>
+                  {isActiveProject && (
+                    <kbd className="text-xs text-text-tertiary bg-surface-tertiary px-1 py-0.5 rounded font-mono shrink-0 ml-1">
+                      {formatKeyDisplay('mod+n')}
+                    </kbd>
+                  )}
                 </button>
 
                 <button
