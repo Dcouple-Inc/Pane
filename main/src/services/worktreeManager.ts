@@ -49,7 +49,7 @@ export class WorktreeManager {
     const { baseDir } = this.getProjectPaths(projectPath, worktreeFolder, pathResolver);
     try {
       if (pathResolver.environment === 'wsl' || pathResolver.environment === 'linux' || pathResolver.environment === 'macos') {
-        await commandRunner.execAsync(`mkdir -p '${baseDir}'`, baseDir);
+        await commandRunner.execAsync(`mkdir -p '${baseDir}'`, projectPath);
       } else {
         await mkdir(pathResolver.toFileSystem(baseDir), { recursive: true });
       }

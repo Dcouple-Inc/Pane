@@ -1,4 +1,5 @@
 import path from 'path';
+import fs from 'fs/promises';
 import { linuxToUNCPath, posixJoin } from './wslUtils';
 
 export type ProjectEnvironment = 'wsl' | 'windows' | 'linux' | 'macos';
@@ -43,11 +44,14 @@ export class PathResolver {
     return path.relative(fsFrom, fsTo);
   }
 
-  /** Check if targetPath is within basePath — converts to filesystem format for comparison */
-  isWithin(basePath: string, targetPath: string): boolean {
+  /** Check if targetPath is within basePath — resolves symlinks and converts to filesystem format */
+  async isWithin(basePath: string, targetPath: string): Promise<boolean> {
     const fsBase = this.toFileSystem(basePath);
     const fsTarget = this.toFileSystem(targetPath);
-    const rel = path.relative(fsBase, fsTarget);
+    // Resolve symlinks to prevent escape via symlinked paths
+    const resolvedBase = await fs.realpath(fsBase).catch(() => fsBase);
+    const resolvedTarget = await fs.realpath(fsTarget).catch(() => fsTarget);
+    const rel = path.relative(resolvedBase, resolvedTarget);
     // rel === '' means paths are equal (base is within itself) — that's valid
     return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
   }

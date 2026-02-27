@@ -74,7 +74,7 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
       const fullPath = path.join(basePath, normalizedPath);
 
       // Verify the file is within the worktree using PathResolver
-      if (!pathResolver.isWithin(basePath, fullPath)) {
+      if (!await pathResolver.isWithin(basePath, fullPath)) {
         throw new Error('File path is outside worktree');
       }
 
@@ -154,7 +154,7 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
       const fullPath = path.join(basePath, normalizedPath);
 
       // Verify the file is within the worktree using PathResolver
-      if (!pathResolver.isWithin(basePath, fullPath)) {
+      if (!await pathResolver.isWithin(basePath, fullPath)) {
         throw new Error('File path is outside worktree');
       }
 
@@ -527,7 +527,7 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
       const fullPath = path.join(basePath, normalizedPath);
 
       // Verify the file is within the worktree
-      if (!pathResolver.isWithin(basePath, fullPath)) {
+      if (!await pathResolver.isWithin(basePath, fullPath)) {
         throw new Error('File path is outside worktree');
       }
 
