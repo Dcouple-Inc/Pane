@@ -15,7 +15,7 @@ if ! command -v flatpak-builder &> /dev/null; then
 fi
 
 # Check if AppImage exists
-APPIMAGE=$(ls dist-electron/pane-*-x64.AppImage 2>/dev/null | head -n1)
+APPIMAGE=$(ls dist-electron/Pane-*-x64.AppImage 2>/dev/null | head -n1)
 if [ -z "$APPIMAGE" ]; then
     echo "Error: No AppImage found in dist-electron/"
     echo "Please build the AppImage first with: pnpm run build:linux"
@@ -29,7 +29,7 @@ echo "Installing Flatpak runtime and SDK..."
 flatpak install -y flathub org.freedesktop.Platform//23.08 org.freedesktop.Sdk//23.08 org.electronjs.Electron2.BaseApp//23.08 || true
 
 # Update the manifest with the actual AppImage path
-sed -i "s|path: dist-electron/pane-\*.AppImage|path: $APPIMAGE|" com.dcouple.pane.yml
+sed -i "s|path: dist-electron/Pane-\*.AppImage|path: $APPIMAGE|" com.dcouple.pane.yml
 
 # Build the Flatpak
 echo "Building Flatpak..."
