@@ -5,8 +5,8 @@ import * as os from 'os';
 import { glob } from 'glob';
 import type { AppServices } from './types';
 import type { Session } from '../types/session';
-import { linuxToUNCPath, getWSLContextFromProject } from '../utils/wslUtils';
 import { GIT_ATTRIBUTION_ENV } from '../utils/attribution';
+import { commandExecutor } from '../utils/commandExecutor';
 
 interface FileReadRequest {
   sessionId: string;
@@ -60,9 +60,9 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
         throw new Error(`Session not found: ${request.sessionId}`);
       }
 
-      // Get WSL context from project
-      const project = sessionManager.getProjectForSession(request.sessionId);
-      const wslContext = project ? getWSLContextFromProject(project) : null;
+      const ctx = sessionManager.getProjectContext(request.sessionId);
+      if (!ctx) throw new Error('Project not found for session');
+      const { pathResolver } = ctx;
 
       // Ensure the file path is relative and safe
       const normalizedPath = path.normalize(request.filePath);
@@ -70,49 +70,22 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
         throw new Error('Invalid file path');
       }
 
-      const basePath = wslContext
-        ? linuxToUNCPath(session.worktreePath, wslContext.distribution)
-        : session.worktreePath;
-
+      const basePath = pathResolver.toFileSystem(session.worktreePath);
       const fullPath = path.join(basePath, normalizedPath);
-      
-      // Verify the file is within the worktree
-      // First resolve the worktree path to handle symlinks
-      const resolvedWorktreePath = await fs.realpath(session.worktreePath).catch(() => session.worktreePath);
-      
-      // For the file path, we need to handle the case where the file might not exist yet
-      let resolvedFilePath: string;
-      try {
-        resolvedFilePath = await fs.realpath(fullPath);
-      } catch (err) {
-        // File doesn't exist, check if its directory is within the worktree
-        const dirPath = path.dirname(fullPath);
-        try {
-          const resolvedDirPath = await fs.realpath(dirPath);
-          if (!resolvedDirPath.startsWith(resolvedWorktreePath)) {
-            throw new Error('File path is outside worktree');
-          }
-          // File doesn't exist but directory is valid
-          resolvedFilePath = fullPath;
-        } catch {
-          // Directory doesn't exist either, just use the full path for validation
-          resolvedFilePath = fullPath;
-        }
-      }
-      
-      // Check if the resolved path is within the worktree
-      if (!resolvedFilePath.startsWith(resolvedWorktreePath) && !fullPath.startsWith(session.worktreePath)) {
+
+      // Verify the file is within the worktree using PathResolver
+      if (!pathResolver.isWithin(basePath, fullPath)) {
         throw new Error('File path is outside worktree');
       }
 
-      const content = await fs.readFile(resolvedFilePath, 'utf-8');
+      const content = await fs.readFile(fullPath, 'utf-8');
       return { success: true, content };
     } catch (error) {
       console.error('Error reading file:', error);
       console.error('Stack:', error instanceof Error ? error.stack : 'No stack');
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   });
@@ -125,9 +98,9 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
         return false;
       }
 
-      // Get WSL context from project
-      const project = sessionManager.getProjectForSession(request.sessionId);
-      const wslContext = project ? getWSLContextFromProject(project) : null;
+      const ctx = sessionManager.getProjectContext(request.sessionId);
+      if (!ctx) return false;
+      const { pathResolver } = ctx;
 
       // Ensure the file path is relative and safe
       const normalizedPath = path.normalize(request.filePath);
@@ -135,10 +108,7 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
         return false;
       }
 
-      const basePath = wslContext
-        ? linuxToUNCPath(session.worktreePath, wslContext.distribution)
-        : session.worktreePath;
-
+      const basePath = pathResolver.toFileSystem(session.worktreePath);
       const fullPath = path.join(basePath, normalizedPath);
 
       try {
@@ -166,12 +136,9 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
         throw new Error(`Session not found: ${request.sessionId}`);
       }
 
-      // Get WSL context from project
-      const project = sessionManager.getProjectForSession(request.sessionId);
-      const wslContext = project ? getWSLContextFromProject(project) : null;
-
-      // Note: mainBranch detection removed as it wasn't being used in this function
-      // If needed in the future, use worktreeManager.detectMainBranch(session.worktreePath)
+      const ctx = sessionManager.getProjectContext(request.sessionId);
+      if (!ctx) throw new Error('Project not found for session');
+      const { pathResolver } = ctx;
 
       if (!session.worktreePath) {
         throw new Error(`Session worktree path is undefined for session: ${request.sessionId}`);
@@ -183,60 +150,27 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
         throw new Error('Invalid file path');
       }
 
-      const basePath = wslContext
-        ? linuxToUNCPath(session.worktreePath, wslContext.distribution)
-        : session.worktreePath;
-
+      const basePath = pathResolver.toFileSystem(session.worktreePath);
       const fullPath = path.join(basePath, normalizedPath);
-      
-      // Verify the file is within the worktree
-      const dirPath = path.dirname(fullPath);
-      
-      // Try to resolve both paths to handle symlinks properly
-      let resolvedDirPath = dirPath;
-      let resolvedWorktreePath = session.worktreePath;
-      
-      try {
-        // Resolve the worktree path first
-        resolvedWorktreePath = await fs.realpath(session.worktreePath);
-        
-        // Try to resolve the directory path
-        try {
-          resolvedDirPath = await fs.realpath(dirPath);
-        } catch (err) {
-          // Directory might not exist yet, that's OK
-          // Use the full path's parent that should exist
-          const parentPath = path.dirname(dirPath);
-          try {
-            const resolvedParent = await fs.realpath(parentPath);
-            resolvedDirPath = path.join(resolvedParent, path.basename(dirPath));
-          } catch {
-            // Even parent doesn't exist, just use the original path
-            resolvedDirPath = dirPath;
-          }
-        }
-      } catch (err) {
-        console.error('Error resolving paths:', err);
-        // If we can't resolve paths, just use the original ones
-      }
-      
-      // Check if the path is within the worktree (using resolved paths)
-      if (!resolvedDirPath.startsWith(resolvedWorktreePath) && !dirPath.startsWith(session.worktreePath)) {
+
+      // Verify the file is within the worktree using PathResolver
+      if (!pathResolver.isWithin(basePath, fullPath)) {
         throw new Error('File path is outside worktree');
       }
 
       // Create directory if it doesn't exist
+      const dirPath = path.dirname(fullPath);
       await fs.mkdir(dirPath, { recursive: true });
 
       // Write the file
       await fs.writeFile(fullPath, request.content, 'utf-8');
-      
+
       return { success: true };
     } catch (error) {
       console.error('Error writing file:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   });
@@ -249,9 +183,9 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
         throw new Error(`Session not found: ${request.sessionId}`);
       }
 
-      // Get WSL context from project
-      const project = sessionManager.getProjectForSession(request.sessionId);
-      const wslContext = project ? getWSLContextFromProject(project) : null;
+      const ctx = sessionManager.getProjectContext(request.sessionId);
+      if (!ctx) throw new Error('Project not found for session');
+      const { pathResolver } = ctx;
 
       // Ensure the file path is relative and safe
       const normalizedPath = path.normalize(request.filePath);
@@ -259,17 +193,14 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
         throw new Error('Invalid file path');
       }
 
-      const basePath = wslContext
-        ? linuxToUNCPath(session.worktreePath, wslContext.distribution)
-        : session.worktreePath;
-
+      const basePath = pathResolver.toFileSystem(session.worktreePath);
       const fullPath = path.join(basePath, normalizedPath);
       return { success: true, path: fullPath };
     } catch (error) {
       console.error('Error getting file path:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   });
@@ -286,13 +217,13 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
         throw new Error('Commit message is required');
       }
 
-      const { exec } = require('child_process');
-      const { promisify } = require('util');
-      const execAsync = promisify(exec);
+      const ctx = sessionManager.getProjectContext(request.sessionId);
+      if (!ctx) throw new Error('Project not found for session');
+      const { commandRunner } = ctx;
 
       try {
         // Stage all changes
-        await execAsync('git add -A', { cwd: session.worktreePath });
+        await commandRunner.execAsync('git add -A', session.worktreePath);
 
         // Check if Pane footer is enabled (default: true)
         const config = configManager.getConfig();
@@ -307,7 +238,11 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
         const tmpFile = path.join(os.tmpdir(), `pane-commit-${Date.now()}.txt`);
         try {
           await fs.writeFile(tmpFile, commitMessage, 'utf-8');
-          await execAsync(`git commit -F ${tmpFile}`, { cwd: session.worktreePath, env: { ...process.env, ...GIT_ATTRIBUTION_ENV } });
+          // Use commandExecutor directly for env support
+          await commandExecutor.execAsync(`git commit -F ${tmpFile}`, {
+            cwd: session.worktreePath,
+            env: { ...process.env, ...GIT_ATTRIBUTION_ENV }
+          }, commandRunner.wslContext);
         } finally {
           // Clean up the temporary file
           await fs.unlink(tmpFile).catch(() => {
@@ -329,12 +264,12 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
         if (error instanceof Error && error.message.includes('pre-commit hook')) {
           // Try to commit again in case the pre-commit hook made changes
           try {
-            await execAsync('git add -A', { cwd: session.worktreePath });
-            
+            await commandRunner.execAsync('git add -A', session.worktreePath);
+
             // Check if Pane footer is enabled (default: true)
             const config = configManager.getConfig();
             const enableCommitFooter = config?.enableCommitFooter !== false;
-            
+
             const retryMessage = enableCommitFooter ? `${request.message}
 
 Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
@@ -343,14 +278,18 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
             const tmpFile = path.join(os.tmpdir(), `pane-commit-retry-${Date.now()}.txt`);
             try {
               await fs.writeFile(tmpFile, retryMessage, 'utf-8');
-              await execAsync(`git commit -F ${tmpFile}`, { cwd: session.worktreePath, env: { ...process.env, ...GIT_ATTRIBUTION_ENV } });
+              // Use commandExecutor directly for env support
+              await commandExecutor.execAsync(`git commit -F ${tmpFile}`, {
+                cwd: session.worktreePath,
+                env: { ...process.env, ...GIT_ATTRIBUTION_ENV }
+              }, commandRunner.wslContext);
             } finally {
               // Clean up the temporary file
               await fs.unlink(tmpFile).catch(() => {
                 // Ignore cleanup errors
               });
             }
-            
+
             // Refresh git status for this session after commit
             try {
               await gitStatusManager.refreshSessionGitStatus(request.sessionId, false);
@@ -358,7 +297,7 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
               // Git status refresh failures are logged by GitStatusManager
               console.error('Failed to refresh git status after commit (retry):', error);
             }
-            
+
             return { success: true };
           } catch (retryError: unknown) {
             throw new Error(`Git commit failed: ${retryError instanceof Error ? retryError.message : retryError}`);
@@ -368,9 +307,9 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
       }
     } catch (error) {
       console.error('Error committing changes:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   });
@@ -387,14 +326,14 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
         throw new Error('Commit hash is required');
       }
 
-      const { exec } = require('child_process');
-      const { promisify } = require('util');
-      const execAsync = promisify(exec);
+      const ctx = sessionManager.getProjectContext(request.sessionId);
+      if (!ctx) throw new Error('Project not found for session');
+      const { commandRunner } = ctx;
 
       try {
         // Create a revert commit
         const command = `git revert ${request.commitHash} --no-edit`;
-        await execAsync(command, { cwd: session.worktreePath });
+        await commandRunner.execAsync(command, session.worktreePath);
 
         return { success: true };
       } catch (error: unknown) {
@@ -402,9 +341,9 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
       }
     } catch (error) {
       console.error('Error reverting commit:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   });
@@ -417,16 +356,16 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
         throw new Error(`Session not found: ${request.sessionId}`);
       }
 
-      const { exec } = require('child_process');
-      const { promisify } = require('util');
-      const execAsync = promisify(exec);
+      const ctx = sessionManager.getProjectContext(request.sessionId);
+      if (!ctx) throw new Error('Project not found for session');
+      const { commandRunner } = ctx;
 
       try {
         // Reset all changes to the last commit
-        await execAsync('git reset --hard HEAD', { cwd: session.worktreePath });
-        
+        await commandRunner.execAsync('git reset --hard HEAD', session.worktreePath);
+
         // Clean untracked files
-        await execAsync('git clean -fd', { cwd: session.worktreePath });
+        await commandRunner.execAsync('git clean -fd', session.worktreePath);
 
         return { success: true };
       } catch (error: unknown) {
@@ -434,9 +373,9 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
       }
     } catch (error) {
       console.error('Error restoring changes:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   });
@@ -455,22 +394,18 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
         throw new Error('Invalid file path');
       }
 
-      const { exec } = require('child_process');
-      const { promisify } = require('util');
-      const execAsync = promisify(exec);
+      const ctx = sessionManager.getProjectContext(request.sessionId);
+      if (!ctx) throw new Error('Project not found for session');
+      const { commandRunner } = ctx;
 
       try {
         // Default to HEAD if no revision specified
         const revision = request.revision || 'HEAD';
-        
+
         // Use git show to get file content at specific revision
-        const { stdout } = await execAsync(
+        const { stdout } = await commandRunner.execAsync(
           `git show ${revision}:${normalizedPath}`,
-          { 
-            cwd: session.worktreePath,
-            encoding: 'utf8',
-            maxBuffer: 10 * 1024 * 1024 // 10MB buffer
-          }
+          session.worktreePath
         );
 
         return { success: true, content: stdout };
@@ -483,9 +418,9 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
       }
     } catch (error) {
       console.error('Error reading file at revision:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   });
@@ -498,9 +433,9 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
         throw new Error(`Session not found: ${request.sessionId}`);
       }
 
-      // Get WSL context from project
-      const project = sessionManager.getProjectForSession(request.sessionId);
-      const wslContext = project ? getWSLContextFromProject(project) : null;
+      const ctx = sessionManager.getProjectContext(request.sessionId);
+      if (!ctx) throw new Error('Project not found for session');
+      const { pathResolver } = ctx;
 
       // Check if session is archived - worktree won't exist
       if (session.archived) {
@@ -518,23 +453,20 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
         }
       }
 
-      const basePath = wslContext
-        ? linuxToUNCPath(session.worktreePath, wslContext.distribution)
-        : session.worktreePath;
-
+      const basePath = pathResolver.toFileSystem(session.worktreePath);
       const targetPath = relativePath ? path.join(basePath, relativePath) : basePath;
-      
+
       // Read directory contents
       const entries = await fs.readdir(targetPath, { withFileTypes: true });
-      
+
       // Process each entry
       const files: FileItem[] = await Promise.all(
         entries
           .filter(entry => entry.name !== '.git') // Exclude .git directory only
           .map(async (entry) => {
             const fullPath = path.join(targetPath, entry.name);
-            const relativePath = path.relative(session.worktreePath, fullPath);
-            
+            const relativePath = pathResolver.relative(basePath, fullPath);
+
             try {
               const stats = await fs.stat(fullPath);
               return {
@@ -566,9 +498,9 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
       return { success: true, files };
     } catch (error) {
       console.error('Error listing files:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   });
@@ -581,9 +513,9 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
         throw new Error(`Session not found: ${request.sessionId}`);
       }
 
-      // Get WSL context from project
-      const project = sessionManager.getProjectForSession(request.sessionId);
-      const wslContext = project ? getWSLContextFromProject(project) : null;
+      const ctx = sessionManager.getProjectContext(request.sessionId);
+      if (!ctx) throw new Error('Project not found for session');
+      const { pathResolver } = ctx;
 
       // Ensure the file path is relative and safe
       const normalizedPath = path.normalize(request.filePath);
@@ -591,47 +523,38 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
         throw new Error('Invalid file path');
       }
 
-      const basePath = wslContext
-        ? linuxToUNCPath(session.worktreePath, wslContext.distribution)
-        : session.worktreePath;
-
+      const basePath = pathResolver.toFileSystem(session.worktreePath);
       const fullPath = path.join(basePath, normalizedPath);
-      
+
       // Verify the file is within the worktree
-      // First resolve the worktree path to handle symlinks
-      const resolvedWorktreePath = await fs.realpath(session.worktreePath).catch(() => session.worktreePath);
-      
-      // Check if the file exists and resolve its path
-      let resolvedFilePath: string;
-      try {
-        resolvedFilePath = await fs.realpath(fullPath);
-      } catch (err) {
-        // File doesn't exist
-        throw new Error(`File not found: ${normalizedPath}`);
-      }
-      
-      // Check if the resolved path is within the worktree
-      if (!resolvedFilePath.startsWith(resolvedWorktreePath)) {
+      if (!pathResolver.isWithin(basePath, fullPath)) {
         throw new Error('File path is outside worktree');
       }
 
+      // Check if the file exists
+      try {
+        await fs.access(fullPath);
+      } catch (err) {
+        throw new Error(`File not found: ${normalizedPath}`);
+      }
+
       // Check if it's a directory or file
-      const stats = await fs.stat(resolvedFilePath);
-      
+      const stats = await fs.stat(fullPath);
+
       if (stats.isDirectory()) {
         // For directories, use rm with recursive option
-        await fs.rm(resolvedFilePath, { recursive: true, force: true });
+        await fs.rm(fullPath, { recursive: true, force: true });
       } else {
         // For files, use unlink
-        await fs.unlink(resolvedFilePath);
+        await fs.unlink(fullPath);
       }
-      
+
       return { success: true };
     } catch (error) {
       console.error('Error deleting file:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   });
@@ -639,29 +562,28 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
   // Search for files matching a pattern
   ipcMain.handle('file:search', async (_, request: FileSearchRequest) => {
     try {
-      // Determine the search directory
+      // Determine the search directory and get path resolver
       let searchDirectory: string;
-      let wslContext = null;
+      let pathResolver;
+      let commandRunner;
 
       if (request.sessionId) {
         const session = sessionManager.getSession(request.sessionId);
         if (!session) {
           throw new Error(`Session not found: ${request.sessionId}`);
         }
-        const project = sessionManager.getProjectForSession(request.sessionId);
-        wslContext = project ? getWSLContextFromProject(project) : null;
-        searchDirectory = wslContext
-          ? linuxToUNCPath(session.worktreePath, wslContext.distribution)
-          : session.worktreePath;
+        const ctx = sessionManager.getProjectContext(request.sessionId);
+        if (!ctx) throw new Error('Project not found for session');
+        pathResolver = ctx.pathResolver;
+        commandRunner = ctx.commandRunner;
+        searchDirectory = pathResolver.toFileSystem(session.worktreePath);
       } else if (request.projectId) {
-        const project = databaseService.getProject(request.projectId);
-        if (!project) {
-          throw new Error(`Project not found: ${request.projectId}`);
-        }
-        wslContext = getWSLContextFromProject(project);
-        searchDirectory = wslContext
-          ? linuxToUNCPath(project.path, wslContext.distribution)
-          : project.path;
+        const ctx = sessionManager.getProjectContextByProjectId(request.projectId);
+        if (!ctx) throw new Error('Project not found');
+        const { project } = ctx;
+        pathResolver = ctx.pathResolver;
+        commandRunner = ctx.commandRunner;
+        searchDirectory = pathResolver.toFileSystem(project.path);
       } else {
         throw new Error('Either sessionId or projectId must be provided');
       }
@@ -684,19 +606,15 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
       }
 
       // Get list of tracked files (not gitignored) using git
-      const { exec } = require('child_process');
-      const { promisify } = require('util');
-      const execAsync = promisify(exec);
-      
       let gitTrackedFiles = new Set<string>();
       let isGitRepo = true;
       try {
         // Get list of all tracked files in the repository
-        const { stdout: trackedStdout } = await execAsync('git ls-files', {
-          cwd: searchDirectory,
-          maxBuffer: 10 * 1024 * 1024 // 10MB buffer
-        });
-        
+        const { stdout: trackedStdout } = await commandRunner.execAsync(
+          'git ls-files',
+          searchDirectory
+        );
+
         if (trackedStdout) {
           trackedStdout.split('\n').forEach((file: string) => {
             if (file.trim()) {
@@ -704,13 +622,13 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
             }
           });
         }
-        
+
         // Also get untracked files that are not ignored
-        const { stdout: untrackedStdout } = await execAsync('git ls-files --others --exclude-standard', {
-          cwd: searchDirectory,
-          maxBuffer: 10 * 1024 * 1024 // 10MB buffer
-        });
-        
+        const { stdout: untrackedStdout } = await commandRunner.execAsync(
+          'git ls-files --others --exclude-standard',
+          searchDirectory
+        );
+
         if (untrackedStdout) {
           untrackedStdout.split('\n').forEach((file: string) => {
             if (file.trim()) {
@@ -745,7 +663,7 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
       const results = await Promise.all(
         files.map(async (file) => {
           const fullPath = path.join(searchDir, file);
-          const relativePath = path.relative(searchDirectory, fullPath);
+          const relativePath = pathResolver.relative(searchDirectory, fullPath);
           
           // Skip worktree directories
           if (relativePath.includes('worktrees/') || relativePath.startsWith('worktrees/')) {
@@ -891,51 +809,38 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
   ipcMain.handle('git:execute-project', async (_, request: { projectId: number; args: string[] }) => {
     console.log('[git:execute-project] Request:', request);
     try {
-      const project = databaseService.getProject(request.projectId);
-      if (!project) {
+      const ctx = sessionManager.getProjectContextByProjectId(request.projectId);
+      if (!ctx) {
         console.error('[git:execute-project] Project not found:', request.projectId);
         throw new Error(`Project not found: ${request.projectId}`);
       }
 
+      const { project, commandRunner } = ctx;
+
       console.log('[git:execute-project] Project path:', project.path);
       console.log('[git:execute-project] Git command:', 'git', request.args.join(' '));
 
-      // Import execSync from child_process
-      const { execSync } = require('child_process');
-      
-      // Execute git command
-      const result = execSync(`git ${request.args.map(arg => {
+      // Build the git command with properly escaped arguments
+      const command = `git ${request.args.map(arg => {
         // Properly escape arguments for shell
         if (arg.includes(' ') || arg.includes('\n') || arg.includes('"')) {
           return `"${arg.replace(/"/g, '\\"')}"`;
         }
         return arg;
-      }).join(' ')}`, {
-        cwd: project.path,
-        encoding: 'utf-8',
-        maxBuffer: 1024 * 1024 * 10 // 10MB buffer
-      });
+      }).join(' ')}`;
+
+      // Execute git command using CommandRunner
+      const result = commandRunner.exec(command, project.path);
 
       console.log('[git:execute-project] Command successful');
       return { success: true, output: result };
     } catch (error) {
       console.error('[git:execute-project] Error:', error);
 
-      // Extract error message from execSync error
+      // Extract error message
       let errorMessage = 'Unknown error';
       if (error instanceof Error) {
         errorMessage = error.message;
-        // If it's an execSync error, it may have stderr/stdout buffers
-        interface ExecSyncError extends Error {
-          stderr?: Buffer;
-          stdout?: Buffer;
-        }
-        const execError = error as ExecSyncError;
-        if (execError.stderr) {
-          errorMessage = execError.stderr.toString();
-        } else if (execError.stdout) {
-          errorMessage = execError.stdout.toString();
-        }
       }
 
       return {

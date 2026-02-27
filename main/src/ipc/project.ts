@@ -5,7 +5,7 @@ import { scriptExecutionTracker } from '../services/scriptExecutionTracker';
 import { panelManager } from '../services/panelManager';
 import { parseWSLPath, wrapCommandForWSL, validateWSLAvailable } from '../utils/wslUtils';
 import { invalidatePrCache, fetchPrForSession } from './git';
-import { getWSLContextFromProject } from '../utils/wslUtils';
+import { PathResolver } from '../utils/pathResolver';
 
 // Helper function to stop a running project script
 async function stopProjectScriptInternal(projectId?: number): Promise<{ success: boolean; error?: string }> {
@@ -52,7 +52,11 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
   ipcMain.handle('projects:get-all', async () => {
     try {
       const projects = databaseService.getAllProjects();
-      return { success: true, data: projects };
+      const projectsWithEnv = projects.map(p => ({
+        ...p,
+        environment: new PathResolver(p).environment
+      }));
+      return { success: true, data: projectsWithEnv };
     } catch (error) {
       console.error('Failed to get projects:', error);
       return { success: false, error: 'Failed to get projects' };
@@ -62,7 +66,11 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
   ipcMain.handle('projects:get-active', async () => {
     try {
       const activeProject = sessionManager.getActiveProject();
-      return { success: true, data: activeProject };
+      const projectWithEnv = activeProject ? {
+        ...activeProject,
+        environment: new PathResolver(activeProject).environment
+      } : null;
+      return { success: true, data: projectWithEnv };
     } catch (error) {
       console.error('Failed to get active project:', error);
       return { success: false, error: 'Failed to get active project' };
@@ -180,7 +188,18 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
       let mainBranch: string | undefined;
       if (isGitRepo) {
         try {
-          mainBranch = await worktreeManager.getProjectMainBranch(actualPath);
+          // Create temporary project object to get CommandRunner
+          const tempProject = {
+            path: actualPath,
+            wsl_enabled: wslEnabled ? 1 : 0,
+            wsl_distribution: wslDistribution
+          };
+          const { CommandRunner } = require('../utils/commandRunner');
+          const { PathResolver } = require('../utils/pathResolver');
+          const pathResolver = new PathResolver(tempProject);
+          const commandRunner = new CommandRunner(tempProject);
+
+          mainBranch = await worktreeManager.getProjectMainBranch(actualPath, commandRunner);
           console.log('[Main] Detected main branch:', mainBranch);
         } catch (error) {
           console.log('[Main] Could not detect main branch, skipping:', error);
@@ -227,7 +246,12 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
         });
       }
 
-      return { success: true, data: project };
+      const projectWithEnv = project ? {
+        ...project,
+        environment: new PathResolver(project).environment
+      } : null;
+
+      return { success: true, data: projectWithEnv };
     } catch (error) {
       console.error('[Main] Failed to create project:', error);
 
@@ -268,9 +292,10 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
       const project = databaseService.setActiveProject(parseInt(projectId));
       if (project) {
         sessionManager.setActiveProject(project);
-        const { getWSLContextFromProject } = require('../utils/wslUtils');
-        const wslContext = getWSLContextFromProject(project);
-        await worktreeManager.initializeProject(project.path, undefined, wslContext);
+        const ctx = sessionManager.getProjectContextByProjectId(parseInt(projectId));
+        if (ctx) {
+          await worktreeManager.initializeProject(project.path, undefined, ctx.pathResolver, ctx.commandRunner);
+        }
 
         // Track project switch
         if (analyticsManager) {
@@ -388,27 +413,31 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
       
       // Clean up all worktrees for this project (including archived sessions)
       let worktreeCleanupCount = 0;
-      const { getWSLContextFromProject } = require('../utils/wslUtils');
-      const wslContext = getWSLContextFromProject(project);
-      for (const session of allProjectSessions) {
-        // Skip sessions that are main repo or don't have worktrees
-        if (session.is_main_repo || !session.worktree_name) {
-          continue;
-        }
+      const ctx = sessionManager.getProjectContextByProjectId(projectIdNum);
+      if (ctx) {
+        for (const session of allProjectSessions) {
+          // Skip sessions that are main repo or don't have worktrees
+          if (session.is_main_repo || !session.worktree_name) {
+            continue;
+          }
 
-        try {
-          console.log(`[Main] Removing worktree '${session.worktree_name}' for session ${session.id}`);
-          // Pass session creation date for analytics tracking
-          const sessionCreatedAt = session.created_at ? new Date(session.created_at) : undefined;
-          await worktreeManager.removeWorktree(project.path, session.worktree_name, project.worktree_folder || undefined, sessionCreatedAt, wslContext);
-          worktreeCleanupCount++;
-        } catch (error) {
-          // Log error but continue with other worktrees
-          console.error(`[Main] Failed to remove worktree '${session.worktree_name}' for session ${session.id}:`, error);
+          try {
+            console.log(`[Main] Removing worktree '${session.worktree_name}' for session ${session.id}`);
+            // Pass session creation date for analytics tracking
+            const sessionCreatedAt = session.created_at ? new Date(session.created_at) : undefined;
+            await worktreeManager.removeWorktree(project.path, session.worktree_name, project.worktree_folder || undefined, sessionCreatedAt, ctx.pathResolver, ctx.commandRunner);
+            worktreeCleanupCount++;
+          } catch (error) {
+            // Log error but continue with other worktrees
+            console.error(`[Main] Failed to remove worktree '${session.worktree_name}' for session ${session.id}:`, error);
+          }
         }
       }
       
       console.log(`[Main] Cleaned up ${worktreeCleanupCount} worktrees for project ${project.name}`);
+
+      // Invalidate project context cache before deleting
+      sessionManager.invalidateProjectContext(projectIdNum);
 
       // Track project deletion before actually deleting
       if (analyticsManager) {
@@ -453,7 +482,16 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
       }
 
       // Non-WSL path - use existing worktreeManager method
-      const branch = await worktreeManager.getProjectMainBranch(path);
+      // Create temporary project object to get CommandRunner
+      const tempProject = {
+        path: path,
+        wsl_enabled: 0,
+        wsl_distribution: null
+      };
+      const { CommandRunner } = require('../utils/commandRunner');
+      const commandRunner = new CommandRunner(tempProject);
+
+      const branch = await worktreeManager.getProjectMainBranch(path, commandRunner);
       return { success: true, data: branch };
     } catch (error) {
       console.log('[Main] Could not detect branch:', error);
@@ -468,9 +506,12 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
         return { success: false, error: 'Project not found' };
       }
 
-      const { getWSLContextFromProject } = require('../utils/wslUtils');
-      const wslContext = getWSLContextFromProject(project);
-      const branches = await worktreeManager.listBranches(project.path, wslContext);
+      const ctx = sessionManager.getProjectContextByProjectId(parseInt(projectId));
+      if (!ctx) {
+        return { success: false, error: 'Failed to get project context' };
+      }
+
+      const branches = await worktreeManager.listBranches(project.path, ctx.commandRunner);
       return { success: true, data: branches };
     } catch (error) {
       console.error('[Main] Failed to list branches:', error);
@@ -520,12 +561,17 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
           console.log(`[Main] Background refresh completed: ${refreshedCount}/${sessionCount} sessions`);
 
           // Now refresh PR data for each session (sequenced after git status)
-          const wslCtx = getWSLContextFromProject(project);
+          const ctx = sessionManager.getProjectContextByProjectId(projectIdNum);
+          if (!ctx) {
+            console.warn('[Main] Could not get project context for PR enrichment');
+            return;
+          }
+
           for (const session of sessionsToRefresh) {
             if (!session.worktreePath) continue;
             const branchName = session.worktreePath.replace(/\\/g, '/').split('/').pop();
             if (!branchName) continue;
-            fetchPrForSession(branchName, project.path, wslCtx).then(prData => {
+            fetchPrForSession(branchName, project.path, ctx.commandRunner).then(prData => {
               if (prData.prNumber !== undefined) {
                 const currentStatus = gitStatusManager.getCachedStatus(session.id)?.status;
                 if (currentStatus) {
@@ -616,8 +662,8 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
 
       // Run the script in the project root using logsManager
       const { logsManager } = require('../services/panels/logPanel/logsManager');
-      const { getWSLContextFromProject } = require('../utils/wslUtils');
-      const wslContext = getWSLContextFromProject(project);
+      const ctx = sessionManager.getProjectContextByProjectId(projectId);
+      const wslContext = ctx ? ctx.commandRunner.wslContext : null;
       await logsManager.runScript(sessionId, project.run_script, project.path, wslContext);
 
       // Track the running project

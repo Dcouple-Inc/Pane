@@ -48,6 +48,8 @@ interface PanelStateWithCustomData extends ToolPanelState {
   [key: string]: unknown;
 }
 import { addSessionLog, cleanupSessionLogs } from '../ipc/logs';
+import { PathResolver } from '../utils/pathResolver';
+import { CommandRunner } from '../utils/commandRunner';
 import { withLock } from '../utils/mutex';
 import * as os from 'os';
 import { panelManager } from './panelManager';
@@ -61,6 +63,7 @@ export class SessionManager extends EventEmitter {
   private terminalSessionManager: TerminalSessionManager;
   private autoContextBuffers: Map<string, SessionOutput[]> = new Map();
   private analyticsManager: AnalyticsManager | null = null;
+  private projectContextCache = new Map<number, { pathResolver: PathResolver; commandRunner: CommandRunner }>();
 
   constructor(public db: DatabaseService, analyticsManager?: AnalyticsManager) {
     super();
@@ -159,6 +162,33 @@ export class SessionManager extends EventEmitter {
       return this.getProjectById(dbSession.project_id);
     }
     return undefined;
+  }
+
+  getProjectContext(sessionId: string): { project: Project; pathResolver: PathResolver; commandRunner: CommandRunner } | null {
+    const project = this.getProjectForSession(sessionId);
+    if (!project) return null;
+    return this.getOrCreateContext(project);
+  }
+
+  getProjectContextByProjectId(projectId: number): { project: Project; pathResolver: PathResolver; commandRunner: CommandRunner } | null {
+    const project = this.getProjectById(projectId);
+    if (!project) return null;
+    return this.getOrCreateContext(project);
+  }
+
+  invalidateProjectContext(projectId: number): void {
+    this.projectContextCache.delete(projectId);
+  }
+
+  private getOrCreateContext(project: Project): { project: Project; pathResolver: PathResolver; commandRunner: CommandRunner } {
+    if (!this.projectContextCache.has(project.id)) {
+      this.projectContextCache.set(project.id, {
+        pathResolver: new PathResolver(project),
+        commandRunner: new CommandRunner(project),
+      });
+    }
+    const cached = this.projectContextCache.get(project.id)!;
+    return { project, ...cached };
   }
 
   initializeFromDatabase(): void {

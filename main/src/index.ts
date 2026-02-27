@@ -616,7 +616,10 @@ async function initializeServices() {
   // Initialize the active project's worktree directory if one exists
   const activeProject = sessionManager.getActiveProject();
   if (activeProject) {
-    await worktreeManager.initializeProject(activeProject.path);
+    const ctx = sessionManager.getProjectContextByProjectId(activeProject.id);
+    if (ctx) {
+      await worktreeManager.initializeProject(activeProject.path, undefined, ctx.pathResolver, ctx.commandRunner);
+    }
   }
 
   // Initialize CLI manager factory

@@ -13,7 +13,6 @@ import {
 import type { GitCommit } from './services/gitDiffManager';
 import type { Project } from './database/models';
 import type { GitStatus } from './types/session';
-import { getWSLContextFromProject } from './utils/wslUtils';
 
 export function setupEventListeners(services: AppServices, getMainWindow: () => BrowserWindow | null): void {
   const {
@@ -295,15 +294,15 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
         const timestamp = new Date().toLocaleTimeString();
         let commitInfo = `\r\n\x1b[36m[${timestamp}]\x1b[0m \x1b[1m\x1b[44m\x1b[37m 📊 SESSION SUMMARY \x1b[0m\r\n\r\n`;
 
-        // Get WSL context for this session's project
-        const summaryProject = sessionManager.getProjectForSession(session.id);
-        const summaryWslContext = summaryProject ? getWSLContextFromProject(summaryProject) : null;
+        // Get project context for this session
+        const summaryCtx = sessionManager.getProjectContext(session.id);
+        if (!summaryCtx) {
+          console.error(`[Events] No project context for session ${session.id}`);
+          return;
+        }
 
         // Check for uncommitted changes
-        const statusOutput = execSync('git status --porcelain', {
-          cwd: session.worktreePath,
-          encoding: 'utf8'
-        }, summaryWslContext).trim();
+        const statusOutput = summaryCtx.commandRunner.exec('git status --porcelain', session.worktreePath).trim();
 
         if (statusOutput) {
           const uncommittedFiles = statusOutput.split('\n').length;
@@ -324,22 +323,21 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
         }
 
         // Get commit history for this branch
-        const project = sessionManager.getProjectForSession(session.id);
-        if (!project?.path) {
-          throw new Error('Project path not found for session');
+        const historyCtx = sessionManager.getProjectContext(session.id);
+        if (!historyCtx) {
+          throw new Error('Project context not found for session');
         }
-        const wslContext = getWSLContextFromProject(project);
-        const mainBranch = await worktreeManager.getProjectMainBranch(project.path, wslContext);
+        const mainBranch = await worktreeManager.getProjectMainBranch(historyCtx.project.path, historyCtx.commandRunner);
 
         let commits: GitCommit[] = [];
         try {
-          commits = gitDiffManager.getCommitHistory(session.worktreePath, 10, mainBranch, wslContext);
+          commits = gitDiffManager.getCommitHistory(session.worktreePath, 10, mainBranch, historyCtx.commandRunner);
         } catch (error) {
           console.error(`[Events] Error getting commit history:`, error);
           // If there's an error, try without specifying main branch (get all commits)
           try {
             const fallbackCommand = `git log --format="%H|%s|%ai|%an" --numstat -n 10`;
-            execSync(fallbackCommand, { cwd: session.worktreePath, encoding: 'utf8' }, wslContext);
+            historyCtx.commandRunner.exec(fallbackCommand, session.worktreePath);
           } catch (fallbackError) {
             console.error(`[Events] Fallback also failed:`, fallbackError);
           }
@@ -412,15 +410,15 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
         const timestamp = new Date().toLocaleTimeString();
         let commitInfo = `\r\n\x1b[36m[${timestamp}]\x1b[0m \x1b[1m\x1b[41m\x1b[37m 📊 SESSION SUMMARY (ERROR) \x1b[0m\r\n\r\n`;
 
-        // Get WSL context for this session's project
-        const errorProject = sessionManager.getProjectForSession(session.id);
-        const errorWslContext = errorProject ? getWSLContextFromProject(errorProject) : null;
+        // Get project context for this session
+        const errorCtx = sessionManager.getProjectContext(session.id);
+        if (!errorCtx) {
+          console.error(`[Events] No project context for session ${session.id} in error handler`);
+          return;
+        }
 
         // Check for uncommitted changes
-        const statusOutput = execSync('git status --porcelain', {
-          cwd: session.worktreePath,
-          encoding: 'utf8'
-        }, errorWslContext).trim();
+        const statusOutput = errorCtx.commandRunner.exec('git status --porcelain', session.worktreePath).trim();
 
         if (statusOutput) {
           const uncommittedFiles = statusOutput.split('\n').length;
@@ -441,22 +439,21 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
         }
 
         // Get commit history for this branch
-        const project = sessionManager.getProjectForSession(session.id);
-        if (!project?.path) {
-          throw new Error('Project path not found for session');
+        const errorHistoryCtx = sessionManager.getProjectContext(session.id);
+        if (!errorHistoryCtx) {
+          throw new Error('Project context not found for session');
         }
-        const wslCtx = getWSLContextFromProject(project);
-        const mainBranch = await worktreeManager.getProjectMainBranch(project.path, wslCtx);
+        const mainBranch = await worktreeManager.getProjectMainBranch(errorHistoryCtx.project.path, errorHistoryCtx.commandRunner);
 
         let commits: GitCommit[] = [];
         try {
-          commits = gitDiffManager.getCommitHistory(session.worktreePath, 10, mainBranch, wslCtx);
+          commits = gitDiffManager.getCommitHistory(session.worktreePath, 10, mainBranch, errorHistoryCtx.commandRunner);
         } catch (error) {
           console.error(`[Events] Error getting commit history:`, error);
           // If there's an error, try without specifying main branch (get all commits)
           try {
             const fallbackCommand = `git log --format="%H|%s|%ai|%an" --numstat -n 10`;
-            execSync(fallbackCommand, { cwd: session.worktreePath, encoding: 'utf8' }, wslCtx);
+            errorHistoryCtx.commandRunner.exec(fallbackCommand, session.worktreePath);
           } catch (fallbackError) {
             console.error(`[Events] Fallback also failed:`, fallbackError);
           }
