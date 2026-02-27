@@ -227,6 +227,7 @@ export class TerminalPanelManager {
       const panelId = panel.id;
       let commandInjected = false;
       // Match prompt symbol allowing trailing ANSI escapes and whitespace
+      // eslint-disable-next-line no-control-regex
       const promptPattern = /[$#%>]\s*(?:\x1b\[[0-9;]*[a-zA-Z])*\s*$/;
 
       const injectCommand = () => {
@@ -243,6 +244,7 @@ export class TerminalPanelManager {
         // Strip ANSI escape sequences before matching so colored prompts
         // (e.g. "user@host:~$ \x1b[0m") are detected correctly.
         const lastLine = data.split(/\r?\n/).filter(l => l.length > 0).pop() || '';
+        // eslint-disable-next-line no-control-regex
         const cleanLine = lastLine.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
         if (promptPattern.test(cleanLine)) {
           // Prompt detected — shell is interactive and ready for input.

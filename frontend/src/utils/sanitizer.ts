@@ -18,6 +18,7 @@ const config = {
  * - Other escape sequences: ESC (letter)
  * - Also matches standalone control characters like BEL
  */
+// eslint-disable-next-line no-control-regex
 const ANSI_REGEX = /(?:\x1B[@-Z\\-_]|\x1B\[[0-?]*[ -/]*[@-~]|\x1B\][^\x07]*(?:\x07|\x1B\\)|\x1B[()][AB012]|\x07|\x1B\[[\?]?[0-9;]*[a-zA-Z])/g;
 
 /**
