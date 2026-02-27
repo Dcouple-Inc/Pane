@@ -522,7 +522,7 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
   useHotkey({
     id: 'quick-create-session',
     label: 'New Workspace',
-    keys: 'mod+shift+n',
+    keys: 'mod+n',
     category: 'session',
     action: () => {
       const activeProject = projectsWithSessions.find(p => p.id === activeProjectId) || projectsWithSessions[0];
@@ -2204,7 +2204,7 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
                   <span>New Session</span>
                   {isActiveProject && (
                     <kbd className="text-xs text-text-tertiary bg-surface-tertiary px-1 py-0.5 rounded font-mono shrink-0 ml-1">
-                      {formatKeyDisplay('mod+shift+n')}
+                      {formatKeyDisplay('mod+n')}
                     </kbd>
                   )}
                 </button>
