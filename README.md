@@ -84,7 +84,7 @@ Pane fixes the interaction layer. It gives you a single, keyboard-driven surface
 
 Every tool in the AI coding space either only works on Mac, only works with one agent, is a terminal hack that requires tmux, treats Windows as an afterthought, or wants to be your editor, your terminal, and your agent all at once.
 
-Pane is the only tool that is a real desktop app, agent-agnostic, cross-platform with Windows as a first-class citizen, keyboard-first, and git-native. That combination doesn't exist anywhere else.
+Pane is the only tool that is a real desktop app, agent-agnostic, cross-platform with every OS as a first-class citizen, keyboard-first, and git-native. That combination doesn't exist anywhere else.
 
 ---
 
