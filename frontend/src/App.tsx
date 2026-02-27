@@ -28,6 +28,7 @@ import { CloudOverlay } from './components/CloudOverlay';
 import { CloudWidget } from './components/CloudWidget';
 import type { VersionUpdateInfo, PermissionInput } from './types/session';
 import type { ResumableSession } from '../../shared/types/panels';
+import { isMac } from './utils/platformUtils';
 
 // Type for IPC response
 interface IPCResponse<T = unknown> {
@@ -382,7 +383,14 @@ function App() {
 
   return (
     <ContextMenuProvider>
-      <div className="h-screen flex overflow-hidden bg-bg-primary">
+      <div className="h-screen flex flex-col overflow-hidden bg-bg-primary">
+        {isMac() && (
+          <div
+            className="flex-shrink-0 bg-bg-primary"
+            style={{ height: 38, WebkitAppRegion: 'drag' } as React.CSSProperties}
+          />
+        )}
+        <div className="flex flex-1 min-h-0">
         <MainProcessLogger />
         <Sidebar
           onHelpClick={() => setIsHelpOpen(true)}
@@ -462,6 +470,7 @@ function App() {
             </div>
           </div>
         )}
+        </div>
       </div>
     </ContextMenuProvider>
   );
