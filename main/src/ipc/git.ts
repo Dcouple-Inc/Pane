@@ -365,7 +365,12 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       if (!ctx) throw new Error('Project context not found for session');
 
       const mainBranch = await worktreeManager.getProjectMainBranch(project.path, ctx.commandRunner);
-      const branch = session.baseBranch || 'unknown';
+      let branch: string;
+      try {
+        branch = ctx.commandRunner.exec('git rev-parse --abbrev-ref HEAD', session.worktreePath).trim() || session.baseBranch || 'unknown';
+      } catch {
+        branch = session.baseBranch || 'unknown';
+      }
 
       let entries: GitGraphCommit[] = [];
       let useFallback = false;
@@ -383,6 +388,9 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
             ? (await worktreeManager.getOriginBranch(session.worktreePath, mainBranch, ctx.commandRunner)) || mainBranch
             : mainBranch;
           entries = gitDiffManager.getGraphCommitHistory(session.worktreePath, branch, 50, comparisonBranch, ctx.commandRunner);
+          if (entries.length === 0 && session.isMainRepo) {
+            useFallback = true;
+          }
         } catch (error) {
           if (session.isMainRepo) {
             useFallback = true;
