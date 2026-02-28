@@ -21,9 +21,10 @@ import { PanelContainer } from './panels/PanelContainer';
 import { SessionProvider } from '../contexts/SessionContext';
 import { ToolPanel, ToolPanelType, PANEL_CAPABILITIES } from '../../../shared/types/panels';
 import { PanelCreateOptions } from '../types/panelComponents';
-import { Download, Upload, GitMerge, Code2, Terminal, GripHorizontal, ChevronDown, ChevronUp, RefreshCw, Archive, ArchiveRestore, GitCommitHorizontal, Link } from 'lucide-react';
+import { Download, Upload, GitMerge, Code2, Terminal, GripHorizontal, ChevronDown, ChevronUp, RefreshCw, Archive, ArchiveRestore, GitCommitHorizontal, Link, MessageSquare, TerminalSquare } from 'lucide-react';
 import type { Project } from '../types/project';
 import { devLog, renderLog } from '../utils/console';
+import { useConfigStore } from '../stores/configStore';
 import { cycleIndex } from '../utils/arrayUtils';
 
 export const SessionView = memo(() => {
@@ -35,6 +36,11 @@ export const SessionView = memo(() => {
   const [showSetTrackingDialog, setShowSetTrackingDialog] = useState(false);
   const [remoteBranches, setRemoteBranches] = useState<string[]>([]);
   const [currentUpstream, setCurrentUpstream] = useState<string | null>(null);
+
+  // Config store for custom commands in terminal row pills
+  const { config, fetchConfig } = useConfigStore();
+  useEffect(() => { if (!config) { fetchConfig(); } }, [config, fetchConfig]);
+  const customCommands = (config?.customCommands ?? []).filter(cmd => cmd?.name && cmd?.command);
 
   // Get active session by subscribing directly to store state
   // This ensures the component re-renders when git status or other session properties update
@@ -813,8 +819,9 @@ export const SessionView = memo(() => {
                 className="flex-shrink-0 border-t border-border-primary transition-all duration-200"
                 style={{ height: isTerminalCollapsed ? '32px' : `${terminalHeight}px` }}
               >
-                {/* Terminal tab header with collapse toggle */}
+                {/* Terminal tab header with collapse toggle and pill shortcuts */}
                 <div className="flex items-center h-8 px-3 bg-surface-primary border-b border-border-primary gap-2">
+                  {/* Left: chevron + icon + label */}
                   <button
                     onClick={toggleTerminalCollapse}
                     className="p-0.5 hover:bg-surface-hover rounded transition-colors"
@@ -828,10 +835,56 @@ export const SessionView = memo(() => {
                   </button>
                   <Terminal className="w-3.5 h-3.5 text-text-tertiary" />
                   <span className="text-[11px] font-medium text-text-secondary uppercase tracking-wider">Terminal</span>
-                  {/* Resize handle (only shown when not collapsed) */}
+
+                  {/* Middle: scrollable pill shortcuts */}
+                  <div className="flex-1 flex items-center gap-2 overflow-x-auto ml-3 scrollbar-none">
+                    {/* Claude pill */}
+                    <button
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-text-tertiary border border-border-primary hover:bg-surface-hover hover:text-text-secondary transition-colors whitespace-nowrap flex-shrink-0"
+                      onClick={() => handlePanelCreate('terminal', {
+                        initialCommand: 'claude --dangerously-skip-permissions',
+                        title: 'Claude CLI'
+                      })}
+                      title="Open Claude CLI terminal"
+                    >
+                      <MessageSquare className="w-3 h-3" />
+                      Claude
+                    </button>
+
+                    {/* Codex pill */}
+                    <button
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-text-tertiary border border-border-primary hover:bg-surface-hover hover:text-text-secondary transition-colors whitespace-nowrap flex-shrink-0"
+                      onClick={() => handlePanelCreate('terminal', {
+                        initialCommand: 'codex',
+                        title: 'Codex CLI'
+                      })}
+                      title="Open Codex CLI terminal"
+                    >
+                      <Code2 className="w-3 h-3" />
+                      Codex
+                    </button>
+
+                    {/* Custom command pills */}
+                    {customCommands.map((cmd, index) => (
+                      <button
+                        key={`shortcut-${index}`}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-text-tertiary border border-border-primary hover:bg-surface-hover hover:text-text-secondary transition-colors whitespace-nowrap flex-shrink-0"
+                        onClick={() => handlePanelCreate('terminal', {
+                          initialCommand: cmd.command,
+                          title: cmd.name
+                        })}
+                        title={cmd.command}
+                      >
+                        <TerminalSquare className="w-3 h-3" />
+                        {cmd.name.length > 18 ? cmd.name.slice(0, 18) + '...' : cmd.name}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Right: resize grip (only when expanded, always outside scroll container) */}
                   {!isTerminalCollapsed && (
                     <div
-                      className="ml-auto h-full flex items-center cursor-row-resize group"
+                      className="ml-2 h-full flex items-center cursor-row-resize group flex-shrink-0"
                       onMouseDown={startTerminalResize}
                     >
                       <GripHorizontal className="w-4 h-3 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
