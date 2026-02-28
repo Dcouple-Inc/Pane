@@ -618,7 +618,8 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
         // Use storedDir (Linux path) for CommandRunner, not filesystem path
         const { stdout: trackedStdout } = await commandRunner.execAsync(
           'git ls-files',
-          storedDir
+          storedDir,
+          { maxBuffer: 10 * 1024 * 1024 }
         );
 
         if (trackedStdout) {

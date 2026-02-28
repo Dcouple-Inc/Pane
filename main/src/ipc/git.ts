@@ -473,18 +473,21 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
           if (commitIndex >= 0 && commitIndex < commits.length) {
             const fromCommit = commits[commitIndex];
             // Get diff from commit to working directory (includes uncommitted changes)
+            const maxBuffer = 10 * 1024 * 1024;
             const diff = ctx.commandRunner.exec(
               `git diff ${fromCommit.hash}`,
-              session.worktreePath
+              session.worktreePath,
+              { maxBuffer }
             );
 
             const stats = gitDiffManager.parseDiffStats(
-              ctx.commandRunner.exec(`git diff --stat ${fromCommit.hash}`, session.worktreePath)
+              ctx.commandRunner.exec(`git diff --stat ${fromCommit.hash}`, session.worktreePath, { maxBuffer })
             );
 
             const changedFiles = ctx.commandRunner.exec(
               `git diff --name-only ${fromCommit.hash}`,
-              session.worktreePath
+              session.worktreePath,
+              { maxBuffer }
             ).trim().split('\n').filter(Boolean);
 
             return {
@@ -561,18 +564,21 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
           }
 
           // Get diff from parent to working directory (includes the commit and any uncommitted changes)
+          const maxBuffer = 10 * 1024 * 1024;
           const diff = ctx.commandRunner.exec(
             `git diff ${fromCommitHash}`,
-            session.worktreePath
+            session.worktreePath,
+            { maxBuffer }
           );
 
           const stats = gitDiffManager.parseDiffStats(
-            ctx.commandRunner.exec(`git diff --stat ${fromCommitHash}`, session.worktreePath)
+            ctx.commandRunner.exec(`git diff --stat ${fromCommitHash}`, session.worktreePath, { maxBuffer })
           );
 
           const changedFiles = ctx.commandRunner.exec(
             `git diff --name-only ${fromCommitHash}`,
-            session.worktreePath
+            session.worktreePath,
+            { maxBuffer }
           ).trim().split('\n').filter(f => f);
 
           return {
@@ -598,18 +604,21 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
         }
 
         // Get diff from the parent of first commit to working directory (includes uncommitted changes)
+        const maxBuffer = 10 * 1024 * 1024;
         const diff = ctx.commandRunner.exec(
           `git diff ${fromCommitHash}`,
-          session.worktreePath
+          session.worktreePath,
+          { maxBuffer }
         );
 
         const stats = gitDiffManager.parseDiffStats(
-          ctx.commandRunner.exec(`git diff --stat ${fromCommitHash}`, session.worktreePath)
+          ctx.commandRunner.exec(`git diff --stat ${fromCommitHash}`, session.worktreePath, { maxBuffer })
         );
 
         const changedFiles = ctx.commandRunner.exec(
           `git diff --name-only ${fromCommitHash}`,
-          session.worktreePath
+          session.worktreePath,
+          { maxBuffer }
         ).trim().split('\n').filter(f => f);
 
         return {

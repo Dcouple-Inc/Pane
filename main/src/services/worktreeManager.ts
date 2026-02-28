@@ -5,6 +5,7 @@ import type { ConfigManager } from './configManager';
 import type { AnalyticsManager } from './analyticsManager';
 import { PathResolver } from '../utils/pathResolver';
 import { CommandRunner } from '../utils/commandRunner';
+import { GIT_ATTRIBUTION_ENV } from '../utils/attribution';
 
 // Interface for raw commit data
 interface RawCommitData {
@@ -98,7 +99,7 @@ export class WorktreeManager {
         } catch {
           // Ignore add errors (no files to add)
         }
-        await commandRunner.execAsync(`GIT_COMMITTER_NAME='Pane' GIT_COMMITTER_EMAIL='runpane@users.noreply.github.com' git commit -m "Initial commit" --allow-empty`, projectPath);
+        await commandRunner.execAsync('git commit -m "Initial commit" --allow-empty', projectPath, { env: GIT_ATTRIBUTION_ENV });
         hasCommits = true;
       }
 
@@ -118,7 +119,7 @@ export class WorktreeManager {
 
       if (branchExists) {
         // Use existing branch
-        await commandRunner.execAsync(`git worktree add "${worktreePath}" ${branchName}`, projectPath);
+        await commandRunner.execAsync(`git worktree add "${worktreePath}" ${branchName}`, projectPath, { timeout: 60000 });
 
         // Get the commit this branch is based on
         baseCommit = (await commandRunner.execAsync(`git rev-parse ${branchName}`, projectPath)).stdout.trim();
@@ -146,7 +147,7 @@ export class WorktreeManager {
 
         if (isRemoteBranch) {
           // Use --track flag for remote branches to set up tracking automatically
-          await commandRunner.execAsync(`git worktree add -b ${branchName} --track "${worktreePath}" ${baseBranch}`, projectPath);
+          await commandRunner.execAsync(`git worktree add -b ${branchName} --track "${worktreePath}" ${baseBranch}`, projectPath, { timeout: 60000 });
 
           // Verify tracking was set (for debugging)
           try {
@@ -157,7 +158,7 @@ export class WorktreeManager {
           }
         } else {
           // Existing logic for local branches (no tracking)
-          await commandRunner.execAsync(`git worktree add -b ${branchName} "${worktreePath}" ${baseRef}`, projectPath);
+          await commandRunner.execAsync(`git worktree add -b ${branchName} "${worktreePath}" ${baseRef}`, projectPath, { timeout: 60000 });
         }
       }
       
@@ -1029,7 +1030,7 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : commitMessage;
 
       // Commit with message
       const escapedMessage = message.replace(/"/g, '\\"');
-      const { stdout, stderr } = await commandRunner.execAsync(`GIT_COMMITTER_NAME='Pane' GIT_COMMITTER_EMAIL='runpane@users.noreply.github.com' git commit -m "${escapedMessage}"`, worktreePath);
+      const { stdout, stderr } = await commandRunner.execAsync(`git commit -m "${escapedMessage}"`, worktreePath, { env: GIT_ATTRIBUTION_ENV });
       const output = stdout || stderr || 'Committed successfully';
 
       return { output };

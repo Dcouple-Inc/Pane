@@ -8,6 +8,7 @@ import { parseWSLPath, validateWSLAvailable } from '../utils/wslUtils';
 import { invalidatePrCache, fetchPrForSession } from './git';
 import { PathResolver } from '../utils/pathResolver';
 import { CommandRunner } from '../utils/commandRunner';
+import { GIT_ATTRIBUTION_ENV } from '../utils/attribution';
 
 // Helper function to stop a running project script
 async function stopProjectScriptInternal(projectId?: number): Promise<{ success: boolean; error?: string }> {
@@ -133,7 +134,7 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
           commandRunner.exec(`git checkout -b ${branchName}`, actualPath);
           console.log(`[Main] Created and checked out branch: ${branchName}`);
 
-          commandRunner.exec("GIT_COMMITTER_NAME='Pane' GIT_COMMITTER_EMAIL='runpane@users.noreply.github.com' git commit -m \"Initial commit\" --allow-empty", actualPath);
+          commandRunner.exec('git commit -m "Initial commit" --allow-empty', actualPath, { env: GIT_ATTRIBUTION_ENV });
           console.log('[Main] Created initial empty commit');
         } catch (error) {
           console.error('[Main] Failed to initialize git repository:', error);
