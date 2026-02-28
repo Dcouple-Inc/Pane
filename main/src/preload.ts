@@ -120,6 +120,14 @@ try {
       console.error('Failed to dispatch script-closing to window:', e);
     }
   });
+
+  ipcRenderer.on('resource-monitor:update', (_event: Electron.IpcRendererEvent, data: unknown) => {
+    try {
+      window.dispatchEvent(new CustomEvent('resource-monitor:update', { detail: data }));
+    } catch (e) {
+      console.error('Failed to dispatch resource-monitor:update to window:', e);
+    }
+  });
 } catch (e) {
   // Ignore if IPC is not available for some reason
 }
@@ -646,6 +654,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on('cloud:state-changed', wrappedCallback);
       return () => ipcRenderer.removeListener('cloud:state-changed', wrappedCallback);
     },
+  },
+
+  // Resource monitor
+  resourceMonitor: {
+    getSnapshot: (): Promise<IPCResponse> => ipcRenderer.invoke('resource-monitor:get-snapshot'),
+    startActive: (): Promise<IPCResponse> => ipcRenderer.invoke('resource-monitor:start-active'),
+    stopActive: (): Promise<IPCResponse> => ipcRenderer.invoke('resource-monitor:stop-active'),
   },
 });
 

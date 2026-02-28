@@ -22,6 +22,7 @@ import { registerAnalyticsHandlers } from './analytics';
 import { registerSpotlightHandlers } from './spotlight';
 import { registerCloudHandlers } from './cloud';
 import { registerClipboardHandlers } from './clipboard';
+import { registerResourceMonitorHandlers } from './resourceMonitor';
 
 
 export function registerIpcHandlers(services: AppServices): void {
@@ -47,4 +48,5 @@ export function registerIpcHandlers(services: AppServices): void {
   registerSpotlightHandlers(ipcMain, services);
   registerCloudHandlers(ipcMain, services);
   registerClipboardHandlers(ipcMain, services);
+  registerResourceMonitorHandlers(ipcMain, services);
 } 

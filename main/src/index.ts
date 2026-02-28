@@ -31,6 +31,7 @@ import { ArchiveProgressManager } from './services/archiveProgressManager';
 import { AnalyticsManager } from './services/analyticsManager';
 import { SpotlightManager } from './services/spotlightManager';
 import { initializeCommitManager } from './services/commitManager';
+import { resourceMonitorService } from './services/resourceMonitorService';
 import { setAppDirectory, migrateDataDirectory } from './utils/appDirectory';
 import { getCurrentWorktreeName } from './utils/worktreeUtils';
 import { registerIpcHandlers } from './ipc';
@@ -78,7 +79,7 @@ let taskQueue: TaskQueue | null = null;
 // Service instances (configManager exported for shell preference access)
 export let configManager: ConfigManager;
 let logger: Logger;
-let sessionManager: SessionManager;
+export let sessionManager: SessionManager;
 let worktreeManager: WorktreeManager;
 let cliManagerFactory: CliManagerFactory;
 let defaultCliManager: AbstractCliManager;
@@ -706,6 +707,10 @@ async function initializeServices() {
   // Start git status polling
   gitStatusManager.startPolling();
 
+  // Start resource monitoring
+  resourceMonitorService.initialize(app);
+  resourceMonitorService.startIdlePolling();
+
   // Restore spotlight state from previous session
   try {
     spotlightManager.restoreAll();
@@ -838,6 +843,9 @@ app.on('before-quit', async (event) => {
   }
 
   try {
+    // Stop resource monitoring
+    resourceMonitorService.stop();
+
     // Phase 1: Send Ctrl+C to all terminals to gracefully exit Claude instances
     // Claude needs to exit cleanly so it releases the session ID lock, allowing
     // us to resume with --resume <panelId> on next launch.
