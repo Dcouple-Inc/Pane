@@ -125,7 +125,24 @@ Use `$ARGUMENTS` as the PR title if provided, otherwise derive one from the done
    - Use `--force-with-lease` since we rebased (safer than `--force`).
 2. If `--force-with-lease` fails (remote has new commits not in local), tell the user and ask how to proceed.
 
-## Step 6: Summary
+## Step 6: Codex Review Loop
+
+Run `codex review --base main` in a subagent and read its full output.
+
+### Review loop
+
+1. Launch a **Bash subagent** (via the Task tool) that runs `codex review --base main` in the repo root. Wait for the full output.
+2. Read the response carefully.
+3. **If codex reports issues**:
+   - Fix every issue it raised in the codebase.
+   - Commit the fixes: `fix: address codex review feedback`
+   - Push: `git push origin <branch>`
+   - Go back to step 1 — run `codex review --base main` again.
+4. **If codex reports no issues** (e.g., "no defects", "no issues", "changes appear consistent"), the loop is done. Move on.
+
+**Important**: Do not summarize or skip the codex output. Read it in full each iteration so you can act on every finding.
+
+## Step 7: Summary
 
 Present the final result:
 
@@ -138,6 +155,8 @@ Commits:
 Build:
   webapp: PASS
   api: PASS
+
+Codex Review: PASS (no issues)
 
 PR: <url>
 Branch: <branch name> (rebased on main)
