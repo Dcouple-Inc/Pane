@@ -62,8 +62,6 @@ Relevant codebase context discovered during the discussion — files, patterns, 
 [1-3 sentences describing the agreed approach going forward]
 ```
 
-Keep it concise — capture what an implementer needs, not the full conversation.
-
 ## Step 4: Suggest Next Steps
 
 ```
