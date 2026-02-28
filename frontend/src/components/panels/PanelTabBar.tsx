@@ -482,22 +482,24 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
 
         {/* Add Panel dropdown button - outside overflow container so dropdown isn't clipped */}
         <div className="relative h-9 flex items-center ml-1 flex-shrink-0" ref={dropdownRef}>
-          <button
-            className="inline-flex items-center h-9 px-3 text-sm text-text-tertiary hover:text-text-primary hover:bg-surface-hover rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring-subtle"
-            onClick={() => setShowDropdown(!showDropdown)}
-            onKeyDown={(e) => {
-              if (e.key === 'ArrowDown' && !showDropdown) {
-                e.preventDefault();
-                setShowDropdown(true);
-              }
-            }}
-            aria-haspopup="menu"
-            aria-expanded={showDropdown}
-          >
-            <Plus className="w-4 h-4 mr-1" />
-            Add Tool
-            <ChevronDown className="w-3 h-3 ml-1" />
-          </button>
+          <Tooltip content={<kbd className="px-1.5 py-0.5 text-xs font-mono bg-surface-tertiary rounded">{formatKeyDisplay('mod+t')}</kbd>} side="bottom">
+            <button
+              className="inline-flex items-center h-9 px-3 text-sm text-text-tertiary hover:text-text-primary hover:bg-surface-hover rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring-subtle"
+              onClick={() => setShowDropdown(!showDropdown)}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowDown' && !showDropdown) {
+                  e.preventDefault();
+                  setShowDropdown(true);
+                }
+              }}
+              aria-haspopup="menu"
+              aria-expanded={showDropdown}
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Add Tool
+              <ChevronDown className="w-3 h-3 ml-1" />
+            </button>
+          </Tooltip>
 
           {showDropdown && (() => {
             // Track ref index for keyboard navigation
@@ -688,18 +690,20 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
 
           {/* Detail panel toggle */}
           {onToggleDetailPanel && (
-            <button
-              onClick={onToggleDetailPanel}
-              className={cn(
-                "p-1.5 rounded transition-colors",
-                detailPanelVisible
-                  ? "text-text-primary bg-surface-hover"
-                  : "text-text-tertiary hover:text-text-primary hover:bg-surface-hover"
-              )}
-              title={detailPanelVisible ? "Hide detail panel" : "Show detail panel"}
-            >
-              <PanelRight className="w-4 h-4" />
-            </button>
+            <Tooltip content={<kbd className="px-1.5 py-0.5 text-xs font-mono bg-surface-tertiary rounded">{formatKeyDisplay('mod+shift+b')}</kbd>} side="bottom">
+              <button
+                onClick={onToggleDetailPanel}
+                className={cn(
+                  "p-1.5 rounded transition-colors",
+                  detailPanelVisible
+                    ? "text-text-primary bg-surface-hover"
+                    : "text-text-tertiary hover:text-text-primary hover:bg-surface-hover"
+                )}
+                title={detailPanelVisible ? "Hide detail panel" : "Show detail panel"}
+              >
+                <PanelRight className="w-4 h-4" />
+              </button>
+            </Tooltip>
           )}
         </div>
       </div>
