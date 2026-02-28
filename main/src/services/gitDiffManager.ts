@@ -217,8 +217,8 @@ export class GitDiffManager {
   ): GitGraphCommit[] {
     try {
       // Use %x00 (NUL) as field delimiter since commit messages can contain pipes
-      const SEP = '\x00';
-      const logFormat = `%h${SEP}%p${SEP}%s${SEP}%ai${SEP}%an${SEP}%ae`;
+      // The literal string "%x00" is interpreted by git to output NUL bytes
+      const logFormat = '%h%x00%p%x00%s%x00%ai%x00%an%x00%ae';
       const gitCommand = `git log --format="${logFormat}" -n ${limit} --cherry-pick --left-only HEAD...${mainBranch} --`;
 
       const logOutput = commandRunner.exec(gitCommand, worktreePath);
@@ -228,7 +228,7 @@ export class GitDiffManager {
       }
 
       return logOutput.trim().split('\n').filter(Boolean).map(line => {
-        const [hash, parentStr, message, date, author, email] = line.split(SEP);
+        const [hash, parentStr, message, date, author, email] = line.split('\x00');
         return {
           hash,
           parents: parentStr ? parentStr.split(' ').filter(Boolean) : [],

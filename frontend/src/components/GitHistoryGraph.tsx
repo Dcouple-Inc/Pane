@@ -127,15 +127,15 @@ export function GitHistoryGraph({ sessionId, baseBranch, onSelectCommit }: GitHi
   useEffect(() => {
     const handler = (event: Event) => {
       const customEvent = event as CustomEvent;
-      const detail = customEvent.detail as { type?: string } | undefined;
-      if (detail?.type === 'git:operation_completed') {
+      const detail = customEvent.detail as { type?: string; sessionId?: string } | undefined;
+      if (detail?.type === 'git:operation_completed' && (!detail.sessionId || detail.sessionId === sessionId)) {
         fetchGraph();
       }
     };
 
     window.addEventListener('panel:event', handler);
     return () => window.removeEventListener('panel:event', handler);
-  }, [fetchGraph]);
+  }, [sessionId, fetchGraph]);
 
   const handleSelect = useCallback((hash: string) => {
     setSelectedHash(hash);
