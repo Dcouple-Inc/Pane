@@ -1,11 +1,13 @@
 import { IpcMain } from 'electron';
+import { mkdir } from 'fs/promises';
 import type { AppServices } from './types';
 import type { CreateProjectRequest, UpdateProjectRequest } from '../../../frontend/src/types/project';
 import { scriptExecutionTracker } from '../services/scriptExecutionTracker';
 import { panelManager } from '../services/panelManager';
-import { parseWSLPath, wrapCommandForWSL, validateWSLAvailable } from '../utils/wslUtils';
+import { parseWSLPath, validateWSLAvailable } from '../utils/wslUtils';
 import { invalidatePrCache, fetchPrForSession } from './git';
 import { PathResolver } from '../utils/pathResolver';
+import { CommandRunner } from '../utils/commandRunner';
 
 // Helper function to stop a running project script
 async function stopProjectScriptInternal(projectId?: number): Promise<{ success: boolean; error?: string }> {
@@ -81,10 +83,6 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
     try {
       console.log('[Main] Creating project:', projectData);
 
-      // Import fs and exec utilities
-      const { mkdirSync, existsSync } = require('fs');
-      const { execSync: nodeExecSync } = require('child_process');
-
       // Parse WSL path if applicable
       const wslInfo = parseWSLPath(projectData.path);
       let actualPath = projectData.path;
@@ -93,94 +91,53 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
       let isGitRepo = false;
 
       if (wslInfo) {
-        // WSL project
         const wslError = validateWSLAvailable(wslInfo.distro);
         if (wslError) {
           return { success: false, error: wslError };
         }
-
         wslEnabled = true;
         wslDistribution = wslInfo.distro;
         actualPath = wslInfo.linuxPath;
-
         console.log(`[Main] WSL project detected: ${wslInfo.distro}:${wslInfo.linuxPath}`);
+      }
 
-        // Create directory via WSL
+      // Create CommandRunner and PathResolver — handles WSL/non-WSL transparently
+      const tempProject = {
+        path: actualPath,
+        wsl_enabled: wslEnabled,
+        wsl_distribution: wslDistribution
+      };
+      const pathResolver = new PathResolver(tempProject);
+      const commandRunner = new CommandRunner(tempProject);
+
+      // Create directory if needed (recursive: true is a no-op if it already exists)
+      await mkdir(pathResolver.toFileSystem(actualPath), { recursive: true });
+      console.log('[Main] Ensured project directory exists');
+
+      // Check if it's a git repository
+      try {
+        commandRunner.exec('git rev-parse --is-inside-work-tree', actualPath, { silent: true });
+        isGitRepo = true;
+        console.log('[Main] Directory is already a git repository');
+      } catch {
+        console.log('[Main] Directory is not a git repository, initializing...');
+      }
+
+      // Initialize git if needed
+      if (!isGitRepo) {
         try {
-          nodeExecSync(wrapCommandForWSL(`mkdir -p '${wslInfo.linuxPath}'`, wslInfo.distro), { encoding: 'utf-8' });
-          console.log('[Main] Created directory via WSL');
+          const branchName = 'main';
+          commandRunner.exec('git init', actualPath);
+          console.log('[Main] Git repository initialized successfully');
+
+          commandRunner.exec(`git checkout -b ${branchName}`, actualPath);
+          console.log(`[Main] Created and checked out branch: ${branchName}`);
+
+          commandRunner.exec("GIT_COMMITTER_NAME='Pane' GIT_COMMITTER_EMAIL='runpane@users.noreply.github.com' git commit -m \"Initial commit\" --allow-empty", actualPath);
+          console.log('[Main] Created initial empty commit');
         } catch (error) {
-          // Directory might already exist, that's fine
-          console.log('[Main] Directory might already exist:', error);
-        }
-
-        // Check if it's a git repository via WSL
-        try {
-          nodeExecSync(wrapCommandForWSL('git rev-parse --is-inside-work-tree', wslInfo.distro, wslInfo.linuxPath), { encoding: 'utf-8' });
-          isGitRepo = true;
-          console.log('[Main] Directory is already a git repository (WSL)');
-        } catch (error) {
-          console.log('[Main] Directory is not a git repository (WSL), initializing...');
-        }
-
-        // Initialize git if needed via WSL
-        if (!isGitRepo) {
-          try {
-            // Always use 'main' as the default branch name for new repos
-            const branchName = 'main';
-
-            nodeExecSync(wrapCommandForWSL('git init', wslInfo.distro, wslInfo.linuxPath), { encoding: 'utf-8' });
-            console.log('[Main] Git repository initialized successfully (WSL)');
-
-            // Create and checkout the main branch
-            nodeExecSync(wrapCommandForWSL(`git checkout -b ${branchName}`, wslInfo.distro, wslInfo.linuxPath), { encoding: 'utf-8' });
-            console.log(`[Main] Created and checked out branch: ${branchName} (WSL)`);
-
-            // Create initial commit
-            nodeExecSync(wrapCommandForWSL('git commit -m "Initial commit" --allow-empty', wslInfo.distro, wslInfo.linuxPath), { encoding: 'utf-8' });
-            console.log('[Main] Created initial empty commit (WSL)');
-          } catch (error) {
-            console.error('[Main] Failed to initialize git repository (WSL):', error);
-            // Continue anyway - let the user handle git setup manually if needed
-          }
-        }
-      } else {
-        // Non-WSL project (existing flow)
-        // Create directory if it doesn't exist
-        if (!existsSync(projectData.path)) {
-          console.log('[Main] Creating directory:', projectData.path);
-          mkdirSync(projectData.path, { recursive: true });
-        }
-
-        // Check if it's a git repository
-        try {
-          nodeExecSync(`cd "${projectData.path}" && git rev-parse --is-inside-work-tree`, { encoding: 'utf-8' });
-          isGitRepo = true;
-          console.log('[Main] Directory is already a git repository');
-        } catch (error) {
-          console.log('[Main] Directory is not a git repository, initializing...');
-        }
-
-        // Initialize git if needed
-        if (!isGitRepo) {
-          try {
-            // Always use 'main' as the default branch name for new repos
-            const branchName = 'main';
-
-            nodeExecSync(`cd "${projectData.path}" && git init`, { encoding: 'utf-8' });
-            console.log('[Main] Git repository initialized successfully');
-
-            // Create and checkout the main branch
-            nodeExecSync(`cd "${projectData.path}" && git checkout -b ${branchName}`, { encoding: 'utf-8' });
-            console.log(`[Main] Created and checked out branch: ${branchName}`);
-
-            // Create initial commit
-            nodeExecSync(`cd "${projectData.path}" && git commit -m "Initial commit" --allow-empty`, { encoding: 'utf-8' });
-            console.log('[Main] Created initial empty commit');
-          } catch (error) {
-            console.error('[Main] Failed to initialize git repository:', error);
-            // Continue anyway - let the user handle git setup manually if needed
-          }
+          console.error('[Main] Failed to initialize git repository:', error);
+          // Continue anyway - let the user handle git setup manually if needed
         }
       }
 
@@ -188,22 +145,10 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
       let mainBranch: string | undefined;
       if (isGitRepo) {
         try {
-          // Create temporary project object to get CommandRunner
-          const tempProject = {
-            path: actualPath,
-            wsl_enabled: wslEnabled ? 1 : 0,
-            wsl_distribution: wslDistribution
-          };
-          const { CommandRunner } = require('../utils/commandRunner');
-          const { PathResolver } = require('../utils/pathResolver');
-          const pathResolver = new PathResolver(tempProject);
-          const commandRunner = new CommandRunner(tempProject);
-
           mainBranch = await worktreeManager.getProjectMainBranch(actualPath, commandRunner);
           console.log('[Main] Detected main branch:', mainBranch);
         } catch (error) {
           console.log('[Main] Could not detect main branch, skipping:', error);
-          // Not a git repository or error detecting, that's okay
         }
       }
 
@@ -472,29 +417,14 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
 
   ipcMain.handle('projects:detect-branch', async (_event, path: string) => {
     try {
-      // Check if WSL path
       const wslInfo = parseWSLPath(path);
-      if (wslInfo) {
-        // Import exec directly for WSL detection
-        const { execSync: nodeExecSync } = require('child_process');
-        const branch = nodeExecSync(
-          wrapCommandForWSL('git branch --show-current', wslInfo.distro, wslInfo.linuxPath),
-          { encoding: 'utf-8' }
-        ).trim();
-        return { success: true, data: branch || 'main' };
-      }
-
-      // Non-WSL path - use existing worktreeManager method
-      // Create temporary project object to get CommandRunner
       const tempProject = {
-        path: path,
-        wsl_enabled: 0,
-        wsl_distribution: null
+        path: wslInfo ? wslInfo.linuxPath : path,
+        wsl_enabled: !!wslInfo,
+        wsl_distribution: wslInfo?.distro ?? null
       };
-      const { CommandRunner } = require('../utils/commandRunner');
       const commandRunner = new CommandRunner(tempProject);
-
-      const branch = await worktreeManager.getProjectMainBranch(path, commandRunner);
+      const branch = await worktreeManager.getProjectMainBranch(tempProject.path, commandRunner);
       return { success: true, data: branch };
     } catch (error) {
       console.log('[Main] Could not detect branch:', error);

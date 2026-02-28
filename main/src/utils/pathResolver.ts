@@ -41,20 +41,16 @@ export class PathResolver {
     return path.join(...segments);
   }
 
-  /** Compute relative path — converts both to filesystem format first so path.relative works */
+  /** Compute relative path. Both arguments must be filesystem-format paths (UNC for WSL, native for other platforms). */
   relative(from: string, to: string): string {
-    const fsFrom = this.toFileSystem(from);
-    const fsTo = this.toFileSystem(to);
-    return path.relative(fsFrom, fsTo);
+    return path.relative(from, to);
   }
 
-  /** Check if targetPath is within basePath — resolves symlinks and converts to filesystem format */
+  /** Check if targetPath is within basePath — resolves symlinks. Both must be filesystem-format paths (UNC for WSL, native for other platforms). */
   async isWithin(basePath: string, targetPath: string): Promise<boolean> {
-    const fsBase = this.toFileSystem(basePath);
-    const fsTarget = this.toFileSystem(targetPath);
     // Resolve symlinks to prevent escape via symlinked paths
-    const resolvedBase = await fs.realpath(fsBase).catch(() => fsBase);
-    const resolvedTarget = await fs.realpath(fsTarget).catch(() => fsTarget);
+    const resolvedBase = await fs.realpath(basePath).catch(() => basePath);
+    const resolvedTarget = await fs.realpath(targetPath).catch(() => targetPath);
     const rel = path.relative(resolvedBase, resolvedTarget);
     // rel === '' means paths are equal (base is within itself) — that's valid
     return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));

@@ -48,11 +48,7 @@ export class WorktreeManager {
   async initializeProject(projectPath: string, worktreeFolder: string | undefined, pathResolver: PathResolver, commandRunner: CommandRunner): Promise<void> {
     const { baseDir } = this.getProjectPaths(projectPath, worktreeFolder, pathResolver);
     try {
-      if (pathResolver.environment === 'wsl' || pathResolver.environment === 'linux' || pathResolver.environment === 'macos') {
-        await commandRunner.execAsync(`mkdir -p '${baseDir}'`, '/');
-      } else {
-        await mkdir(pathResolver.toFileSystem(baseDir), { recursive: true });
-      }
+      await mkdir(pathResolver.toFileSystem(baseDir), { recursive: true });
     } catch (error) {
       console.error('Failed to create worktrees directory:', error);
     }
@@ -1033,7 +1029,7 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : commitMessage;
 
       // Commit with message
       const escapedMessage = message.replace(/"/g, '\\"');
-      const { stdout, stderr } = await commandRunner.execAsync(`git commit -m "${escapedMessage}"`, worktreePath);
+      const { stdout, stderr } = await commandRunner.execAsync(`GIT_COMMITTER_NAME='Pane' GIT_COMMITTER_EMAIL='runpane@users.noreply.github.com' git commit -m "${escapedMessage}"`, worktreePath);
       const output = stdout || stderr || 'Committed successfully';
 
       return { output };
