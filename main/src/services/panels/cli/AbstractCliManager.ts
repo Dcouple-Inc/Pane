@@ -296,6 +296,22 @@ export abstract class AbstractCliManager extends EventEmitter {
   }
 
   /**
+   * Returns a map of sessionId → array of PTY PIDs for that session.
+   * Used by resource monitoring to discover which CLI processes belong to which session.
+   */
+  getSessionPids(): Map<string, number[]> {
+    const result = new Map<string, number[]>();
+    for (const [, cliProcess] of this.processes) {
+      const pid = cliProcess.process.pid;
+      if (!pid) continue;
+      const pids = result.get(cliProcess.sessionId) || [];
+      pids.push(pid);
+      result.set(cliProcess.sessionId, pids);
+    }
+    return result;
+  }
+
+  /**
    * Check if a panel is running
    */
   isPanelRunning(panelId: string): boolean {
