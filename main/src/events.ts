@@ -13,6 +13,7 @@ import {
 import type { GitCommit } from './services/gitDiffManager';
 import type { Project } from './database/models';
 import type { GitStatus } from './types/session';
+import { resourceMonitorService } from './services/resourceMonitorService';
 
 export function setupEventListeners(services: AppServices, getMainWindow: () => BrowserWindow | null): void {
   const {
@@ -32,6 +33,14 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
     panelManager.setAnalyticsManager(analyticsManager);
     terminalPanelManager.setAnalyticsManager(analyticsManager);
   }
+
+  // Bridge resource monitor events to renderer
+  resourceMonitorService.on('resource-update', (snapshot: unknown) => {
+    const mw = getMainWindow();
+    if (mw && !mw.isDestroyed()) {
+      mw.webContents.send('resource-monitor:update', snapshot);
+    }
+  });
 
 
 

@@ -43,6 +43,20 @@ export class TerminalPanelManager {
     this.analyticsManager = analyticsManager;
   }
 
+  /**
+   * Returns a map of sessionId → array of PTY PIDs for that session.
+   * Used by resource monitoring to discover which processes belong to which session.
+   */
+  getSessionPids(): Map<string, number[]> {
+    const result = new Map<string, number[]>();
+    for (const [, terminal] of this.terminals) {
+      const pids = result.get(terminal.sessionId) || [];
+      pids.push(terminal.pty.pid);
+      result.set(terminal.sessionId, pids);
+    }
+    return result;
+  }
+
   private flushOutputBuffer(terminal: TerminalProcess): void {
     if (terminal.outputFlushTimer) {
       clearTimeout(terminal.outputFlushTimer);

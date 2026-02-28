@@ -367,6 +367,13 @@ interface ElectronAPI {
     stopPolling: () => Promise<IPCResponse>;
     onStateChanged: (callback: (state: CloudVmState) => void) => () => void;
   };
+
+  // Resource monitor
+  resourceMonitor: {
+    getSnapshot: () => Promise<IPCResponse>;
+    startActive: () => Promise<IPCResponse>;
+    stopActive: () => Promise<IPCResponse>;
+  };
 }
 
 interface CloudVmState {
