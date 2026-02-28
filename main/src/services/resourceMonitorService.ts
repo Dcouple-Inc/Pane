@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
-import { execSync } from 'child_process';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import * as os from 'os';
 import type { App, ProcessMetric } from 'electron';
 import type {
@@ -8,6 +9,8 @@ import type {
   SessionResourceInfo,
   ResourceSnapshot,
 } from '../../../shared/types/resourceMonitor';
+
+const execFileAsync = promisify(execFile);
 
 interface ProcessStats {
   name: string;
@@ -27,6 +30,7 @@ export class ResourceMonitorService extends EventEmitter {
   private idleTimer: ReturnType<typeof setInterval> | null = null;
   private activeTimer: ReturnType<typeof setInterval> | null = null;
   private isActivePolling = false;
+  private pollInProgress = false;
 
   initialize(app: App): void {
     this.app = app;
@@ -45,39 +49,40 @@ export class ResourceMonitorService extends EventEmitter {
     }));
   }
 
-  private getChildPids(parentPid: number): number[] {
+  private async getChildPids(parentPid: number): Promise<number[]> {
     try {
       if (os.platform() === 'win32') {
-        const output = execSync(
-          `powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter 'ParentProcessId=${parentPid}' | Select-Object -ExpandProperty ProcessId"`,
+        const { stdout } = await execFileAsync(
+          'powershell',
+          ['-NoProfile', '-Command', `Get-CimInstance Win32_Process -Filter 'ParentProcessId=${parentPid}' | Select-Object -ExpandProperty ProcessId`],
           { encoding: 'utf8', timeout: 5000 }
         );
-        return output.split('\n').map(l => parseInt(l.trim(), 10)).filter(n => !isNaN(n));
+        return stdout.split('\n').map(l => parseInt(l.trim(), 10)).filter(n => !isNaN(n));
       } else if (os.platform() === 'darwin') {
-        const output = execSync(`pgrep -P ${parentPid}`, { encoding: 'utf8', timeout: 5000 });
-        return output.split('\n').map(l => parseInt(l.trim(), 10)).filter(n => !isNaN(n));
+        const { stdout } = await execFileAsync('pgrep', ['-P', String(parentPid)], { encoding: 'utf8', timeout: 5000 });
+        return stdout.split('\n').map(l => parseInt(l.trim(), 10)).filter(n => !isNaN(n));
       } else {
-        const output = execSync(`ps -o pid= --ppid ${parentPid}`, { encoding: 'utf8', timeout: 5000 });
-        return output.split('\n').map(l => parseInt(l.trim(), 10)).filter(n => !isNaN(n));
+        const { stdout } = await execFileAsync('ps', ['-o', 'pid=', '--ppid', String(parentPid)], { encoding: 'utf8', timeout: 5000 });
+        return stdout.split('\n').map(l => parseInt(l.trim(), 10)).filter(n => !isNaN(n));
       }
     } catch {
       return [];
     }
   }
 
-  private getAllDescendantPids(parentPid: number): number[] {
-    const children = this.getChildPids(parentPid);
+  private async getAllDescendantPids(parentPid: number): Promise<number[]> {
+    const children = await this.getChildPids(parentPid);
     const all: number[] = [...children];
     for (const child of children) {
-      all.push(...this.getAllDescendantPids(child));
+      all.push(...await this.getAllDescendantPids(child));
     }
     return all;
   }
 
-  private getUnixProcessStats(pid: number): ProcessStats {
+  private async getUnixProcessStats(pid: number): Promise<ProcessStats> {
     try {
-      const output = execSync(`ps -o comm=,%cpu=,rss= -p ${pid}`, { encoding: 'utf8', timeout: 5000 });
-      const line = output.trim();
+      const { stdout } = await execFileAsync('ps', ['-o', 'comm=,%cpu=,rss=', '-p', String(pid)], { encoding: 'utf8', timeout: 5000 });
+      const line = stdout.trim();
       if (!line) return { name: 'unknown', cpuPercent: 0, memoryMB: 0 };
       const parts = line.split(/\s+/);
       const rss = parseInt(parts[parts.length - 1], 10) || 0;
@@ -89,17 +94,46 @@ export class ResourceMonitorService extends EventEmitter {
     }
   }
 
-  private getWindowsBatchStats(pids: number[]): Map<number, ProcessStats> {
+  private async getUnixBatchStats(pids: number[]): Promise<Map<number, ProcessStats>> {
+    const result = new Map<number, ProcessStats>();
+    if (pids.length === 0) return result;
+    // Batch all PIDs into a single ps call
+    try {
+      const { stdout } = await execFileAsync('ps', ['-o', 'pid=,comm=,%cpu=,rss=', '-p', pids.join(',')], { encoding: 'utf8', timeout: 5000 });
+      for (const line of stdout.trim().split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        const parts = trimmed.split(/\s+/);
+        const pid = parseInt(parts[0], 10);
+        if (isNaN(pid)) continue;
+        const rss = parseInt(parts[parts.length - 1], 10) || 0;
+        const cpu = parseFloat(parts[parts.length - 2]) || 0;
+        const name = parts.slice(1, -2).join(' ') || 'unknown';
+        result.set(pid, { name, cpuPercent: cpu, memoryMB: rss / 1024 });
+      }
+    } catch {
+      // Fallback: try individual lookups for any PIDs not found
+      const promises = pids.map(async pid => {
+        const stats = await this.getUnixProcessStats(pid);
+        result.set(pid, stats);
+      });
+      await Promise.all(promises);
+    }
+    return result;
+  }
+
+  private async getWindowsBatchStats(pids: number[]): Promise<Map<number, ProcessStats>> {
     const result = new Map<number, ProcessStats>();
     if (pids.length === 0) return result;
     try {
       const pidList = pids.join(',');
       const psCmd = `Get-Process -Id @(${pidList}) -ErrorAction SilentlyContinue | ForEach-Object { $elapsed = ((Get-Date) - $_.StartTime).TotalSeconds; $cpuPct = if ($elapsed -gt 0) { ($_.CPU / $elapsed) * 100 } else { 0 }; [PSCustomObject]@{ Id=$_.Id; Name=$_.ProcessName; CpuPercent=[math]::Round($cpuPct,1); MemoryMB=[math]::Round($_.WorkingSet64/1MB,1) } } | ConvertTo-Json -Compress`;
-      const output = execSync(
-        `powershell -NoProfile -Command "${psCmd}"`,
+      const { stdout } = await execFileAsync(
+        'powershell',
+        ['-NoProfile', '-Command', psCmd],
         { encoding: 'utf8', timeout: 10000 }
       );
-      const parsed: unknown = JSON.parse(output);
+      const parsed: unknown = JSON.parse(stdout);
       const items: WindowsBatchItem[] = Array.isArray(parsed) ? parsed as WindowsBatchItem[] : [parsed as WindowsBatchItem];
       for (const item of items) {
         if (item && typeof item.Id === 'number') {
@@ -116,7 +150,7 @@ export class ResourceMonitorService extends EventEmitter {
     return result;
   }
 
-  private getSessionMetrics(): SessionResourceInfo[] {
+  private async getSessionMetrics(): Promise<SessionResourceInfo[]> {
     // Lazy imports to avoid circular dependency at module load time
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { terminalPanelManager } = require('./terminalPanelManager') as { terminalPanelManager: { getSessionPids(): Map<string, number[]> } };
@@ -133,12 +167,12 @@ export class ResourceMonitorService extends EventEmitter {
       const allPids: number[] = [];
       for (const ptyPid of ptyPids) {
         allPids.push(ptyPid);
-        allPids.push(...this.getAllDescendantPids(ptyPid));
+        allPids.push(...await this.getAllDescendantPids(ptyPid));
       }
 
       let children: ChildProcessInfo[];
       if (os.platform() === 'win32') {
-        const batchStats = this.getWindowsBatchStats(allPids);
+        const batchStats = await this.getWindowsBatchStats(allPids);
         children = allPids
           .map(pid => {
             const stats = batchStats.get(pid) || { name: 'unknown', cpuPercent: 0, memoryMB: 0 };
@@ -146,9 +180,10 @@ export class ResourceMonitorService extends EventEmitter {
           })
           .filter(c => c.cpuPercent > 0 || c.memoryMB > 0.1);
       } else {
+        const batchStats = await this.getUnixBatchStats(allPids);
         children = allPids
           .map(pid => {
-            const stats = this.getUnixProcessStats(pid);
+            const stats = batchStats.get(pid) || { name: 'unknown', cpuPercent: 0, memoryMB: 0 };
             return { pid, ...stats };
           })
           .filter(c => c.cpuPercent > 0 || c.memoryMB > 0.1);
@@ -169,9 +204,9 @@ export class ResourceMonitorService extends EventEmitter {
     return sessions;
   }
 
-  getSnapshot(): ResourceSnapshot {
+  async getSnapshot(): Promise<ResourceSnapshot> {
     const electronProcesses = this.getElectronMetrics();
-    const sessions = this.getSessionMetrics();
+    const sessions = await this.getSessionMetrics();
 
     const electronTotal = electronProcesses.reduce(
       (acc, p) => ({ cpu: acc.cpu + p.cpuPercent, mem: acc.mem + p.memoryMB }),
@@ -193,31 +228,39 @@ export class ResourceMonitorService extends EventEmitter {
 
   startIdlePolling(): void {
     this.stopAllPolling();
-    const poll = (): void => {
+    const poll = async (): Promise<void> => {
+      if (this.pollInProgress) return;
+      this.pollInProgress = true;
       try {
-        const snapshot = this.getSnapshot();
+        const snapshot = await this.getSnapshot();
         this.emit('resource-update', snapshot);
       } catch (error) {
         console.error('[ResourceMonitor] Poll error:', error);
+      } finally {
+        this.pollInProgress = false;
       }
     };
-    poll();
-    this.idleTimer = setInterval(poll, 30_000);
+    void poll();
+    this.idleTimer = setInterval(() => void poll(), 30_000);
   }
 
   startActivePolling(): void {
     this.stopAllPolling();
     this.isActivePolling = true;
-    const poll = (): void => {
+    const poll = async (): Promise<void> => {
+      if (this.pollInProgress) return;
+      this.pollInProgress = true;
       try {
-        const snapshot = this.getSnapshot();
+        const snapshot = await this.getSnapshot();
         this.emit('resource-update', snapshot);
       } catch (error) {
         console.error('[ResourceMonitor] Poll error:', error);
+      } finally {
+        this.pollInProgress = false;
       }
     };
-    poll();
-    this.activeTimer = setInterval(poll, 2_000);
+    void poll();
+    this.activeTimer = setInterval(() => void poll(), 2_000);
   }
 
   stopActivePolling(): void {

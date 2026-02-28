@@ -5,7 +5,7 @@ import { resourceMonitorService } from '../services/resourceMonitorService';
 export function registerResourceMonitorHandlers(ipcMain: IpcMain, _services: AppServices): void {
   ipcMain.handle('resource-monitor:get-snapshot', async () => {
     try {
-      const snapshot = resourceMonitorService.getSnapshot();
+      const snapshot = await resourceMonitorService.getSnapshot();
       return { success: true, data: snapshot };
     } catch (error) {
       console.error('[IPC] Failed to get resource snapshot:', error);
