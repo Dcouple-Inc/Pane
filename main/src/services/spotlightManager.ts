@@ -1,10 +1,10 @@
 import { EventEmitter } from 'events';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'fs';
-import { join, dirname } from 'path';
-import { homedir } from 'os';
+import { dirname } from 'path';
 import { getAppSubdirectory } from '../utils/appDirectory';
 import { GitFileWatcher } from './gitFileWatcher';
-import { execSync } from '../utils/commandExecutor';
+import type { CommandRunner } from '../utils/commandRunner';
+import type { PathResolver } from '../utils/pathResolver';
 import type { SessionManager } from './sessionManager';
 import type { Logger } from '../utils/logger';
 import type { BrowserWindow } from 'electron';
@@ -17,6 +17,8 @@ interface SpotlightState {
   originalBranch: string;
   originalCommit: string;
   watcher: GitFileWatcher;
+  commandRunner: CommandRunner;
+  pathResolver: PathResolver;
   lastSyncCommit?: string;
   syncInProgress: boolean;
 }
@@ -61,8 +63,15 @@ export class SpotlightManager extends EventEmitter {
       throw new Error(`Project for session ${sessionId} not found`);
     }
 
-    // Validate worktree exists
-    if (!existsSync(session.worktree_path)) {
+    const ctx = this.sessionManager.getProjectContextByProjectId(project.id);
+    if (!ctx) {
+      throw new Error(`Could not get project context for project ${project.id}`);
+    }
+    const { commandRunner, pathResolver } = ctx;
+
+    // Validate worktree exists (use PathResolver for WSL UNC conversion)
+    const fsWorktreePath = pathResolver.toFileSystem(session.worktree_path);
+    if (!existsSync(fsWorktreePath)) {
       throw new Error(`Worktree path does not exist: ${session.worktree_path}`);
     }
 
@@ -75,24 +84,15 @@ export class SpotlightManager extends EventEmitter {
     }
 
     // Check repo clean
-    if (!this.isRepoClean(project.path)) {
+    if (!this.isRepoClean(project.path, commandRunner)) {
       throw new Error(
         'Project repository has uncommitted changes. Please commit or stash changes before enabling spotlight.'
       );
     }
 
     // Save original state
-    const originalBranch = execSync('git rev-parse --abbrev-ref HEAD', {
-      cwd: project.path,
-      encoding: 'utf8',
-      silent: true
-    }).trim();
-
-    const originalCommit = execSync('git rev-parse HEAD', {
-      cwd: project.path,
-      encoding: 'utf8',
-      silent: true
-    }).trim();
+    const originalBranch = commandRunner.exec('git rev-parse --abbrev-ref HEAD', project.path, { silent: true }).trim();
+    const originalCommit = commandRunner.exec('git rev-parse HEAD', project.path, { silent: true }).trim();
 
     this.logger?.info(`[SpotlightManager] Enabling spotlight for session ${sessionId} on project ${project.id}`);
     this.logger?.info(`[SpotlightManager] Original branch: ${originalBranch}, commit: ${originalCommit}`);
@@ -100,8 +100,8 @@ export class SpotlightManager extends EventEmitter {
     // Do initial sync
     this.syncWorktreeToRoot(session.worktree_path, project.path, project.id);
 
-    // Create watcher
-    const watcher = new GitFileWatcher(this.logger);
+    // Create watcher with WSL-aware command execution
+    const watcher = new GitFileWatcher(this.logger, commandRunner, pathResolver);
     watcher.startWatching(sessionId, session.worktree_path);
     watcher.on('needs-refresh', () => {
       this.logger?.info(`[SpotlightManager] File change detected in session ${sessionId}, syncing...`);
@@ -117,6 +117,8 @@ export class SpotlightManager extends EventEmitter {
       originalBranch,
       originalCommit,
       watcher,
+      commandRunner,
+      pathResolver,
       syncInProgress: false
     };
 
@@ -167,19 +169,11 @@ export class SpotlightManager extends EventEmitter {
       if (state.originalBranch === 'HEAD') {
         // Was detached
         this.logger?.info(`[SpotlightManager] Restoring detached HEAD state to ${state.originalCommit}`);
-        execSync(`git checkout ${state.originalCommit}`, {
-          cwd: state.projectPath,
-          encoding: 'utf8',
-          silent: true
-        });
+        state.commandRunner.exec(`git checkout ${state.originalCommit}`, state.projectPath, { silent: true });
       } else {
         // Was on a branch
         this.logger?.info(`[SpotlightManager] Restoring branch ${state.originalBranch}`);
-        execSync(`git checkout ${state.originalBranch}`, {
-          cwd: state.projectPath,
-          encoding: 'utf8',
-          silent: true
-        });
+        state.commandRunner.exec(`git checkout ${state.originalBranch}`, state.projectPath, { silent: true });
       }
     } catch (error) {
       this.logger?.error(
@@ -223,21 +217,13 @@ export class SpotlightManager extends EventEmitter {
           this.logger?.info(
             `[SpotlightManager] Restoring detached HEAD state to ${state.originalCommit} for project ${projectId}`
           );
-          execSync(`git checkout ${state.originalCommit}`, {
-            cwd: state.projectPath,
-            encoding: 'utf8',
-            silent: true
-          });
+          state.commandRunner.exec(`git checkout ${state.originalCommit}`, state.projectPath, { silent: true });
         } else {
           // Was on a branch
           this.logger?.info(
             `[SpotlightManager] Restoring branch ${state.originalBranch} for project ${projectId}`
           );
-          execSync(`git checkout ${state.originalBranch}`, {
-            cwd: state.projectPath,
-            encoding: 'utf8',
-            silent: true
-          });
+          state.commandRunner.exec(`git checkout ${state.originalBranch}`, state.projectPath, { silent: true });
         }
       } catch (error) {
         this.logger?.error(
@@ -280,11 +266,7 @@ export class SpotlightManager extends EventEmitter {
     try {
       // Tamper detection
       if (state.lastSyncCommit) {
-        const currentCommit = execSync('git rev-parse HEAD', {
-          cwd: projectPath,
-          encoding: 'utf8',
-          silent: true
-        }).trim();
+        const currentCommit = state.commandRunner.exec('git rev-parse HEAD', projectPath, { silent: true }).trim();
 
         if (currentCommit !== state.lastSyncCommit) {
           this.logger?.warn(
@@ -308,11 +290,7 @@ export class SpotlightManager extends EventEmitter {
       }
 
       // Run git stash create
-      const stashHash = execSync('git stash create', {
-        cwd: worktreePath,
-        encoding: 'utf8',
-        silent: true
-      }).trim();
+      const stashHash = state.commandRunner.exec('git stash create', worktreePath, { silent: true }).trim();
 
       // If empty string, no changes
       if (!stashHash) {
@@ -323,11 +301,7 @@ export class SpotlightManager extends EventEmitter {
       this.logger?.info(`[SpotlightManager] Created stash ${stashHash} for project ${projectId}`);
 
       // Checkout the stash at project root
-      execSync(`git checkout ${stashHash}`, {
-        cwd: projectPath,
-        encoding: 'utf8',
-        silent: true
-      });
+      state.commandRunner.exec(`git checkout ${stashHash}`, projectPath, { silent: true });
 
       // Update lastSyncCommit
       state.lastSyncCommit = stashHash;
@@ -363,10 +337,10 @@ export class SpotlightManager extends EventEmitter {
     }
   }
 
-  private isRepoClean(repoPath: string): boolean {
+  private isRepoClean(repoPath: string, commandRunner: CommandRunner): boolean {
     try {
-      execSync('git diff-files --quiet', { cwd: repoPath, encoding: 'utf8', silent: true });
-      execSync('git diff-index --cached --quiet HEAD', { cwd: repoPath, encoding: 'utf8', silent: true });
+      commandRunner.exec('git diff-files --quiet', repoPath, { silent: true });
+      commandRunner.exec('git diff-index --cached --quiet HEAD', repoPath, { silent: true });
       return true;
     } catch {
       return false;
@@ -459,8 +433,12 @@ export class SpotlightManager extends EventEmitter {
             continue;
           }
 
-          // Validate worktree exists
-          if (!existsSync(session.worktree_path)) {
+          // Validate worktree exists (use PathResolver for WSL UNC conversion)
+          const ctx = this.sessionManager.getProjectContextByProjectId(Number(projectIdStr));
+          const fsWorktreePath = ctx
+            ? ctx.pathResolver.toFileSystem(session.worktree_path)
+            : session.worktree_path;
+          if (!existsSync(fsWorktreePath)) {
             this.logger?.warn(
               `[SpotlightManager] Worktree for session ${entry.sessionId} no longer exists, skipping restore`
             );

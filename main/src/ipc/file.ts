@@ -734,11 +734,12 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
   ipcMain.handle('file:read-project', async (_, request: { projectId: number; filePath: string }) => {
     console.log('[file:read-project] Request:', request);
     try {
-      const project = databaseService.getProject(request.projectId);
-      if (!project) {
+      const ctx = sessionManager.getProjectContextByProjectId(request.projectId);
+      if (!ctx) {
         console.error('[file:read-project] Project not found:', request.projectId);
         throw new Error(`Project not found: ${request.projectId}`);
       }
+      const { project, pathResolver } = ctx;
 
       console.log('[file:read-project] Project path:', project.path);
 
@@ -748,9 +749,10 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
         throw new Error('Invalid file path');
       }
 
-      const fullPath = path.join(project.path, normalizedPath);
+      const storedPath = pathResolver.join(project.path, normalizedPath);
+      const fullPath = pathResolver.toFileSystem(storedPath);
       console.log('[file:read-project] Full path:', fullPath);
-      
+
       // Check if file exists
       try {
         await fs.access(fullPath);
@@ -767,9 +769,9 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
       return { success: true, data: content };
     } catch (error) {
       console.error('[file:read-project] Error:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   });
@@ -778,11 +780,12 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
   ipcMain.handle('file:write-project', async (_, request: { projectId: number; filePath: string; content: string }) => {
     console.log('[file:write-project] Request:', { projectId: request.projectId, filePath: request.filePath, contentLength: request.content.length });
     try {
-      const project = databaseService.getProject(request.projectId);
-      if (!project) {
+      const ctx = sessionManager.getProjectContextByProjectId(request.projectId);
+      if (!ctx) {
         console.error('[file:write-project] Project not found:', request.projectId);
         throw new Error(`Project not found: ${request.projectId}`);
       }
+      const { project, pathResolver } = ctx;
 
       console.log('[file:write-project] Project path:', project.path);
 
@@ -792,23 +795,24 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
         throw new Error('Invalid file path');
       }
 
-      const fullPath = path.join(project.path, normalizedPath);
+      const storedPath = pathResolver.join(project.path, normalizedPath);
+      const fullPath = pathResolver.toFileSystem(storedPath);
       console.log('[file:write-project] Full path:', fullPath);
-      
+
       // Ensure directory exists
       const dir = path.dirname(fullPath);
       await fs.mkdir(dir, { recursive: true });
-      
+
       // Write the file
       await fs.writeFile(fullPath, request.content, 'utf-8');
       console.log('[file:write-project] Successfully wrote', request.content.length, 'bytes to', fullPath);
-      
+
       return { success: true };
     } catch (error) {
       console.error('[file:write-project] Error:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   });
