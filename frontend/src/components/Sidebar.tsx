@@ -22,13 +22,14 @@ interface SidebarProps {
   onSettingsClick: () => void;
   isSettingsOpen: boolean;
   onSettingsClose: () => void;
+  settingsInitialSection?: string;
   width: number;
   onResize: (e: React.MouseEvent) => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
 }
 
-export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSettingsClick, isSettingsOpen, onSettingsClose, width, onResize, collapsed, onToggleCollapse }: SidebarProps) {
+export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSettingsClick, isSettingsOpen, onSettingsClose, settingsInitialSection, width, onResize, collapsed, onToggleCollapse }: SidebarProps) {
   const paneLogo = usePaneLogo();
   const [showStatusGuide, setShowStatusGuide] = useState(false);
   const [version, setVersion] = useState<string>('');
@@ -227,7 +228,7 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSet
           </div>
         </div>
 
-        <Settings isOpen={isSettingsOpen} onClose={onSettingsClose} />
+        <Settings isOpen={isSettingsOpen} onClose={onSettingsClose} initialSection={settingsInitialSection} />
         {showCreateDialog && activeProject && (
           <CreateSessionDialog
             isOpen={showCreateDialog}
@@ -378,7 +379,7 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSet
         </div>
     </div>
 
-      <Settings isOpen={isSettingsOpen} onClose={onSettingsClose} />
+      <Settings isOpen={isSettingsOpen} onClose={onSettingsClose} initialSection={settingsInitialSection} />
       
       {/* Status Guide Modal */}
       <Modal 

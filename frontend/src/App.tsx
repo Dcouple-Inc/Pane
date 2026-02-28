@@ -3,6 +3,9 @@ import { useIPCEvents } from './hooks/useIPCEvents';
 import { useNotifications } from './hooks/useNotifications';
 import { useResizable } from './hooks/useResizable';
 import { useHotkey } from './hooks/useHotkey';
+import { useTerminalShortcuts } from './hooks/useTerminalShortcuts';
+import { useShortcutHintsOverlay } from './hooks/useShortcutHintsOverlay';
+import { ShortcutHintsOverlay } from './components/ShortcutHintsOverlay';
 import { Sidebar } from './components/Sidebar';
 import { SessionView } from './components/SessionView';
 import { PromptHistoryModal } from './components/PromptHistoryModal';
@@ -62,9 +65,12 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [resumableSessions, setResumableSessions] = useState<ResumableSession[]>([]);
   const [isResumeDialogOpen, setIsResumeDialogOpen] = useState(false);
+  const [settingsInitialSection, setSettingsInitialSection] = useState<string | undefined>();
   const { currentError, clearError } = useErrorStore();
   const { sessions, isLoaded } = useSessionStore();
   const { fetchConfig } = useConfigStore();
+  const terminalShortcuts = useConfigStore((s) => s.config?.terminalShortcuts ?? []);
+  const { isVisible: shortcutHintsVisible } = useShortcutHintsOverlay();
   
   const { width: sidebarWidth, startResize } = useResizable({
     defaultWidth: 320,  // ~20% of screen width
@@ -138,6 +144,20 @@ function App() {
       if (sidebarCollapsed) toggleSidebarCollapsed();
     },
   });
+
+  useHotkey({
+    id: 'open-shortcut-settings',
+    label: 'Open Shortcut Settings',
+    keys: 'mod+alt+/',
+    category: 'shortcuts',
+    action: () => {
+      setSettingsInitialSection('terminal-shortcuts');
+      setIsSettingsOpen(true);
+    },
+  });
+
+  // Register terminal shortcuts (hotkey-triggered clipboard paste)
+  useTerminalShortcuts();
 
   // Load config on app startup
   useEffect(() => {
@@ -398,7 +418,8 @@ function App() {
           onPromptHistoryClick={() => setIsPromptHistoryOpen(true)}
           onSettingsClick={() => setIsSettingsOpen(true)}
           isSettingsOpen={isSettingsOpen}
-          onSettingsClose={() => setIsSettingsOpen(false)}
+          onSettingsClose={() => { setIsSettingsOpen(false); setSettingsInitialSection(undefined); }}
+          settingsInitialSection={settingsInitialSection}
           width={sidebarWidth}
           onResize={startResize}
           collapsed={sidebarCollapsed}
@@ -449,6 +470,7 @@ function App() {
           isOpen={isCommandPaletteOpen}
           onClose={() => setIsCommandPaletteOpen(false)}
         />
+        <ShortcutHintsOverlay isVisible={shortcutHintsVisible} shortcuts={terminalShortcuts} />
 
         {/* Token Test Modal - Toggle with Cmd/Ctrl + Shift + T (Development Only) */}
         {isTokenTestOpen && process.env.NODE_ENV === 'development' && (

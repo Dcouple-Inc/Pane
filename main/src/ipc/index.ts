@@ -21,6 +21,7 @@ import { registerNimbalystHandlers } from './nimbalyst';
 import { registerAnalyticsHandlers } from './analytics';
 import { registerSpotlightHandlers } from './spotlight';
 import { registerCloudHandlers } from './cloud';
+import { registerClipboardHandlers } from './clipboard';
 
 
 export function registerIpcHandlers(services: AppServices): void {
@@ -45,4 +46,5 @@ export function registerIpcHandlers(services: AppServices): void {
   registerAnalyticsHandlers(ipcMain, services);
   registerSpotlightHandlers(ipcMain, services);
   registerCloudHandlers(ipcMain, services);
+  registerClipboardHandlers(ipcMain, services);
 } 
