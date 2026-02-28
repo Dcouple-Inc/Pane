@@ -1,12 +1,10 @@
 import React, { useCallback, memo, useState, useRef, useEffect, useMemo } from 'react';
-import { Plus, X, Terminal, ChevronDown, ChevronRight, GitBranch, FileCode, MoreVertical, BarChart3, Edit2, PanelRight, FolderTree, TerminalSquare, Play, Cpu, RefreshCw } from 'lucide-react';
+import { Plus, X, Terminal, ChevronDown, ChevronRight, GitBranch, FileCode, BarChart3, Edit2, PanelRight, FolderTree, TerminalSquare, Play, Cpu, RefreshCw } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { cn } from '../../utils/cn';
 import { useHotkey } from '../../hooks/useHotkey';
 import { PanelTabBarProps, PanelCreateOptions } from '../../types/panelComponents';
 import { ToolPanel, ToolPanelType, PANEL_CAPABILITIES, LogsPanelState } from '../../../../shared/types/panels';
-import { Button } from '../ui/Button';
-import { Dropdown } from '../ui/Dropdown';
 import { useSession } from '../../contexts/SessionContext';
 import { StatusIndicator } from '../StatusIndicator';
 import { useConfigStore } from '../../stores/configStore';
@@ -55,7 +53,6 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
 }) => {
   const sessionContext = useSession();
   const session = sessionContext?.session;
-  const { gitBranchActions, isMerging } = sessionContext || {};
   const { config, fetchConfig, updateConfig } = useConfigStore();
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -635,39 +632,6 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
           })()}
         </div>
 
-        {/* Run Dev Server button */}
-        {session && (
-          <Tooltip content="Run Dev Server" side="bottom">
-            <button
-              className="inline-flex items-center h-9 px-2 text-text-tertiary hover:text-status-success hover:bg-surface-hover transition-colors flex-shrink-0"
-              onClick={async () => {
-                // Check if pane-run-script.js exists in this session's worktree
-                const scriptExists = await window.electronAPI?.invoke('file:exists', {
-                  sessionId: session.id,
-                  filePath: 'scripts/pane-run-script.js'
-                });
-
-                if (scriptExists) {
-                  // Script exists - run it
-                  handleAddPanel('terminal', {
-                    initialCommand: 'node scripts/pane-run-script.js',
-                    title: 'Dev Server'
-                  });
-                } else {
-                  // Script doesn't exist - trigger Claude to create it
-                  handleAddPanel('terminal', {
-                    initialCommand: `claude --dangerously-skip-permissions "${SETUP_RUN_SCRIPT_PROMPT.replace(/\n/g, ' ')}"`,
-                    title: 'Setup Run Script'
-                  });
-                }
-              }}
-              title="Run Dev Server"
-            >
-              <Play className="w-4 h-4" />
-            </button>
-          </Tooltip>
-        )}
-
         {/* Right side actions */}
         <div className="flex items-center gap-1 flex-shrink-0 ml-auto">
           {/* Resource monitor chip */}
@@ -692,24 +656,34 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
             )}
           </button>
 
-          {/* Git Branch Actions - only in worktree context */}
-          {context === 'worktree' && gitBranchActions && gitBranchActions.length > 0 && (
-            <Dropdown
-              trigger={
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="flex items-center gap-2 px-3 py-1 h-7"
-                  disabled={isMerging}
-                >
-                  <GitBranch className="w-4 h-4" />
-                  <span className="text-sm">Git Branch Actions</span>
-                  <MoreVertical className="w-3 h-3" />
-                </Button>
-              }
-              items={gitBranchActions}
-              position="bottom-right"
-            />
+          {/* Run Dev Server button */}
+          {session && (
+            <Tooltip content="Run Dev Server" side="bottom">
+              <button
+                className="inline-flex items-center h-9 px-2 text-text-tertiary hover:text-status-success hover:bg-surface-hover transition-colors flex-shrink-0"
+                onClick={async () => {
+                  const scriptExists = await window.electronAPI?.invoke('file:exists', {
+                    sessionId: session.id,
+                    filePath: 'scripts/pane-run-script.js'
+                  });
+
+                  if (scriptExists) {
+                    handleAddPanel('terminal', {
+                      initialCommand: 'node scripts/pane-run-script.js',
+                      title: 'Dev Server'
+                    });
+                  } else {
+                    handleAddPanel('terminal', {
+                      initialCommand: `claude --dangerously-skip-permissions "${SETUP_RUN_SCRIPT_PROMPT.replace(/\n/g, ' ')}"`,
+                      title: 'Setup Run Script'
+                    });
+                  }
+                }}
+                title="Run Dev Server"
+              >
+                <Play className="w-4 h-4" />
+              </button>
+            </Tooltip>
           )}
 
           {/* Detail panel toggle */}
