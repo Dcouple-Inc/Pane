@@ -310,6 +310,11 @@ export class API {
       return window.electronAPI.sessions.getLastCommits(sessionId, count);
     },
 
+    async getGitGraph(sessionId: string) {
+      if (!isElectron()) throw new Error('Electron API not available');
+      return window.electronAPI.sessions.getGitGraph(sessionId);
+    },
+
     async openIDE(sessionId: string) {
       if (!isElectron()) throw new Error('Electron API not available');
       return window.electronAPI.sessions.openIDE(sessionId);

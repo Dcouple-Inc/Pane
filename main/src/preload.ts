@@ -265,6 +265,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getRemoteBranches: (sessionId: string): Promise<IPCResponse> => ipcRenderer.invoke('sessions:get-remote-branches', sessionId),
     getGitStatus: (sessionId: string, nonBlocking?: boolean, isInitialLoad?: boolean): Promise<IPCResponse> => ipcRenderer.invoke('sessions:get-git-status', sessionId, nonBlocking, isInitialLoad),
     getLastCommits: (sessionId: string, count: number): Promise<IPCResponse> => ipcRenderer.invoke('sessions:get-last-commits', sessionId, count),
+    getGitGraph: (sessionId: string): Promise<IPCResponse> => ipcRenderer.invoke('sessions:get-git-graph', sessionId),
 
     // Git operation helpers
     hasChangesToRebase: (sessionId: string): Promise<IPCResponse> => ipcRenderer.invoke('sessions:has-changes-to-rebase', sessionId),

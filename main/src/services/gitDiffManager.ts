@@ -24,6 +24,16 @@ export interface GitCommit {
   stats: GitDiffStats;
 }
 
+export interface GitGraphCommit {
+  hash: string;
+  parents: string[];
+  branch: string;
+  message: string;
+  committerDate: string;
+  author: string;
+  authorEmail?: string;
+}
+
 export class GitDiffManager {
   constructor(
     private logger?: Logger,
@@ -191,6 +201,50 @@ export class GitDiffManager {
       }
       
       // For other errors, return empty array as fallback
+      return [];
+    }
+  }
+
+  /**
+   * Get git commit history for the graph visualization (lightweight, no stats)
+   */
+  getGraphCommitHistory(
+    worktreePath: string,
+    branch: string,
+    limit: number = 50,
+    mainBranch: string = 'main',
+    commandRunner: CommandRunner
+  ): GitGraphCommit[] {
+    try {
+      const logFormat = '%h|%p|%s|%ai|%an|%ae';
+      const gitCommand = `git log --format="${logFormat}" -n ${limit} --cherry-pick --left-only HEAD...${mainBranch} --`;
+
+      const logOutput = commandRunner.exec(gitCommand, worktreePath);
+
+      if (!logOutput.trim()) {
+        return [];
+      }
+
+      return logOutput.trim().split('\n').filter(Boolean).map(line => {
+        const [hash, parentStr, message, date, author, email] = line.split('|');
+        return {
+          hash,
+          parents: parentStr ? parentStr.split(' ').filter(Boolean) : [],
+          branch,
+          message,
+          committerDate: date,
+          author,
+          authorEmail: email
+        };
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger?.error('Failed to get graph commit history', error instanceof Error ? error : undefined);
+
+      if (errorMessage.includes('fatal:') || errorMessage.includes('error:')) {
+        throw new Error(`Git error: ${errorMessage}`);
+      }
+
       return [];
     }
   }

@@ -123,6 +123,7 @@ interface ElectronAPI {
     getRemoteBranches: (sessionId: string) => Promise<IPCResponse>;
     getGitStatus: (sessionId: string, nonBlocking?: boolean, isInitialLoad?: boolean) => Promise<IPCResponse>;
     getLastCommits: (sessionId: string, count: number) => Promise<IPCResponse>;
+    getGitGraph: (sessionId: string) => Promise<IPCResponse>;
 
     // IDE operations
     openIDE: (sessionId: string) => Promise<IPCResponse>;

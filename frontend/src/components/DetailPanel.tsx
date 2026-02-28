@@ -3,6 +3,7 @@ import { useSession } from '../contexts/SessionContext';
 import { CommitModeIndicator } from './CommitModeIndicator';
 import { GitBranch, AlertTriangle } from 'lucide-react';
 import { Button } from './ui/Button';
+import { GitHistoryGraph } from './GitHistoryGraph';
 
 interface DetailPanelProps {
   isVisible: boolean;
@@ -153,6 +154,16 @@ export function DetailPanel({ isVisible, width, onResize, mergeError, projectGit
             )}
           </div>
         </DetailSection>
+
+        {/* Git History Graph */}
+        {session.worktreePath && (
+          <DetailSection title="History">
+            <GitHistoryGraph
+              sessionId={session.id}
+              baseBranch={session.baseBranch || 'main'}
+            />
+          </DetailSection>
+        )}
       </div>
     </div>
   );

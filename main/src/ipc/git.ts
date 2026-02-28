@@ -5,7 +5,7 @@ import { mainWindow } from '../index';
 import { panelEventBus } from '../services/panelEventBus';
 import { PanelEventType, ToolPanelType, PanelEvent } from '../../../shared/types/panels';
 import type { Session } from '../types/session';
-import type { GitCommit } from '../services/gitDiffManager';
+import type { GitCommit, GitGraphCommit } from '../services/gitDiffManager';
 import type { CommandRunner } from '../utils/commandRunner';
 
 // Extended type for git system virtual panels
@@ -345,6 +345,82 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
     } catch (error) {
       console.error('Failed to get execution diff:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to get execution diff';
+      return { success: false, error: errorMessage };
+    }
+  });
+
+  ipcMain.handle('sessions:get-git-graph', async (_event, sessionId: string) => {
+    try {
+      const session = await sessionManager.getSession(sessionId);
+      if (!session || !session.worktreePath) {
+        return { success: false, error: 'Session or worktree path not found' };
+      }
+
+      const project = sessionManager.getProjectForSession(sessionId);
+      if (!project?.path) {
+        return { success: false, error: 'Project path not found for session' };
+      }
+
+      const ctx = sessionManager.getProjectContext(sessionId);
+      if (!ctx) throw new Error('Project context not found for session');
+
+      const mainBranch = await worktreeManager.getProjectMainBranch(project.path, ctx.commandRunner);
+      const branch = session.baseBranch || 'unknown';
+
+      let entries: GitGraphCommit[] = [];
+      let useFallback = false;
+
+      if (session.isMainRepo) {
+        const originBranch = await worktreeManager.getOriginBranch(session.worktreePath, mainBranch, ctx.commandRunner);
+        if (!originBranch) {
+          useFallback = true;
+        }
+      }
+
+      if (!useFallback) {
+        try {
+          const comparisonBranch = session.isMainRepo
+            ? (await worktreeManager.getOriginBranch(session.worktreePath, mainBranch, ctx.commandRunner)) || mainBranch
+            : mainBranch;
+          entries = gitDiffManager.getGraphCommitHistory(session.worktreePath, branch, 50, comparisonBranch, ctx.commandRunner);
+        } catch (error) {
+          if (session.isMainRepo) {
+            useFallback = true;
+          } else {
+            throw error;
+          }
+        }
+      }
+
+      if (useFallback) {
+        const fallbackCommits = await worktreeManager.getLastCommits(session.worktreePath, 50, ctx.commandRunner);
+        entries = fallbackCommits.map((commit: RawCommitData, index: number, arr: RawCommitData[]) => ({
+          hash: commit.hash.substring(0, 7),
+          parents: index < arr.length - 1 ? [arr[index + 1].hash.substring(0, 7)] : [],
+          branch,
+          message: commit.message,
+          committerDate: new Date(commit.date).toISOString(),
+          author: commit.author || 'Unknown',
+        }));
+      }
+
+      // Prepend uncommitted changes if any
+      const hasUncommittedChanges = gitDiffManager.hasChanges(session.worktreePath, ctx.commandRunner);
+      if (hasUncommittedChanges) {
+        entries.unshift({
+          hash: 'index',
+          parents: entries.length > 0 ? [entries[0].hash] : [],
+          branch,
+          message: 'Uncommitted changes',
+          committerDate: new Date().toISOString(),
+          author: 'You',
+        });
+      }
+
+      return { success: true, data: { entries, currentBranch: branch } };
+    } catch (error) {
+      console.error('Failed to get git graph:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to get git graph';
       return { success: false, error: errorMessage };
     }
   });

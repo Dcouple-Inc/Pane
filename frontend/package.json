@@ -20,6 +20,7 @@
     "@radix-ui/react-slot": "^1.1.1",
     "@radix-ui/react-switch": "^1.1.2",
     "@radix-ui/react-tabs": "^1.1.2",
+    "@tomplum/react-git-log": "^3.5.1",
     "@types/dompurify": "^3.0.5",
     "@types/uuid": "^10.0.0",
     "@xterm/addon-fit": "^0.10.0",
