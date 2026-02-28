@@ -1049,7 +1049,7 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : commitMessage;
   async getLastCommits(worktreePath: string, count: number, commandRunner: CommandRunner): Promise<RawCommitData[]> {
     try {
       const { stdout } = await commandRunner.execAsync(
-        `git log -${count} --pretty=format:'%H|%s|%ai|%an' --shortstat`,
+        `git log -${count} --pretty=format:"%H|%s|%ai|%an" --shortstat`,
         worktreePath
       );
 
