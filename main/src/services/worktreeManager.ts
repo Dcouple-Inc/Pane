@@ -49,7 +49,7 @@ export class WorktreeManager {
     const { baseDir } = this.getProjectPaths(projectPath, worktreeFolder, pathResolver);
     try {
       if (pathResolver.environment === 'wsl' || pathResolver.environment === 'linux' || pathResolver.environment === 'macos') {
-        await commandRunner.execAsync(`mkdir -p '${baseDir}'`, projectPath);
+        await commandRunner.execAsync(`mkdir -p '${baseDir}'`, '/');
       } else {
         await mkdir(pathResolver.toFileSystem(baseDir), { recursive: true });
       }
@@ -102,7 +102,7 @@ export class WorktreeManager {
         } catch {
           // Ignore add errors (no files to add)
         }
-        await commandRunner.execAsync(`git commit -m "Initial commit" --allow-empty`, projectPath);
+        await commandRunner.execAsync(`GIT_COMMITTER_NAME='Pane' GIT_COMMITTER_EMAIL='runpane@users.noreply.github.com' git commit -m "Initial commit" --allow-empty`, projectPath);
         hasCommits = true;
       }
 

@@ -21,9 +21,13 @@ export class PathResolver {
     }
   }
 
-  /** Convert a stored path (Linux for WSL) to one Node's fs module can use */
+  /** Convert a stored path (Linux for WSL) to one Node's fs module can use. Idempotent — already-converted UNC paths are returned unchanged. */
   toFileSystem(storedPath: string): string {
     if (this.environment === 'wsl' && this.distribution) {
+      // Skip conversion if already a UNC path (prevents double-prefixing)
+      if (storedPath.startsWith('\\\\')) {
+        return storedPath;
+      }
       return linuxToUNCPath(storedPath, this.distribution);
     }
     return storedPath;
