@@ -30,8 +30,12 @@ import { CommandPalette } from './components/CommandPalette';
 import { CloudOverlay } from './components/CloudOverlay';
 import { CloudWidget } from './components/CloudWidget';
 import type { VersionUpdateInfo, PermissionInput } from './types/session';
+import type { TerminalShortcut } from './types/config';
 import type { ResumableSession } from '../../shared/types/panels';
 import { isMac } from './utils/platformUtils';
+
+// Stable empty array to avoid creating new references in render
+const EMPTY_TERMINAL_SHORTCUTS: TerminalShortcut[] = [];
 
 // Type for IPC response
 interface IPCResponse<T = unknown> {
@@ -68,8 +72,8 @@ function App() {
   const [settingsInitialSection, setSettingsInitialSection] = useState<string | undefined>();
   const { currentError, clearError } = useErrorStore();
   const { sessions, isLoaded } = useSessionStore();
-  const { fetchConfig } = useConfigStore();
-  const terminalShortcuts = useConfigStore((s) => s.config?.terminalShortcuts ?? []);
+  const { fetchConfig, config: appConfig } = useConfigStore();
+  const terminalShortcuts = appConfig?.terminalShortcuts ?? EMPTY_TERMINAL_SHORTCUTS;
   const { isVisible: shortcutHintsVisible } = useShortcutHintsOverlay();
   
   const { width: sidebarWidth, startResize } = useResizable({
