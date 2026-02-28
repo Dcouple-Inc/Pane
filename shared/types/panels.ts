@@ -4,6 +4,8 @@
  * "sessions" in code, database, and IPC to avoid a massive refactor.
  */
 
+export type ProjectEnvironment = 'wsl' | 'windows' | 'linux' | 'macos';
+
 export interface ToolPanel {
   id: string;                    // Unique panel instance ID (uuid)
   sessionId: string;             // Associated session/worktree

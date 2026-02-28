@@ -95,16 +95,13 @@ export function registerPanelHandlers(ipcMain: IpcMain, services: AppServices) {
     if (panel.type === 'terminal') {
       const cwd = options?.cwd || process.cwd();
 
-      // Look up WSL context from session's project
+      // Get WSL context from project for terminal shell spawning
       let wslContext = null;
       if (panel.sessionId) {
-        const session = services.sessionManager.getSession(panel.sessionId);
-        if (session?.projectId) {
-          const project = services.databaseService.getProject(session.projectId);
-          if (project) {
-            const { getWSLContextFromProject } = require('../utils/wslUtils');
-            wslContext = getWSLContextFromProject(project);
-          }
+        const ctx = services.sessionManager.getProjectContext(panel.sessionId);
+        if (ctx) {
+          // Extract wslContext from CommandRunner for terminal spawning
+          wslContext = ctx.commandRunner.wslContext;
         }
       }
 

@@ -57,7 +57,7 @@ export function posixJoin(...segments: string[]): string {
  * doesn't understand single quotes. We must use double quotes for the
  * outer bash -c wrapper and escape special chars inside.
  */
-function escapeForBashDoubleQuote(str: string): string {
+export function escapeForBashDoubleQuote(str: string): string {
   // In double-quoted strings, escape: \ ` $ " !
   return str
     .replace(/\\/g, '\\\\')

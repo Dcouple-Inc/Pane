@@ -1,7 +1,8 @@
 import { EventEmitter } from 'events';
 import { watch, FSWatcher } from 'fs';
-import { join, relative } from 'path';
-import { execSync, ExtendedExecSyncOptions } from '../utils/commandExecutor';
+import { execSync } from '../utils/commandExecutor';
+import type { CommandRunner } from '../utils/commandRunner';
+import type { PathResolver } from '../utils/pathResolver';
 import type { Logger } from '../utils/logger';
 
 interface WatchedSession {
@@ -14,7 +15,7 @@ interface WatchedSession {
 
 /**
  * Smart file watcher that detects when git status actually needs refreshing
- * 
+ *
  * Key optimizations:
  * 1. Uses native fs.watch for efficient file monitoring
  * 2. Filters out events that don't affect git status
@@ -37,7 +38,11 @@ export class GitFileWatcher extends EventEmitter {
     '#*#'
   ];
 
-  constructor(private logger?: Logger) {
+  constructor(
+    private logger?: Logger,
+    private commandRunner?: CommandRunner,
+    private pathResolver?: PathResolver
+  ) {
     super();
     this.setMaxListeners(100);
   }
@@ -52,8 +57,11 @@ export class GitFileWatcher extends EventEmitter {
     this.logger?.info(`[GitFileWatcher] Starting watch for session ${sessionId} at ${worktreePath}`);
 
     try {
+      // Convert path for fs.watch (needs UNC path on WSL)
+      const watchPath = this.pathResolver ? this.pathResolver.toFileSystem(worktreePath) : worktreePath;
+
       // Create a watcher for the worktree directory
-      const watcher = watch(worktreePath, { recursive: true }, (eventType, filename) => {
+      const watcher = watch(watchPath, { recursive: true }, (eventType, filename) => {
         if (filename) {
           this.handleFileChange(sessionId, filename, eventType);
         }
@@ -210,15 +218,23 @@ export class GitFileWatcher extends EventEmitter {
    * Quick check if git status needs refreshing
    * Returns true if there are changes, false if working tree is clean
    */
+  /** Run a git command, using CommandRunner when available for WSL support */
+  private execGit(command: string, cwd: string): string {
+    if (this.commandRunner) {
+      return this.commandRunner.exec(command, cwd, { silent: true });
+    }
+    return execSync(command, { cwd, encoding: 'utf8', silent: true }) as string;
+  }
+
   private checkIfRefreshNeeded(worktreePath: string): boolean {
     try {
       // First, refresh the index to ensure it's up to date
       // This is very fast and updates git's internal cache
-      execSync('git update-index --refresh --ignore-submodules', { cwd: worktreePath, encoding: 'utf8', silent: true });
+      this.execGit('git update-index --refresh --ignore-submodules', worktreePath);
 
       // Check for unstaged changes (modified files)
       try {
-        execSync('git diff-files --quiet --ignore-submodules', { cwd: worktreePath, encoding: 'utf8', silent: true });
+        this.execGit('git diff-files --quiet --ignore-submodules', worktreePath);
       } catch {
         // Non-zero exit means there are unstaged changes
         return true;
@@ -226,21 +242,19 @@ export class GitFileWatcher extends EventEmitter {
 
       // Check for staged changes
       try {
-        execSync('git diff-index --cached --quiet HEAD --ignore-submodules', { cwd: worktreePath, encoding: 'utf8', silent: true });
+        this.execGit('git diff-index --cached --quiet HEAD --ignore-submodules', worktreePath);
       } catch {
         // Non-zero exit means there are staged changes
         return true;
       }
-      
+
       // Check for untracked files
-      const untrackedOutput = execSync('git ls-files --others --exclude-standard', { cwd: worktreePath })
-        .toString()
-        .trim();
-      
+      const untrackedOutput = this.execGit('git ls-files --others --exclude-standard', worktreePath).trim();
+
       if (untrackedOutput) {
         return true;
       }
-      
+
       // Working tree is clean
       return false;
     } catch (error) {

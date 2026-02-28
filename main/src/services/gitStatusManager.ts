@@ -240,9 +240,9 @@ export class GitStatusManager extends EventEmitter {
           if (cached && session.worktreePath) {
             try {
               // Quick check for new ahead/behind status
-              const project = this.sessionManager.getProjectForSession(session.id);
-              if (project?.path) {
-                const mainBranch = await this.worktreeManager.getProjectMainBranch(project.path);
+              const ctx = this.sessionManager.getProjectContext(session.id);
+              if (ctx) {
+                const mainBranch = await this.worktreeManager.getProjectMainBranch(ctx.project.path, ctx.commandRunner);
                 const { ahead, behind } = fastGetAheadBehind(session.worktreePath, mainBranch);
                 
                 const updatedStatus = { ...cached.status };
@@ -291,12 +291,12 @@ export class GitStatusManager extends EventEmitter {
         return;
       }
 
-      const project = this.sessionManager.getProjectForSession(sessionId);
-      if (!project?.path) {
+      const ctx = this.sessionManager.getProjectContext(sessionId);
+      if (!ctx) {
         return;
       }
 
-      const mainBranch = await this.worktreeManager.getProjectMainBranch(project.path);
+      const mainBranch = await this.worktreeManager.getProjectMainBranch(ctx.project.path, ctx.commandRunner);
       
       // Create updated status based on rebase type
       const updatedStatus = { ...cached.status };
@@ -582,9 +582,9 @@ export class GitStatusManager extends EventEmitter {
       
       // If both have no changes, check if ahead/behind changed
       if (!currentHasChanges) {
-        const project = this.sessionManager.getProjectForSession(sessionId);
-        if (project?.path) {
-          const mainBranch = await this.worktreeManager.getProjectMainBranch(project.path);
+        const ctx = this.sessionManager.getProjectContext(sessionId);
+        if (ctx) {
+          const mainBranch = await this.worktreeManager.getProjectMainBranch(ctx.project.path, ctx.commandRunner);
           const { ahead, behind } = fastGetAheadBehind(worktreePath, mainBranch);
           
           if ((cached.status.ahead || 0) !== ahead || (cached.status.behind || 0) !== behind) {
@@ -623,8 +623,8 @@ export class GitStatusManager extends EventEmitter {
       
       this.gitLogger.logSessionFetch(sessionId, false);
 
-      const project = this.sessionManager.getProjectForSession(sessionId);
-      if (!project?.path) {
+      const ctx = this.sessionManager.getProjectContext(sessionId);
+      if (!ctx) {
         return null;
       }
 
@@ -633,7 +633,7 @@ export class GitStatusManager extends EventEmitter {
       const hasUncommittedChanges = quickStatus.hasModified || quickStatus.hasStaged;
       const hasUntrackedFiles = quickStatus.hasUntracked;
       const hasMergeConflicts = quickStatus.hasConflicts;
-      
+
       // Get uncommitted changes details only if needed
       let uncommittedDiff = { stats: { filesChanged: 0, additions: 0, deletions: 0 } };
       if (hasUncommittedChanges) {
@@ -647,9 +647,9 @@ export class GitStatusManager extends EventEmitter {
           }
         };
       }
-      
+
       // Get ahead/behind status using fast plumbing command
-      const mainBranch = await this.worktreeManager.getProjectMainBranch(project.path);
+      const mainBranch = await this.worktreeManager.getProjectMainBranch(ctx.project.path, ctx.commandRunner);
       const { ahead, behind } = fastGetAheadBehind(session.worktreePath, mainBranch);
 
       // Get total additions/deletions for all commits in the branch (compared to main)

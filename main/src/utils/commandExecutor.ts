@@ -49,6 +49,7 @@ class CommandExecutor {
     const { silent: _silent, ...cleanOptions } = actualOptions || {};
     const enhancedOptions = {
       ...cleanOptions,
+      maxBuffer: cleanOptions?.maxBuffer || 10 * 1024 * 1024,
       env: {
         ...process.env,
         ...cleanOptions?.env,
@@ -103,13 +104,15 @@ class CommandExecutor {
     // Get enhanced shell PATH
     const shellPath = getShellPath();
 
-    // Set up timeout (default 10 seconds)
-    const timeout = actualOptions?.timeout || 10000;
+    // Defaults: 60s timeout, 10MB buffer — git commands on large repos need both
+    const timeout = actualOptions?.timeout || 60_000;
+    const maxBuffer = actualOptions?.maxBuffer || 10 * 1024 * 1024;
 
     // Merge enhanced PATH into options
     const enhancedOptions: ExecOptions = {
       ...actualOptions,
       timeout,
+      maxBuffer,
       env: {
         ...process.env,
         ...actualOptions?.env,

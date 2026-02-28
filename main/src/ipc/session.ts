@@ -261,25 +261,28 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
         if (dbSession.worktree_name && dbSession.project_id && !dbSession.is_main_repo) {
           const project = databaseService.getProject(dbSession.project_id);
           if (project) {
-            try {
-              // Update progress: removing worktree
-              if (archiveProgressManager) {
-                archiveProgressManager.updateTaskStatus(sessionId, 'removing-worktree');
-              }
+            const ctx = sessionManager.getProjectContextByProjectId(dbSession.project_id);
+            if (ctx) {
+              try {
+                // Update progress: removing worktree
+                if (archiveProgressManager) {
+                  archiveProgressManager.updateTaskStatus(sessionId, 'removing-worktree');
+                }
 
-              // Pass session creation date for analytics tracking
-              const sessionCreatedAt = dbSession.created_at ? new Date(dbSession.created_at) : undefined;
-              await worktreeManager.removeWorktree(project.path, dbSession.worktree_name, project.worktree_folder || undefined, sessionCreatedAt);
+                // Pass session creation date for analytics tracking
+                const sessionCreatedAt = dbSession.created_at ? new Date(dbSession.created_at) : undefined;
+                await worktreeManager.removeWorktree(project.path, dbSession.worktree_name, project.worktree_folder || undefined, sessionCreatedAt, ctx.pathResolver, ctx.commandRunner);
 
-              cleanupMessage += `\x1b[32m✓ Worktree removed successfully\x1b[0m\r\n`;
-            } catch (worktreeError) {
-              // Log the error but don't fail
-              console.error(`[Main] Failed to remove worktree ${dbSession.worktree_name}:`, worktreeError);
-              cleanupMessage += `\x1b[33m⚠ Failed to remove worktree (manual cleanup may be needed)\x1b[0m\r\n`;
-              
-              // Update progress: failed
-              if (archiveProgressManager) {
-                archiveProgressManager.updateTaskStatus(sessionId, 'failed', 'Failed to remove worktree');
+                cleanupMessage += `\x1b[32m✓ Worktree removed successfully\x1b[0m\r\n`;
+              } catch (worktreeError) {
+                // Log the error but don't fail
+                console.error(`[Main] Failed to remove worktree ${dbSession.worktree_name}:`, worktreeError);
+                cleanupMessage += `\x1b[33m⚠ Failed to remove worktree (manual cleanup may be needed)\x1b[0m\r\n`;
+
+                // Update progress: failed
+                if (archiveProgressManager) {
+                  archiveProgressManager.updateTaskStatus(sessionId, 'failed', 'Failed to remove worktree');
+                }
               }
             }
           }

@@ -191,7 +191,12 @@ export default function ProjectSelector({ onProjectChange }: ProjectSelectorProp
                     className="flex-1 text-left px-3 py-2 flex items-center justify-between"
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-text-primary">{project.name}</div>
+                      <div className="flex items-center">
+                        <div className="text-sm font-medium text-text-primary">{project.name}</div>
+                        {project.environment === 'wsl' && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 ml-1.5 font-medium">WSL</span>
+                        )}
+                      </div>
                       <div className="text-xs text-text-tertiary truncate">{project.path}</div>
                     </div>
                     {project.active && (

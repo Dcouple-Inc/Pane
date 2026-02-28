@@ -190,16 +190,18 @@ export class TaskQueue {
         }
         
         // Ensure uniqueness for both names
-        const { sessionName: uniqueSessionName, worktreeName: uniqueWorktreeName } = 
+        const { sessionName: uniqueSessionName, worktreeName: uniqueWorktreeName } =
           await this.ensureUniqueNames(sessionName, worktreeName, targetProject, index);
         sessionName = uniqueSessionName;
         worktreeName = uniqueWorktreeName;
 
-
-        const { getWSLContextFromProject } = require('../utils/wslUtils');
-        const wslContext = getWSLContextFromProject(targetProject);
+        // Get CommandRunner for this project
+        const ctx = sessionManager.getProjectContextByProjectId(targetProject.id);
+        if (!ctx) {
+          throw new Error(`Failed to get project context for project ${targetProject.id}`);
+        }
         const { worktreePath, baseCommit, baseBranch: actualBaseBranch } = await worktreeManager.createWorktree(
-          targetProject.path, worktreeName, undefined, baseBranch, targetProject.worktree_folder || undefined, wslContext
+          targetProject.path, worktreeName, undefined, baseBranch, targetProject.worktree_folder || undefined, ctx.pathResolver, ctx.commandRunner
         );
 
         const session = await sessionManager.createSession(

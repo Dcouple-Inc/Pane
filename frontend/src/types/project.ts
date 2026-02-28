@@ -1,3 +1,5 @@
+import type { ProjectEnvironment } from '../../../shared/types/panels';
+
 export interface Project {
   id: number;
   name: string;
@@ -17,6 +19,7 @@ export interface Project {
   commit_checkpoint_prefix?: string;
   wsl_enabled?: boolean;
   wsl_distribution?: string | null;
+  environment?: ProjectEnvironment;
 }
 
 export interface ProjectRunCommand {
