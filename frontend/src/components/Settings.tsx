@@ -70,7 +70,7 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'general' | 'notifications' | 'analytics'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'notifications' | 'shortcuts' | 'analytics'>('general');
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
   const [previousAnalyticsEnabled, setPreviousAnalyticsEnabled] = useState(true);
   const [preferredShell, setPreferredShell] = useState<string>('auto');
@@ -109,8 +109,13 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
         }
       };
       loadAutoRename();
+
+      // Navigate to shortcuts tab when opened via Ctrl+Alt+/
+      if (initialSection === 'terminal-shortcuts') {
+        setActiveTab('shortcuts');
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, initialSection]);
 
   const fetchConfig = async (currentPlatform?: string) => {
     try {
@@ -297,6 +302,16 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
             }`}
           >
             Notifications
+          </button>
+          <button
+            onClick={() => setActiveTab('shortcuts')}
+            className={`px-4 py-3 text-sm font-medium transition-colors ${
+              activeTab === 'shortcuts'
+                ? 'text-interactive border-b-2 border-interactive bg-interactive/5'
+                : 'text-text-tertiary hover:text-text-primary hover:bg-surface-hover'
+            }`}
+          >
+            Shortcuts
           </button>
           <button
             onClick={() => setActiveTab('analytics')}
@@ -533,117 +548,6 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
                   You can still manually run /context when needed.
                 </p>
               </SettingsSection>
-            </CollapsibleCard>
-
-            {/* Terminal Shortcuts */}
-            <CollapsibleCard
-              key={`terminal-shortcuts-${initialSection}`}
-              title="Terminal Shortcuts"
-              subtitle="Bind Ctrl+Alt+letter shortcuts to paste text snippets anywhere"
-              icon={<Keyboard className="w-5 h-5" />}
-              defaultExpanded={initialSection === 'terminal-shortcuts'}
-            >
-              <div className="space-y-4">
-                {terminalShortcuts.map((shortcut, index) => (
-                  <div key={shortcut.id} className="p-3 rounded-lg bg-surface-secondary border border-border-secondary space-y-3">
-                    <div className="flex items-center gap-3">
-                      <Input
-                        label="Label"
-                        value={shortcut.label}
-                        onChange={(e) => {
-                          const updated = [...terminalShortcuts];
-                          updated[index] = { ...updated[index], label: e.target.value };
-                          setTerminalShortcuts(updated);
-                        }}
-                        placeholder="e.g. Run tests"
-                        fullWidth
-                      />
-                      <div className="flex-shrink-0 w-24">
-                        <Input
-                          label="Key"
-                          value={shortcut.key}
-                          onChange={(e) => {
-                            const val = e.target.value.toLowerCase().replace(/[^a-z]/g, '').slice(0, 1);
-                            const updated = [...terminalShortcuts];
-                            updated[index] = { ...updated[index], key: val };
-                            setTerminalShortcuts(updated);
-                          }}
-                          placeholder="a-z"
-                          fullWidth
-                        />
-                      </div>
-                      <div className="flex-shrink-0 flex items-end gap-1 pb-0.5">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const updated = [...terminalShortcuts];
-                            updated[index] = { ...updated[index], enabled: !updated[index].enabled };
-                            setTerminalShortcuts(updated);
-                          }}
-                          className={`p-2 rounded-md transition-colors ${
-                            shortcut.enabled
-                              ? 'text-status-success hover:bg-status-success/10'
-                              : 'text-text-tertiary hover:bg-surface-hover'
-                          }`}
-                          title={shortcut.enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'}
-                        >
-                          {shortcut.enabled ? <Power className="w-4 h-4" /> : <PowerOff className="w-4 h-4" />}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setTerminalShortcuts(terminalShortcuts.filter((_, i) => i !== index));
-                          }}
-                          className="p-2 rounded-md text-text-tertiary hover:text-status-error hover:bg-status-error/10 transition-colors"
-                          title="Delete shortcut"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                    <Textarea
-                      label="Snippet text"
-                      value={shortcut.text}
-                      onChange={(e) => {
-                        const updated = [...terminalShortcuts];
-                        updated[index] = { ...updated[index], text: e.target.value };
-                        setTerminalShortcuts(updated);
-                      }}
-                      placeholder="Text to paste when shortcut is triggered..."
-                      rows={2}
-                      fullWidth
-                    />
-                    <p className="text-xs text-text-tertiary">
-                      {shortcut.key ? `Hotkey: Ctrl/Cmd + Alt + ${shortcut.key.toUpperCase()}` : 'Set a key (a-z) to assign a hotkey'}
-                    </p>
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    setTerminalShortcuts([
-                      ...terminalShortcuts,
-                      {
-                        id: crypto.randomUUID(),
-                        label: '',
-                        key: '',
-                        text: '',
-                        enabled: true,
-                      },
-                    ]);
-                  }}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Shortcut
-                </Button>
-                {terminalShortcuts.length === 0 && (
-                  <p className="text-sm text-text-tertiary">
-                    No shortcuts configured. Add one to bind a Ctrl+Alt+letter hotkey that pastes text into any terminal or input field.
-                  </p>
-                )}
-              </div>
             </CollapsibleCard>
 
             {/* Cloud VM */}
@@ -1001,6 +905,126 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
           />
         )}
 
+        {activeTab === 'shortcuts' && (
+          <form id="shortcuts-form" onSubmit={handleSubmit} className="space-y-6">
+            <div className="flex items-center gap-3 mb-2">
+              <Keyboard className="w-5 h-5 text-text-secondary" />
+              <div>
+                <h3 className="text-sm font-medium text-text-primary">Terminal Shortcuts</h3>
+                <p className="text-xs text-text-tertiary">Bind Ctrl+Alt+letter shortcuts to paste text snippets anywhere</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {terminalShortcuts.map((shortcut, index) => (
+                <div key={shortcut.id} className="p-3 rounded-lg bg-surface-secondary border border-border-secondary space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Input
+                      label="Label"
+                      value={shortcut.label}
+                      onChange={(e) => {
+                        const updated = [...terminalShortcuts];
+                        updated[index] = { ...updated[index], label: e.target.value };
+                        setTerminalShortcuts(updated);
+                      }}
+                      placeholder="e.g. Run tests"
+                      fullWidth
+                    />
+                    <div className="flex-shrink-0 w-24">
+                      <Input
+                        label="Key"
+                        value={shortcut.key}
+                        onChange={(e) => {
+                          const val = e.target.value.toLowerCase().replace(/[^a-z]/g, '').slice(0, 1);
+                          const updated = [...terminalShortcuts];
+                          updated[index] = { ...updated[index], key: val };
+                          setTerminalShortcuts(updated);
+                        }}
+                        placeholder="a-z"
+                        fullWidth
+                      />
+                    </div>
+                    <div className="flex-shrink-0 flex items-end gap-1 pb-0.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = [...terminalShortcuts];
+                          updated[index] = { ...updated[index], enabled: !updated[index].enabled };
+                          setTerminalShortcuts(updated);
+                        }}
+                        className={`p-2 rounded-md transition-colors ${
+                          shortcut.enabled
+                            ? 'text-status-success hover:bg-status-success/10'
+                            : 'text-text-tertiary hover:bg-surface-hover'
+                        }`}
+                        title={shortcut.enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'}
+                      >
+                        {shortcut.enabled ? <Power className="w-4 h-4" /> : <PowerOff className="w-4 h-4" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTerminalShortcuts(terminalShortcuts.filter((_, i) => i !== index));
+                        }}
+                        className="p-2 rounded-md text-text-tertiary hover:text-status-error hover:bg-status-error/10 transition-colors"
+                        title="Delete shortcut"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <Textarea
+                    label="Snippet text"
+                    value={shortcut.text}
+                    onChange={(e) => {
+                      const updated = [...terminalShortcuts];
+                      updated[index] = { ...updated[index], text: e.target.value };
+                      setTerminalShortcuts(updated);
+                    }}
+                    placeholder="Text to paste when shortcut is triggered..."
+                    rows={2}
+                    fullWidth
+                  />
+                  <p className="text-xs text-text-tertiary">
+                    {shortcut.key ? `Hotkey: Ctrl/Cmd + Alt + ${shortcut.key.toUpperCase()}` : 'Set a key (a-z) to assign a hotkey'}
+                  </p>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setTerminalShortcuts([
+                    ...terminalShortcuts,
+                    {
+                      id: crypto.randomUUID(),
+                      label: '',
+                      key: '',
+                      text: '',
+                      enabled: true,
+                    },
+                  ]);
+                }}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Shortcut
+              </Button>
+              {terminalShortcuts.length === 0 && (
+                <p className="text-sm text-text-tertiary">
+                  No shortcuts configured. Add one to bind a Ctrl+Alt+letter hotkey that pastes text into any terminal or input field.
+                </p>
+              )}
+            </div>
+
+            {error && (
+              <div className="text-status-error text-sm bg-status-error/10 border border-status-error/30 rounded-lg p-4">
+                {error}
+              </div>
+            )}
+          </form>
+        )}
+
         {activeTab === 'analytics' && (
           <form id="analytics-form" onSubmit={handleSubmit} className="space-y-6">
             {/* Analytics Overview */}
@@ -1087,7 +1111,7 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
       </ModalBody>
 
       {/* Footer */}
-      {(activeTab === 'general' || activeTab === 'notifications' || activeTab === 'analytics') && (
+      {(activeTab === 'general' || activeTab === 'notifications' || activeTab === 'shortcuts' || activeTab === 'analytics') && (
         <ModalFooter>
           <Button
             type="button"
@@ -1098,8 +1122,8 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
             Cancel
           </Button>
           <Button
-            type={activeTab === 'general' ? 'submit' : 'button'}
-            form={activeTab === 'general' ? 'settings-form' : undefined}
+            type={activeTab === 'general' || activeTab === 'shortcuts' ? 'submit' : 'button'}
+            form={activeTab === 'general' ? 'settings-form' : activeTab === 'shortcuts' ? 'shortcuts-form' : undefined}
             onClick={activeTab === 'notifications' ? (e) => handleSubmit(e as React.FormEvent) : undefined}
             disabled={isSubmitting}
             loading={isSubmitting}
