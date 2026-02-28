@@ -301,22 +301,15 @@ export function CreateSessionDialog({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
 
-  // Auto-focus branch input on dialog open (branch is now first)
+  // Auto-focus branch input once branches have loaded
   useEffect(() => {
-    if (isOpen) {
-      // Small delay to let the dialog render
+    if (isOpen && branches.length > 0 && !isLoadingBranches) {
       const timer = setTimeout(() => {
-        if (branchInputRef.current) {
-          branchInputRef.current.focus();
-        } else {
-          // Fall back to session name if no branches
-          const input = document.getElementById('worktreeTemplate') as HTMLInputElement;
-          if (input) input.focus();
-        }
-      }, 100);
+        branchInputRef.current?.focus();
+      }, 50);
       return () => clearTimeout(timer);
     }
-  }, [isOpen]);
+  }, [isOpen, branches.length, isLoadingBranches]);
 
   if (!isOpen) return null;
 
@@ -463,6 +456,26 @@ export function CreateSessionDialog({
 
       <ModalBody className="p-0">
         <div className="flex-1 overflow-y-auto">
+          {isLoadingBranches ? (
+            <div className="animate-pulse">
+              <div className="p-6 border-b border-border-primary">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-4 h-4 bg-surface-tertiary rounded" />
+                  <div className="w-24 h-4 bg-surface-tertiary rounded" />
+                </div>
+                <div className="w-full h-9 bg-surface-tertiary rounded-md" />
+                <div className="w-64 h-3 bg-surface-tertiary rounded mt-1" />
+              </div>
+              <div className="p-6 border-b border-border-primary">
+                <div className="w-20 h-4 bg-surface-tertiary rounded mb-1" />
+                <div className="w-full h-9 bg-surface-tertiary rounded-md" />
+                <div className="w-48 h-3 bg-surface-tertiary rounded mt-1" />
+              </div>
+              <div className="px-6 py-4">
+                <div className="w-20 h-6 bg-surface-tertiary rounded" />
+              </div>
+            </div>
+          ) : (
           <form id="create-session-form" onSubmit={handleSubmit}>
             {/* 1. Base Branch (select first, auto-populates session name) */}
             {branches.length > 0 && (
@@ -648,62 +661,7 @@ export function CreateSessionDialog({
               )}
             </div>
 
-            {/* 3. Number of Panes (compact with expand) */}
-            <div className="px-6 py-4 border-b border-border-primary">
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-text-secondary">Panes: {sessionCount}</span>
-                {!showSessionOptions && sessionCount === 1 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowSessionOptions(true)}
-                    className="text-text-tertiary hover:text-text-primary p-1"
-                    title="Create multiple panes"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                )}
-                {(showSessionOptions || sessionCount > 1) && (
-                  <div className="flex-1 flex items-center gap-2">
-                    <input
-                      id="count"
-                      type="range"
-                      min="1"
-                      max="5"
-                      value={sessionCount}
-                      onChange={(e) => {
-                        const count = parseInt(e.target.value) || 1;
-                        setSessionCount(count);
-                        setFormData(prev => ({ ...prev, count }));
-                      }}
-                      className="flex-1"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setShowSessionOptions(false);
-                        setSessionCount(1);
-                        setFormData(prev => ({ ...prev, count: 1 }));
-                      }}
-                      className="text-text-tertiary hover:text-text-primary p-1"
-                      title="Reset to 1"
-                    >
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-              {sessionCount > 1 && (
-                <p className="text-xs text-text-tertiary mt-1">
-                  Creating multiple panes with numbered suffixes
-                </p>
-              )}
-            </div>
-
-            {/* 4. Advanced Options Toggle */}
+            {/* 3. Advanced Options Toggle */}
             <div className="px-6 py-4">
               <Button
                 type="button"
@@ -724,6 +682,61 @@ export function CreateSessionDialog({
             {/* Advanced Options - Collapsible */}
             {showAdvanced && (
               <div className="px-6 pb-6 space-y-4 border-t border-border-primary pt-4">
+                {/* Number of Panes */}
+                <div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-text-secondary">Panes: {sessionCount}</span>
+                    {!showSessionOptions && sessionCount === 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowSessionOptions(true)}
+                        className="text-text-tertiary hover:text-text-primary p-1"
+                        title="Create multiple panes"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    )}
+                    {(showSessionOptions || sessionCount > 1) && (
+                      <div className="flex-1 flex items-center gap-2">
+                        <input
+                          id="count"
+                          type="range"
+                          min="1"
+                          max="5"
+                          value={sessionCount}
+                          onChange={(e) => {
+                            const count = parseInt(e.target.value) || 1;
+                            setSessionCount(count);
+                            setFormData(prev => ({ ...prev, count }));
+                          }}
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setShowSessionOptions(false);
+                            setSessionCount(1);
+                            setFormData(prev => ({ ...prev, count: 1 }));
+                          }}
+                          className="text-text-tertiary hover:text-text-primary p-1"
+                          title="Reset to 1"
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  {sessionCount > 1 && (
+                    <p className="text-xs text-text-tertiary mt-1">
+                      Creating multiple panes with numbered suffixes
+                    </p>
+                  )}
+                </div>
+
                 {/* Commit Mode Settings */}
                 <CommitModeSettings
                   projectId={projectId}
@@ -737,12 +750,13 @@ export function CreateSessionDialog({
               </div>
             )}
           </form>
+          )}
         </div>
       </ModalBody>
 
       <ModalFooter className="flex items-center justify-between">
         <div className="text-xs text-text-tertiary">
-          <span className="font-medium">Tip:</span> Press {navigator.platform.includes('Mac') ? 'Cmd' : 'Ctrl'}+Enter to create
+          <span className="font-medium">Tip:</span> Press {navigator.platform.includes('Mac') ? 'Cmd' : 'Ctrl'}+Enter to create <span className="opacity-60">↵</span>
         </div>
         <div className="flex items-center gap-3">
           <Button
@@ -759,7 +773,7 @@ export function CreateSessionDialog({
           <Button
             type="submit"
             form="create-session-form"
-            disabled={isSubmitting || !!worktreeError || !sessionName.trim()}
+            disabled={isSubmitting || isLoadingBranches || !!worktreeError || !sessionName.trim()}
             loading={isSubmitting}
             title={
               isSubmitting ? 'Creating pane...' :
