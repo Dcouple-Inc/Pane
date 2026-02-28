@@ -39,10 +39,16 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const body = document.body;
 
     // Remove all theme classes, then add current
+    // OLED theme extends dark, so keep 'dark' class for Tailwind dark: utilities
     root.classList.remove('light', 'dark', 'oled');
-    root.classList.add(theme);
     body.classList.remove('light', 'dark', 'oled');
-    body.classList.add(theme);
+    if (theme === 'oled') {
+      root.classList.add('dark', 'oled');
+      body.classList.add('dark', 'oled');
+    } else {
+      root.classList.add(theme);
+      body.classList.add(theme);
+    }
 
     localStorage.setItem('theme', theme);
 
