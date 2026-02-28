@@ -241,6 +241,7 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
           // Use commandExecutor directly for env support
           await commandExecutor.execAsync(`git commit -F ${tmpFile}`, {
             cwd: session.worktreePath,
+            timeout: 120_000,
             env: { ...process.env, ...GIT_ATTRIBUTION_ENV }
           }, commandRunner.wslContext);
         } finally {

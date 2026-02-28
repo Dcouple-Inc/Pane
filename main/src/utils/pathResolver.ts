@@ -50,7 +50,17 @@ export class PathResolver {
   async isWithin(basePath: string, targetPath: string): Promise<boolean> {
     // Resolve symlinks to prevent escape via symlinked paths
     const resolvedBase = await fs.realpath(basePath).catch(() => basePath);
-    const resolvedTarget = await fs.realpath(targetPath).catch(() => targetPath);
+    // For existing paths, resolve fully. For non-existent paths (new files),
+    // resolve the parent directory to catch symlink traversal, then re-append the filename.
+    let resolvedTarget: string;
+    try {
+      resolvedTarget = await fs.realpath(targetPath);
+    } catch {
+      const parentDir = path.dirname(targetPath);
+      const fileName = path.basename(targetPath);
+      const resolvedParent = await fs.realpath(parentDir).catch(() => parentDir);
+      resolvedTarget = path.join(resolvedParent, fileName);
+    }
     const rel = path.relative(resolvedBase, resolvedTarget);
     // rel === '' means paths are equal (base is within itself) — that's valid
     return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
