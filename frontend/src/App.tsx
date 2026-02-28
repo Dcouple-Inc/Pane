@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useIPCEvents } from './hooks/useIPCEvents';
 import { useNotifications } from './hooks/useNotifications';
 import { useResizable } from './hooks/useResizable';
@@ -8,7 +8,6 @@ import { useShortcutHintsOverlay } from './hooks/useShortcutHintsOverlay';
 import { ShortcutHintsOverlay } from './components/ShortcutHintsOverlay';
 import { Sidebar } from './components/Sidebar';
 import { SessionView } from './components/SessionView';
-import { PromptHistoryModal } from './components/PromptHistoryModal';
 import Help from './components/Help';
 import Welcome from './components/Welcome';
 import AnalyticsConsentDialog from './components/AnalyticsConsentDialog';
@@ -29,9 +28,13 @@ import { TokenTest } from './components/TokenTest';
 import { CommandPalette } from './components/CommandPalette';
 import { CloudOverlay } from './components/CloudOverlay';
 import { CloudWidget } from './components/CloudWidget';
+import { CreateSessionDialog } from './components/CreateSessionDialog';
+import { AddProjectDialog } from './components/AddProjectDialog';
+import { useNavigationStore } from './stores/navigationStore';
 import type { VersionUpdateInfo, PermissionInput } from './types/session';
 import type { TerminalShortcut } from './types/config';
 import type { ResumableSession } from '../../shared/types/panels';
+import type { Project } from './types/project';
 import { isMac } from './utils/platformUtils';
 
 // Stable empty array to avoid creating new references in render
@@ -63,13 +66,16 @@ function App() {
   const [currentPermissionRequest, setCurrentPermissionRequest] = useState<PermissionRequest | null>(null);
   const [isDiscordOpen, setIsDiscordOpen] = useState(false);
   const [hasCheckedWelcome, setHasCheckedWelcome] = useState(false);
-  const [isPromptHistoryOpen, setIsPromptHistoryOpen] = useState(false);
   const [isTokenTestOpen, setIsTokenTestOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [resumableSessions, setResumableSessions] = useState<ResumableSession[]>([]);
   const [isResumeDialogOpen, setIsResumeDialogOpen] = useState(false);
   const [settingsInitialSection, setSettingsInitialSection] = useState<string | undefined>();
+  const [showCreateSessionDialog, setShowCreateSessionDialog] = useState(false);
+  const [showAddProjectDialog, setShowAddProjectDialog] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const activeProjectId = useNavigationStore(s => s.activeProjectId);
   const { currentError, clearError } = useErrorStore();
   const { sessions, isLoaded } = useSessionStore();
   const { fetchConfig, config: appConfig } = useConfigStore();
@@ -98,14 +104,6 @@ function App() {
   const { showNotification } = useNotifications();
 
   // Keyboard shortcuts
-  useHotkey({
-    id: 'open-prompt-history',
-    label: 'Open Prompt History',
-    keys: 'mod+p',
-    category: 'navigation',
-    action: () => setIsPromptHistoryOpen(true),
-  });
-
   useHotkey({
     id: 'toggle-token-test',
     label: 'Toggle Token Test Page',
@@ -160,6 +158,24 @@ function App() {
     },
   });
 
+  useHotkey({
+    id: 'new-session',
+    label: 'New Pane',
+    keys: 'mod+n',
+    category: 'session',
+    action: () => {
+      if (activeProject) setShowCreateSessionDialog(true);
+    },
+  });
+
+  useHotkey({
+    id: 'new-project',
+    label: 'New Project',
+    keys: 'mod+shift+n',
+    category: 'navigation',
+    action: () => setShowAddProjectDialog(true),
+  });
+
   // Register terminal shortcuts (hotkey-triggered clipboard paste)
   useTerminalShortcuts();
 
@@ -167,6 +183,27 @@ function App() {
   useEffect(() => {
     fetchConfig();
   }, [fetchConfig]);
+
+  // Fetch projects for global shortcuts
+  useEffect(() => {
+    const fetchProjects = async () => {
+      const res = await API.projects.getAll();
+      if (res.success && res.data) setProjects(res.data);
+    };
+    fetchProjects();
+    const handle = () => fetchProjects();
+    window.addEventListener('project-changed', handle);
+    window.addEventListener('project-sessions-refresh', handle);
+    return () => {
+      window.removeEventListener('project-changed', handle);
+      window.removeEventListener('project-sessions-refresh', handle);
+    };
+  }, []);
+
+  const activeProject = useMemo(() => {
+    if (activeProjectId) return projects.find(p => p.id === activeProjectId);
+    return projects.find(p => p.active) || projects[0];
+  }, [projects, activeProjectId]);
 
   // Check if analytics consent dialog should be shown (before other dialogs)
   useEffect(() => {
@@ -419,7 +456,6 @@ function App() {
         <Sidebar
           onHelpClick={() => setIsHelpOpen(true)}
           onAboutClick={() => setIsAboutOpen(true)}
-          onPromptHistoryClick={() => setIsPromptHistoryOpen(true)}
           onSettingsClick={() => setIsSettingsOpen(true)}
           isSettingsOpen={isSettingsOpen}
           onSettingsClose={() => { setIsSettingsOpen(false); setSettingsInitialSection(undefined); }}
@@ -466,13 +502,21 @@ function App() {
           onClose={() => setIsResumeDialogOpen(false)}
           sessions={resumableSessions}
         />
-        <PromptHistoryModal
-          isOpen={isPromptHistoryOpen}
-          onClose={() => setIsPromptHistoryOpen(false)}
-        />
         <CommandPalette
           isOpen={isCommandPaletteOpen}
           onClose={() => setIsCommandPaletteOpen(false)}
+        />
+        {showCreateSessionDialog && activeProject && (
+          <CreateSessionDialog
+            isOpen={showCreateSessionDialog}
+            onClose={() => setShowCreateSessionDialog(false)}
+            projectName={activeProject.name}
+            projectId={activeProject.id}
+          />
+        )}
+        <AddProjectDialog
+          isOpen={showAddProjectDialog}
+          onClose={() => setShowAddProjectDialog(false)}
         />
         <ShortcutHintsOverlay isVisible={shortcutHintsVisible} shortcuts={terminalShortcuts} />
 

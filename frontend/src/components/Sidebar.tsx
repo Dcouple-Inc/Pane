@@ -3,7 +3,7 @@ import { Settings } from './Settings';
 import { CreateSessionDialog } from './CreateSessionDialog';
 import { ProjectSessionList, ArchivedSessions } from './ProjectSessionList';
 import { ArchiveProgress } from './ArchiveProgress';
-import { Info, Clock, Check, Edit, CircleArrowDown, AlertTriangle, GitMerge, ArrowUpDown, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Settings as SettingsIcon, Plus, RefreshCw } from 'lucide-react';
+import { Info, Check, Edit, CircleArrowDown, AlertTriangle, GitMerge, ArrowUpDown, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Settings as SettingsIcon, Plus, RefreshCw } from 'lucide-react';
 import { usePaneLogo } from '../hooks/usePaneLogo';
 import { isMac } from '../utils/platformUtils';
 import { IconButton } from './ui/Button';
@@ -18,7 +18,6 @@ import type { Project } from '../types/project';
 interface SidebarProps {
   onHelpClick: () => void;
   onAboutClick: () => void;
-  onPromptHistoryClick: () => void;
   onSettingsClick: () => void;
   isSettingsOpen: boolean;
   onSettingsClose: () => void;
@@ -29,7 +28,7 @@ interface SidebarProps {
   onToggleCollapse?: () => void;
 }
 
-export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSettingsClick, isSettingsOpen, onSettingsClose, settingsInitialSection, width, onResize, collapsed, onToggleCollapse }: SidebarProps) {
+export function Sidebar({ onHelpClick, onAboutClick, onSettingsClick, isSettingsOpen, onSettingsClose, settingsInitialSection, width, onResize, collapsed, onToggleCollapse }: SidebarProps) {
   const paneLogo = usePaneLogo();
   const [showStatusGuide, setShowStatusGuide] = useState(false);
   const [version, setVersion] = useState<string>('');
@@ -321,12 +320,6 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, onSet
                   </button>
                 }
                 items={[
-                  {
-                    id: 'prompt-history',
-                    label: 'Prompt history',
-                    icon: Clock,
-                    onClick: onPromptHistoryClick
-                  },
                   {
                     id: 'sort',
                     label: sessionSortAscending ? 'Sort: Oldest first' : 'Sort: Newest first',
