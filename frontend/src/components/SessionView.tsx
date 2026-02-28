@@ -591,6 +591,16 @@ export const SessionView = memo(() => {
     action: toggleTerminalCollapse,
   });
 
+  // Ctrl+Shift+B: toggle detail panel (right sidebar)
+  useHotkey({
+    id: 'toggle-detail-panel',
+    label: 'Toggle Detail Panel',
+    keys: 'mod+shift+b',
+    category: 'view',
+    enabled: () => isInSessionView,
+    action: () => setDetailVisible(v => !v),
+  });
+
   // Create branch actions for the panel bar
   const branchActions = useMemo(() => {
     if (!activeSession) return [];
