@@ -1,7 +1,6 @@
 import { IpcMain } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import * as os from 'os';
 import { glob } from 'glob';
 import type { AppServices } from './types';
 import type { Session } from '../types/session';
@@ -234,22 +233,13 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
 
 Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
 
-        // Use a temporary file to handle commit messages with special characters
-        const tmpFile = path.join(os.tmpdir(), `pane-commit-${Date.now()}.txt`);
-        try {
-          await fs.writeFile(tmpFile, commitMessage, 'utf-8');
-          // Use commandExecutor directly for env support
-          await commandExecutor.execAsync(`git commit -F ${tmpFile}`, {
-            cwd: session.worktreePath,
-            timeout: 120_000,
-            env: { ...process.env, ...GIT_ATTRIBUTION_ENV }
-          }, commandRunner.wslContext);
-        } finally {
-          // Clean up the temporary file
-          await fs.unlink(tmpFile).catch(() => {
-            // Ignore cleanup errors
-          });
-        }
+        // Escape commit message for shell and use -m (temp files aren't accessible across WSL boundary)
+        const escapedCommit = commitMessage.replace(/'/g, "'\\''");
+        await commandExecutor.execAsync(`git commit -m '${escapedCommit}'`, {
+          cwd: session.worktreePath,
+          timeout: 120_000,
+          env: { ...process.env, ...GIT_ATTRIBUTION_ENV }
+        }, commandRunner.wslContext);
 
         // Refresh git status for this session after commit
         try {
@@ -275,21 +265,13 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
 
 Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
 
-            // Use a temporary file for retry as well
-            const tmpFile = path.join(os.tmpdir(), `pane-commit-retry-${Date.now()}.txt`);
-            try {
-              await fs.writeFile(tmpFile, retryMessage, 'utf-8');
-              // Use commandExecutor directly for env support
-              await commandExecutor.execAsync(`git commit -F ${tmpFile}`, {
-                cwd: session.worktreePath,
-                env: { ...process.env, ...GIT_ATTRIBUTION_ENV }
-              }, commandRunner.wslContext);
-            } finally {
-              // Clean up the temporary file
-              await fs.unlink(tmpFile).catch(() => {
-                // Ignore cleanup errors
-              });
-            }
+            // Escape commit message for shell and use -m (temp files aren't accessible across WSL boundary)
+            const escapedRetry = retryMessage.replace(/'/g, "'\\''");
+            await commandExecutor.execAsync(`git commit -m '${escapedRetry}'`, {
+              cwd: session.worktreePath,
+              timeout: 120_000,
+              env: { ...process.env, ...GIT_ATTRIBUTION_ENV }
+            }, commandRunner.wslContext);
 
             // Refresh git status for this session after commit
             try {
@@ -404,8 +386,10 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
         const revision = request.revision || 'HEAD';
 
         // Use git show to get file content at specific revision
+        // Use forward slashes for git pathspec (path.normalize uses backslashes on Windows)
+        const posixPath = normalizedPath.replace(/\\/g, '/');
         const { stdout } = await commandRunner.execAsync(
-          `git show ${revision}:${normalizedPath}`,
+          `git show ${revision}:${posixPath}`,
           session.worktreePath
         );
 
