@@ -1,3 +1,11 @@
+export interface TerminalShortcut {
+  id: string;
+  label: string;
+  key: string;
+  text: string;
+  enabled: boolean;
+}
+
 export interface CustomCommand {
   name: string;
   command: string;
@@ -72,6 +80,8 @@ export interface AppConfig {
   };
   // User-defined custom commands for the Add Tool picker
   customCommands?: CustomCommand[];
+  // Terminal shortcuts — hotkey-triggered clipboard paste snippets
+  terminalShortcuts?: TerminalShortcut[];
   // Preferred shell for Windows terminals
   preferredShell?: 'auto' | 'gitbash' | 'powershell' | 'pwsh' | 'cmd';
   // Cloud VM settings
@@ -144,6 +154,8 @@ export interface UpdateConfigRequest {
   };
   // User-defined custom commands for the Add Tool picker
   customCommands?: CustomCommand[];
+  // Terminal shortcuts — hotkey-triggered clipboard paste snippets
+  terminalShortcuts?: TerminalShortcut[];
   // Preferred shell for Windows terminals
   preferredShell?: 'auto' | 'gitbash' | 'powershell' | 'pwsh' | 'cmd';
   // Cloud VM settings

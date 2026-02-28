@@ -20,6 +20,7 @@ export const CATEGORY_ORDER: HotkeyDefinition['category'][] = [
   'tabs',
   'view',
   'tools',
+  'shortcuts',
   'debug',
 ];
 
@@ -29,6 +30,7 @@ export const CATEGORY_LABELS: Record<HotkeyDefinition['category'], string> = {
   tabs: 'Tabs',
   view: 'View',
   tools: 'Add Tool',
+  shortcuts: 'Shortcuts',
   debug: 'Debug',
 };
 

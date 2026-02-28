@@ -6,6 +6,7 @@ import type { WebLinksAddon } from '@xterm/addon-web-links';
 import { useSession } from '../../contexts/SessionContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { TerminalPanelProps } from '../../types/panelComponents';
+import { useHotkeyStore } from '../../stores/hotkeyStore';
 import { renderLog, devLog } from '../../utils/console';
 import { getTerminalTheme } from '../../utils/terminalTheme';
 import { throttle } from '../../utils/performanceUtils';
@@ -140,6 +141,16 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           if (ctrlOrMeta && e.key >= '1' && e.key <= '9') return false;
           // Ctrl+Alt+1-9: switch panel tabs
           if (ctrlOrMeta && e.altKey && e.key >= '1' && e.key <= '9') return false;
+          // Ctrl/Cmd+Alt+letter: terminal shortcuts — only release if a matching hotkey is registered
+          if (ctrlOrMeta && e.altKey && /^[a-zA-Z]$/.test(e.key)) {
+            const pressed = `mod+alt+${e.key.toLowerCase()}`;
+            const hotkeys = useHotkeyStore.getState().hotkeys;
+            for (const def of hotkeys.values()) {
+              if (def.keys === pressed) return false;
+            }
+          }
+          // Ctrl/Cmd+Alt+/: open shortcut settings
+          if (ctrlOrMeta && e.altKey && e.key === '/') return false;
           // Ctrl/Cmd+W or Ctrl/Cmd+Q: close active tab
           if (ctrlOrMeta && (e.key.toLowerCase() === 'w' || e.key.toLowerCase() === 'q')) return false;
           // Ctrl/Cmd+T: open Add Tool dropdown

@@ -57,7 +57,8 @@ export class ConfigManager extends EventEmitter {
         posthogApiKey: '', // Analytics disabled - configure your own PostHog key
         posthogHost: 'https://us.i.posthog.com'
       },
-      disableAutoContext: true // Default to disabled - users can manually run /context
+      disableAutoContext: true, // Default to disabled - users can manually run /context
+      terminalShortcuts: []
     };
   }
 

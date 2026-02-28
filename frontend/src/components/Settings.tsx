@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { NotificationSettings } from './NotificationSettings';
 import { useNotifications } from '../hooks/useNotifications';
 import { API } from '../utils/api';
-import type { AppConfig } from '../types/config';
+import type { AppConfig, TerminalShortcut } from '../types/config';
 import { useConfigStore } from '../stores/configStore';
 import {
   Shield,
@@ -21,7 +21,11 @@ import {
   Cloud,
   Trash2,
   Copy,
-  Check
+  Check,
+  Keyboard,
+  Plus,
+  Power,
+  PowerOff
 } from 'lucide-react';
 import { Input, Textarea, Checkbox } from './ui/Input';
 import { Button } from './ui/Button';
@@ -39,9 +43,10 @@ interface IPCResponse<T = unknown> {
 interface SettingsProps {
   isOpen: boolean;
   onClose: () => void;
+  initialSection?: string;
 }
 
-export function Settings({ isOpen, onClose }: SettingsProps) {
+export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
   const [_config, setConfig] = useState<AppConfig | null>(null);
   const [verbose, setVerbose] = useState(false);
   const [anthropicApiKey, setAnthropicApiKey] = useState('');
@@ -80,6 +85,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
   const [cloudGcpProjectId, setCloudGcpProjectId] = useState('');
   const [cloudGcpZone, setCloudGcpZone] = useState('');
   const [cloudTunnelPort, setCloudTunnelPort] = useState('8080');
+  const [terminalShortcuts, setTerminalShortcuts] = useState<TerminalShortcut[]>([]);
   const { updateSettings } = useNotifications();
   const { theme, setTheme } = useTheme();
   const { fetchConfig: refreshConfigStore } = useConfigStore();
@@ -150,6 +156,9 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
         }
       }
       setPreferredShell(data.preferredShell || 'auto');
+
+      // Load terminal shortcuts
+      setTerminalShortcuts(data.terminalShortcuts ?? []);
 
       // Load cloud settings
       if (data.cloud) {
@@ -223,6 +232,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
           enabled: analyticsEnabled
         },
         preferredShell,
+        terminalShortcuts,
         cloud: cloudApiToken ? {
           provider: cloudProvider,
           apiToken: cloudApiToken,
@@ -523,6 +533,117 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                   You can still manually run /context when needed.
                 </p>
               </SettingsSection>
+            </CollapsibleCard>
+
+            {/* Terminal Shortcuts */}
+            <CollapsibleCard
+              key={`terminal-shortcuts-${initialSection}`}
+              title="Terminal Shortcuts"
+              subtitle="Bind Ctrl+Alt+letter shortcuts to paste text snippets anywhere"
+              icon={<Keyboard className="w-5 h-5" />}
+              defaultExpanded={initialSection === 'terminal-shortcuts'}
+            >
+              <div className="space-y-4">
+                {terminalShortcuts.map((shortcut, index) => (
+                  <div key={shortcut.id} className="p-3 rounded-lg bg-surface-secondary border border-border-secondary space-y-3">
+                    <div className="flex items-center gap-3">
+                      <Input
+                        label="Label"
+                        value={shortcut.label}
+                        onChange={(e) => {
+                          const updated = [...terminalShortcuts];
+                          updated[index] = { ...updated[index], label: e.target.value };
+                          setTerminalShortcuts(updated);
+                        }}
+                        placeholder="e.g. Run tests"
+                        fullWidth
+                      />
+                      <div className="flex-shrink-0 w-24">
+                        <Input
+                          label="Key"
+                          value={shortcut.key}
+                          onChange={(e) => {
+                            const val = e.target.value.toLowerCase().replace(/[^a-z]/g, '').slice(0, 1);
+                            const updated = [...terminalShortcuts];
+                            updated[index] = { ...updated[index], key: val };
+                            setTerminalShortcuts(updated);
+                          }}
+                          placeholder="a-z"
+                          fullWidth
+                        />
+                      </div>
+                      <div className="flex-shrink-0 flex items-end gap-1 pb-0.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = [...terminalShortcuts];
+                            updated[index] = { ...updated[index], enabled: !updated[index].enabled };
+                            setTerminalShortcuts(updated);
+                          }}
+                          className={`p-2 rounded-md transition-colors ${
+                            shortcut.enabled
+                              ? 'text-status-success hover:bg-status-success/10'
+                              : 'text-text-tertiary hover:bg-surface-hover'
+                          }`}
+                          title={shortcut.enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'}
+                        >
+                          {shortcut.enabled ? <Power className="w-4 h-4" /> : <PowerOff className="w-4 h-4" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTerminalShortcuts(terminalShortcuts.filter((_, i) => i !== index));
+                          }}
+                          className="p-2 rounded-md text-text-tertiary hover:text-status-error hover:bg-status-error/10 transition-colors"
+                          title="Delete shortcut"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <Textarea
+                      label="Snippet text"
+                      value={shortcut.text}
+                      onChange={(e) => {
+                        const updated = [...terminalShortcuts];
+                        updated[index] = { ...updated[index], text: e.target.value };
+                        setTerminalShortcuts(updated);
+                      }}
+                      placeholder="Text to paste when shortcut is triggered..."
+                      rows={2}
+                      fullWidth
+                    />
+                    <p className="text-xs text-text-tertiary">
+                      {shortcut.key ? `Hotkey: Ctrl/Cmd + Alt + ${shortcut.key.toUpperCase()}` : 'Set a key (a-z) to assign a hotkey'}
+                    </p>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setTerminalShortcuts([
+                      ...terminalShortcuts,
+                      {
+                        id: crypto.randomUUID(),
+                        label: '',
+                        key: '',
+                        text: '',
+                        enabled: true,
+                      },
+                    ]);
+                  }}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Shortcut
+                </Button>
+                {terminalShortcuts.length === 0 && (
+                  <p className="text-sm text-text-tertiary">
+                    No shortcuts configured. Add one to bind a Ctrl+Alt+letter hotkey that pastes text into any terminal or input field.
+                  </p>
+                )}
+              </div>
             </CollapsibleCard>
 
             {/* Cloud VM */}
