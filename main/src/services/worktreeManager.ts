@@ -18,6 +18,82 @@ interface RawCommitData {
   filesChanged?: number;
 }
 
+/**
+ * Detects baseBranch and baseCommit for a project directory from git.
+ * Optionally checks out a specified branch first.
+ */
+export async function detectGitBase(
+  projectPath: string,
+  commandRunner: CommandRunner,
+  baseBranch?: string,
+  checkout?: boolean
+): Promise<{ baseBranch: string | undefined; baseCommit: string | undefined }> {
+  let actualBaseBranch: string | undefined;
+  let baseCommit: string | undefined;
+
+  if (baseBranch) {
+    actualBaseBranch = baseBranch;
+    if (checkout) {
+      // Determine if baseBranch is a remote ref by checking against actual git remotes
+      let isRemoteBranch = false;
+      let remotePrefix = '';
+      try {
+        const { stdout } = await commandRunner.execAsync('git remote', projectPath);
+        const remotes = stdout.trim().split('\n').filter(Boolean);
+        for (const remote of remotes) {
+          if (baseBranch.startsWith(`${remote}/`)) {
+            isRemoteBranch = true;
+            remotePrefix = `${remote}/`;
+            break;
+          }
+        }
+      } catch {
+        // If we can't list remotes, fall back to treating it as a local branch
+      }
+
+      const branchName = isRemoteBranch ? baseBranch.slice(remotePrefix.length) : baseBranch;
+      try {
+        await commandRunner.execAsync(`git checkout ${escapeShellArg(branchName)}`, projectPath);
+      } catch {
+        // Local branch may not exist yet — create it tracking the remote
+        if (isRemoteBranch) {
+          await commandRunner.execAsync(
+            `git checkout -b ${escapeShellArg(branchName)} --track ${escapeShellArg(baseBranch)}`,
+            projectPath
+          );
+        } else {
+          throw new Error(`Failed to checkout branch '${branchName}'`);
+        }
+      }
+    }
+  } else {
+    // Detect current branch's remote tracking ref
+    try {
+      const localBranch = (await commandRunner.execAsync('git branch --show-current', projectPath)).stdout.trim();
+      if (localBranch) {
+        const remoteRef = `origin/${localBranch}`;
+        try {
+          await commandRunner.execAsync(`git rev-parse --verify ${escapeShellArg(remoteRef)}`, projectPath);
+          actualBaseBranch = remoteRef;
+        } catch {
+          // No remote tracking branch — leave undefined
+        }
+      }
+    } catch {
+      // Leave undefined if git commands fail
+    }
+  }
+
+  try {
+    const commitRef = actualBaseBranch || 'HEAD';
+    baseCommit = (await commandRunner.execAsync(`git rev-parse ${escapeShellArg(commitRef)}`, projectPath)).stdout.trim();
+  } catch {
+    // Leave undefined if git commands fail
+  }
+
+  return { baseBranch: actualBaseBranch, baseCommit };
+}
+
 export class WorktreeManager {
   private projectsCache: Map<string, { baseDir: string }> = new Map();
 
@@ -177,6 +253,30 @@ export class WorktreeManager {
         throw new Error(`Failed to create worktree: ${error instanceof Error ? error.message : String(error)}`);
       }
     });
+  }
+
+  /**
+   * Resolves the working directory for a session. When useWorktree is true, creates
+   * an isolated git worktree. When false, uses the project directory directly and
+   * optionally checks out the specified branch.
+   */
+  async resolveWorkingDirectory(
+    projectPath: string,
+    worktreeName: string,
+    baseBranch: string | undefined,
+    useWorktree: boolean,
+    worktreeFolder: string | undefined,
+    pathResolver: PathResolver,
+    commandRunner: CommandRunner
+  ): Promise<{ worktreePath: string; baseCommit: string | undefined; baseBranch: string | undefined }> {
+    if (useWorktree) {
+      const result = await this.createWorktree(projectPath, worktreeName, undefined, baseBranch, worktreeFolder, pathResolver, commandRunner);
+      return result;
+    }
+
+    // Run directly in the project directory
+    const { baseBranch: detectedBranch, baseCommit } = await detectGitBase(projectPath, commandRunner, baseBranch, true);
+    return { worktreePath: projectPath, baseCommit, baseBranch: detectedBranch };
   }
 
   async removeWorktree(projectPath: string, name: string, worktreeFolder: string | undefined, sessionCreatedAt: Date | undefined, pathResolver: PathResolver, commandRunner: CommandRunner): Promise<void> {

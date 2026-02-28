@@ -3,7 +3,8 @@ import { API } from '../utils/api';
 import type { CreateSessionRequest } from '../types/session';
 import type { Project } from '../types/project';
 import { useErrorStore } from '../stores/errorStore';
-import { GitBranch, ChevronRight, ChevronDown, X, Search, Check } from 'lucide-react';
+import { GitBranch, ChevronRight, ChevronDown, X, Search, Check, GitFork } from 'lucide-react';
+import { ToggleField } from './ui/Toggle';
 import { CommitModeSettings } from './CommitModeSettings';
 import type { CommitModeSettings as CommitModeSettingsType } from '../../../shared/types';
 import { Modal, ModalHeader, ModalBody, ModalFooter } from './ui/Modal';
@@ -59,6 +60,7 @@ export function CreateSessionDialog({
     mode: 'disabled',
     checkpointPrefix: 'checkpoint: '
   });
+  const [useWorktree, setUseWorktree] = useState(true);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showSessionOptions, setShowSessionOptions] = useState(false);
   const [branchSearch, setBranchSearch] = useState('');
@@ -412,6 +414,7 @@ export function CreateSessionDialog({
         permissionMode: 'ignore',
         projectId,
         folderId,
+        isMainRepo: !useWorktree,
         commitMode: commitModeSettings.mode,
         commitModeSettings: JSON.stringify(commitModeSettings),
         baseBranch: formData.baseBranch
@@ -689,8 +692,28 @@ export function CreateSessionDialog({
             {/* Advanced Options - Collapsible */}
             {showAdvanced && (
               <div className="px-6 pb-6 space-y-4 border-t border-border-primary pt-4">
-                {/* Number of Panes */}
-                <div>
+                {/* Worktree Toggle */}
+                <div className="flex items-center gap-2">
+                  <GitFork className="w-4 h-4 text-text-tertiary" />
+                  <ToggleField
+                    label="Use worktree"
+                    description="Run in an isolated git worktree. Disable to run directly in the project directory."
+                    checked={useWorktree}
+                    onChange={(checked) => {
+                      setUseWorktree(checked);
+                      if (!checked) {
+                        // No worktree = no isolation, force single pane
+                        setSessionCount(1);
+                        setFormData(prev => ({ ...prev, count: 1 }));
+                        setShowSessionOptions(false);
+                      }
+                    }}
+                    size="sm"
+                  />
+                </div>
+
+                {/* Number of Panes — only available with worktree isolation */}
+                {useWorktree && <div>
                   <div className="flex items-center gap-3">
                     <span className="text-sm text-text-secondary">Panes: {sessionCount}</span>
                     {!showSessionOptions && sessionCount === 1 && (
@@ -742,7 +765,7 @@ export function CreateSessionDialog({
                       Creating multiple panes with numbered suffixes
                     </p>
                   )}
-                </div>
+                </div>}
 
                 {/* Commit Mode Settings */}
                 <CommitModeSettings

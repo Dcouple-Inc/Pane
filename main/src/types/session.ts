@@ -66,6 +66,7 @@ export interface CreateSessionRequest {
   permissionMode?: 'approve' | 'ignore';
   projectId?: number;
   folderId?: string;
+  isMainRepo?: boolean;
   baseBranch?: string;
   autoCommit?: boolean;
   model?: string;

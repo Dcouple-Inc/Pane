@@ -141,7 +141,9 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
         return { success: false, error: 'Task queue not initialized' };
       }
 
-      const count = request.count || 1;
+      // Force count to 1 for main-repo sessions — no worktree isolation means
+      // multiple panes would all operate on the same directory concurrently.
+      const count = request.isMainRepo ? 1 : (request.count || 1);
 
       const sessionToolType: 'claude' | 'none' | undefined = request.toolType;
 
@@ -157,7 +159,8 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
           sessionToolType,
           request.commitMode,
           request.commitModeSettings,
-          request.folderId
+          request.folderId,
+          request.isMainRepo
         );
 
         return { success: true, data: { jobIds: jobs.map(job => job.id) } };
@@ -168,6 +171,7 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
           permissionMode: request.permissionMode,
           projectId: targetProject.id,
           folderId: request.folderId,
+          isMainRepo: request.isMainRepo,
           baseBranch: request.baseBranch,
           autoCommit: request.autoCommit,
           toolType: sessionToolType,

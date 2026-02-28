@@ -29,6 +29,7 @@ interface CreateSessionJob {
   permissionMode?: 'approve' | 'ignore';
   projectId?: number;
   folderId?: string;
+  isMainRepo?: boolean;
   baseBranch?: string;
   autoCommit?: boolean;
   toolType?: 'claude' | 'none';
@@ -200,18 +201,25 @@ export class TaskQueue {
         if (!ctx) {
           throw new Error(`Failed to get project context for project ${targetProject.id}`);
         }
-        const { worktreePath, baseCommit, baseBranch: actualBaseBranch } = await worktreeManager.createWorktree(
-          targetProject.path, worktreeName, undefined, baseBranch, targetProject.worktree_folder || undefined, ctx.pathResolver, ctx.commandRunner
+
+        // Resolve working directory — worktree or project directory
+        const { worktreePath, baseCommit, baseBranch: actualBaseBranch } = await worktreeManager.resolveWorkingDirectory(
+          targetProject.path, worktreeName, baseBranch, !job.data.isMainRepo, targetProject.worktree_folder || undefined, ctx.pathResolver, ctx.commandRunner
         );
+
+        // For non-worktree sessions, clear worktree_name so archival cleanup
+        // (which checks `worktree_name && !is_main_repo`) won't attempt to
+        // remove a worktree that could belong to another session.
+        const effectiveWorktreeName = job.data.isMainRepo ? '' : worktreeName;
 
         const session = await sessionManager.createSession(
           sessionName,
           worktreePath,
           prompt,
-          worktreeName,
+          effectiveWorktreeName,
           permissionMode,
           targetProject.id,
-          false, // isMainRepo = false for regular sessions
+          false, // is_main_repo stays false — reserved for internal singleton.
           autoCommit,
           job.data.folderId,
           toolType,
@@ -356,7 +364,8 @@ export class TaskQueue {
     toolType?: 'claude' | 'none',
     commitMode?: 'structured' | 'checkpoint' | 'disabled',
     commitModeSettings?: string,
-    providedFolderId?: string
+    providedFolderId?: string,
+    isMainRepo?: boolean
   ): Promise<(Bull.Job<CreateSessionJob> | { id: string; data: CreateSessionJob; status: string })[]> {
     let folderId: string | undefined = providedFolderId;
     let generatedBaseName: string | undefined;
@@ -408,7 +417,7 @@ export class TaskQueue {
     for (let i = 0; i < count; i++) {
       // Use the generated base name if no template was provided
       const templateToUse = worktreeTemplate || generatedBaseName || '';
-      jobs.push(this.sessionQueue.add({ prompt, worktreeTemplate: templateToUse, index: i, permissionMode, projectId, folderId, baseBranch, autoCommit, toolType, commitMode, commitModeSettings }));
+      jobs.push(this.sessionQueue.add({ prompt, worktreeTemplate: templateToUse, index: i, permissionMode, projectId, folderId, isMainRepo, baseBranch, autoCommit, toolType, commitMode, commitModeSettings }));
     }
     return Promise.all(jobs);
   }
