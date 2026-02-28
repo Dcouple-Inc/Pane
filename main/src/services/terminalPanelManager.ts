@@ -12,9 +12,11 @@ import { GIT_ATTRIBUTION_ENV } from '../utils/attribution';
 
 const HIGH_WATERMARK = 100_000; // 100KB — pause PTY when pending exceeds this
 const LOW_WATERMARK = 10_000;   // 10KB — resume PTY when pending drops below this
-const OUTPUT_BATCH_INTERVAL = 16; // ms (~60fps)
-const OUTPUT_BATCH_SIZE = 4096;   // 4KB — flush immediately if buffer exceeds this
+const OUTPUT_BATCH_INTERVAL = 32; // ms (~30fps) — wider window reduces TUI flicker
+const OUTPUT_BATCH_SIZE = 131072; // 128KB — timer-based flush preferred; size trigger is safety net
+const OUTPUT_HARD_LIMIT = 1_048_576; // 1MB — drop oldest data if buffer grows unbounded (renderer frozen)
 const PAUSE_SAFETY_TIMEOUT = 5_000; // 5s — auto-resume PTY if no acks arrive (prevents permanent stall)
+const MAX_CONCURRENT_SPAWNS = 3;
 
 interface TerminalProcess {
   pty: pty.IPty;
@@ -39,6 +41,10 @@ export class TerminalPanelManager {
   private readonly MAX_SCROLLBACK_LINES = 10000;
   private analyticsManager: AnalyticsManager | null = null;
 
+  // Spawn concurrency limiter — prevents CPU spikes when many terminals init at once
+  private activeSpawns = 0;
+  private spawnQueue: Array<{ resolve: () => void; priority: number }> = [];
+
   setAnalyticsManager(analyticsManager: AnalyticsManager): void {
     this.analyticsManager = analyticsManager;
   }
@@ -55,6 +61,26 @@ export class TerminalPanelManager {
       result.set(terminal.sessionId, pids);
     }
     return result;
+  }
+
+  private async acquireSpawnSlot(priority: number = 1): Promise<void> {
+    if (this.activeSpawns < MAX_CONCURRENT_SPAWNS) {
+      this.activeSpawns++;
+      return;
+    }
+    return new Promise(resolve => {
+      this.spawnQueue.push({ resolve, priority });
+      this.spawnQueue.sort((a, b) => a.priority - b.priority);
+    });
+  }
+
+  private releaseSpawnSlot(): void {
+    this.activeSpawns--;
+    const next = this.spawnQueue.shift();
+    if (next) {
+      this.activeSpawns++;
+      next.resolve();
+    }
   }
 
   private flushOutputBuffer(terminal: TerminalProcess): void {
@@ -138,11 +164,21 @@ export class TerminalPanelManager {
     }
   }
 
-  async initializeTerminal(panel: ToolPanel, cwd: string, wslContext?: WSLContext | null): Promise<void> {
+  async initializeTerminal(panel: ToolPanel, cwd: string, wslContext?: WSLContext | null, priority: number = 1): Promise<void> {
     if (this.terminals.has(panel.id)) {
       return;
     }
 
+    // Wait for a spawn slot (caps concurrent PTY spawns to prevent CPU spikes)
+    await this.acquireSpawnSlot(priority);
+
+    // Re-check after waiting — another call may have initialized this panel
+    if (this.terminals.has(panel.id)) {
+      this.releaseSpawnSlot();
+      return;
+    }
+
+    try {
 
     let shellPath: string;
     let shellArgs: string[];
@@ -285,8 +321,11 @@ export class TerminalPanelManager {
 
     await panelManager.updatePanel(panel.id, { state });
 
+    } finally {
+      this.releaseSpawnSlot();
+    }
   }
-  
+
   private setupTerminalHandlers(terminal: TerminalProcess): void {
     // Handle terminal output
     terminal.pty.onData((data: string) => {
@@ -332,6 +371,11 @@ export class TerminalPanelManager {
       
       // Buffer output for batching instead of sending immediately
       terminal.outputBuffer += data;
+
+      // Hard limit: if renderer is frozen and buffer grows unbounded, drop oldest data
+      if (terminal.outputBuffer.length > OUTPUT_HARD_LIMIT) {
+        terminal.outputBuffer = terminal.outputBuffer.slice(-OUTPUT_BATCH_SIZE);
+      }
 
       if (terminal.outputBuffer.length >= OUTPUT_BATCH_SIZE) {
         // Buffer is large enough — flush immediately
