@@ -11,9 +11,15 @@ allowed-tools: Read, Grep, Glob, WebFetch, WebSearch, Write, Task
 
 Generate a complete plan for feature implementation with thorough research. The plan must contain enough context for an AI agent to implement the feature in a single pass.
 
+## Step 0: Load Discussion Briefs
+
+Check `./tmp/briefs/` for any existing brief files. If briefs exist, read them all. These contain prior decisions, rejected alternatives, context, and direction from `/discussion` sessions. Incorporate them as **settled decisions** — do not re-litigate what was already decided unless you spot a clear technical problem.
+
+If no briefs exist, skip this step.
+
 ## Step 1: Research (Only If Needed)
 
-If the approach is **genuinely unclear**, ask the user 1-3 targeted design questions. Otherwise, proceed directly.
+If the approach is **genuinely unclear** (and not already covered by briefs), ask the user 1-3 targeted design questions. Otherwise, proceed directly.
 
 ### Codebase Analysis
 - Search for similar features/patterns in the codebase
