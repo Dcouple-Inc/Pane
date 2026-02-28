@@ -12,14 +12,14 @@
  * the full Settings dialog.
  */
 import { useState, useEffect } from 'react';
-import { Sun, Moon, ChevronUp, ChevronDown, Terminal } from 'lucide-react';
+import { ChevronUp, ChevronDown, Terminal } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useConfigStore } from '../stores/configStore';
 import { useSessionStore } from '../stores/sessionStore';
 import { API } from '../utils/api';
 
 export function HomePage() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const { config, updateConfig } = useConfigStore();
   const { sessions, setActiveSession } = useSessionStore();
 
@@ -83,16 +83,21 @@ export function HomePage() {
         <div className="space-y-4">
           <h2 className="text-lg font-semibold text-text-primary">Preferences</h2>
 
-          {/* Theme Toggle */}
+          {/* Theme */}
           <div className="flex items-center justify-between p-4 bg-surface-secondary rounded-lg">
             <span className="text-text-primary">Theme</span>
-            <button
-              onClick={toggleTheme}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-surface-tertiary hover:bg-surface-hover"
+            <select
+              value={theme}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === 'light' || v === 'dark' || v === 'oled') setTheme(v);
+              }}
+              className="px-3 py-1.5 rounded-md bg-surface-tertiary hover:bg-surface-hover text-sm text-text-primary border border-border-secondary focus:outline-none focus:ring-2 focus:ring-interactive cursor-pointer"
             >
-              {theme === 'dark' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-              <span className="text-sm">{theme === 'dark' ? 'Dark' : 'Light'}</span>
-            </button>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+              <option value="oled">OLED Black</option>
+            </select>
           </div>
 
           {/* UI Scale */}

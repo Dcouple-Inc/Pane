@@ -42,7 +42,8 @@
   margin: 1rem 0;
 }
 
-.dark .markdown-preview pre {
+.dark .markdown-preview pre,
+.oled .markdown-preview pre {
   background-color: #1f2937;
   border-color: #374151;
 }
@@ -55,7 +56,8 @@
   font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
 }
 
-.dark .markdown-preview code {
+.dark .markdown-preview code,
+.oled .markdown-preview code {
   background-color: #374151;
 }
 
@@ -99,7 +101,9 @@
 }
 
 .dark .markdown-preview th,
-.dark .markdown-preview td {
+.oled .markdown-preview th,
+.dark .markdown-preview td,
+.oled .markdown-preview td {
   border-color: #374151;
 }
 
@@ -108,7 +112,8 @@
   font-weight: 600;
 }
 
-.dark .markdown-preview th {
+.dark .markdown-preview th,
+.oled .markdown-preview th {
   background-color: #1f2937;
 }
 
@@ -116,7 +121,8 @@
   background-color: #f9fafb;
 }
 
-.dark .markdown-preview tbody tr:nth-child(even) {
+.dark .markdown-preview tbody tr:nth-child(even),
+.oled .markdown-preview tbody tr:nth-child(even) {
   background-color: #1f2937;
 }
 
@@ -128,7 +134,8 @@
   margin: 2rem 0;
 }
 
-.dark .markdown-preview hr {
+.dark .markdown-preview hr,
+.oled .markdown-preview hr {
   background-color: #374151;
 }
 
@@ -143,7 +150,8 @@
   color: #111827;
 }
 
-.dark .markdown-preview strong {
+.dark .markdown-preview strong,
+.oled .markdown-preview strong {
   color: #f3f4f6;
 }
 
@@ -182,7 +190,8 @@
   background: #f3f4f6;
 }
 
-.dark .markdown-preview::-webkit-scrollbar-track {
+.dark .markdown-preview::-webkit-scrollbar-track,
+.oled .markdown-preview::-webkit-scrollbar-track {
   background: #1f2937;
 }
 
@@ -191,7 +200,8 @@
   border-radius: 4px;
 }
 
-.dark .markdown-preview::-webkit-scrollbar-thumb {
+.dark .markdown-preview::-webkit-scrollbar-thumb,
+.oled .markdown-preview::-webkit-scrollbar-thumb {
   background: #4b5563;
 }
 
@@ -199,6 +209,7 @@
   background: #9ca3af;
 }
 
-.dark .markdown-preview::-webkit-scrollbar-thumb:hover {
+.dark .markdown-preview::-webkit-scrollbar-thumb:hover,
+.oled .markdown-preview::-webkit-scrollbar-thumb:hover {
   background: #6b7280;
 }

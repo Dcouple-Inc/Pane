@@ -7,8 +7,6 @@ import { useConfigStore } from '../stores/configStore';
 import {
   Shield,
   ShieldOff,
-  Sun,
-  Moon,
   Settings as SettingsIcon,
   Palette,
   Zap,
@@ -83,7 +81,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
   const [cloudGcpZone, setCloudGcpZone] = useState('');
   const [cloudTunnelPort, setCloudTunnelPort] = useState('8080');
   const { updateSettings } = useNotifications();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const { fetchConfig: refreshConfigStore } = useConfigStore();
 
   useEffect(() => {
@@ -312,29 +310,22 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
               defaultExpanded={true}
             >
               <SettingsSection
-                title="Theme Mode"
-                description="Choose between light and dark theme"
-                icon={theme === 'light' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                title="Theme"
+                description="Choose your preferred theme"
+                icon={<Palette className="w-4 h-4" />}
               >
-                <button
-                  type="button"
-                  onClick={toggleTheme}
-                  className="flex items-center gap-3 px-4 py-3 bg-surface-secondary hover:bg-surface-hover rounded-lg transition-colors border border-border-secondary w-full"
+                <select
+                  value={theme}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === 'light' || v === 'dark' || v === 'oled') setTheme(v);
+                  }}
+                  className="w-full px-4 py-3 bg-surface-secondary hover:bg-surface-hover rounded-lg transition-colors border border-border-secondary text-text-primary focus:outline-none focus:ring-2 focus:ring-interactive cursor-pointer"
                 >
-                  {theme === 'light' ? (
-                    <>
-                      <Sun className="w-5 h-5 text-status-warning" />
-                      <span className="text-text-primary font-medium">Light Mode</span>
-                      <span className="ml-auto text-xs text-text-tertiary">Currently active</span>
-                    </>
-                  ) : (
-                    <>
-                      <Moon className="w-5 h-5 text-interactive" />
-                      <span className="text-text-primary font-medium">Dark Mode</span>
-                      <span className="ml-auto text-xs text-text-tertiary">Currently active</span>
-                    </>
-                  )}
-                </button>
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                  <option value="oled">OLED Black</option>
+                </select>
               </SettingsSection>
 
               <SettingsSection

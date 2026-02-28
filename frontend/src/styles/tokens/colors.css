@@ -330,3 +330,60 @@
      and CSS filter: invert(1) hue-rotate(180deg) on .xterm
      handles the visual light mode transformation. */
 }
+
+/* OLED Black Theme - True black for OLED displays */
+:root.oled {
+  /* Backgrounds - pure black */
+  --color-bg-primary: rgb(0 0 0);
+  --color-bg-secondary: rgb(10 10 10);
+  --color-bg-tertiary: rgb(20 20 20);
+  --color-bg-hover: rgb(25 25 25);
+  --color-bg-active: rgb(35 35 35);
+
+  /* Surfaces - near-black with subtle depth */
+  --color-surface-primary: rgb(8 8 8);
+  --color-surface-secondary: rgb(15 15 15);
+  --color-surface-hover: rgba(255, 255, 255, 0.06);
+
+  /* Borders - slightly brighter for separation on pure black */
+  --color-border-primary: rgba(255, 255, 255, 0.10);
+  --color-border-secondary: rgba(255, 255, 255, 0.07);
+  --color-border-hover: rgba(255, 255, 255, 0.15);
+
+  /* Interactive surfaces */
+  --color-surface-interactive: rgb(15 15 15);
+  --color-surface-interactive-hover: rgb(25 25 25);
+
+  /* Interactive borders - slightly brighter */
+  --color-border-interactive: rgba(255, 255, 255, 0.12);
+
+  /* Buttons - secondary/ghost need darker backgrounds */
+  --color-button-secondary-bg: rgb(25 25 25);
+  --color-button-secondary-hover: rgb(35 35 35);
+  --color-button-ghost-hover: rgb(15 15 15);
+
+  /* Cards */
+  --color-card-bg: rgb(8 8 8);
+  --color-card-nested-bg: rgb(15 15 15);
+
+  /* Forms */
+  --color-input-bg: rgb(0 0 0);
+
+  /* Modal */
+  --color-modal-overlay: rgba(0, 0, 0, 0.75);
+  --color-modal-bg: rgb(8 8 8);
+
+  /* Navigation */
+  --color-surface-navigation: rgb(0 0 0);
+  --color-surface-navigation-hover: rgb(15 15 15);
+  --color-surface-navigation-active: rgb(25 25 25);
+
+  /* Scrollbar */
+  --color-scrollbar-track: rgb(0 0 0);
+  --color-scrollbar-thumb: rgb(40 40 40);
+  --color-scrollbar-thumb-hover: rgb(55 55 55);
+
+  /* Terminal - only bg and black need to change */
+  --color-terminal-bg: rgb(0 0 0);
+  --color-terminal-black: rgb(0 0 0);
+}
