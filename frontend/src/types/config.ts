@@ -12,7 +12,7 @@ export interface AppConfig {
   claudeExecutablePath?: string;
   defaultPermissionMode?: 'approve' | 'ignore';
   autoCheckUpdates?: boolean;
-  theme?: 'light' | 'dark';
+  theme?: 'light' | 'dark' | 'oled';
   uiScale?: number;
   notifications?: {
     enabled: boolean;

@@ -337,7 +337,7 @@ const DiffViewer = memo(forwardRef<DiffViewerHandle, DiffViewerProps>(({ diff, s
     );
   }
 
-  const isDarkMode = theme === 'dark';
+  const isDarkMode = theme !== 'light';
   
   // Show loading state while fetching full content
   if (loadingFullContent && isAllCommitsSelected) {

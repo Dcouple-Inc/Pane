@@ -10,14 +10,14 @@
     <script>
       // Apply theme class before React loads to prevent flash
       const savedTheme = localStorage.getItem('theme');
-      const theme = savedTheme === 'light' ? 'light' : 'dark';
+      const theme = (savedTheme === 'light' || savedTheme === 'oled') ? savedTheme : 'dark';
       document.documentElement.classList.add(theme);
     </script>
   </head>
   <body>
     <script>
       // Also apply to body
-      document.body.classList.add(localStorage.getItem('theme') === 'light' ? 'light' : 'dark');
+      const t = localStorage.getItem('theme'); document.body.classList.add(t === 'light' ? 'light' : t === 'oled' ? 'oled' : 'dark');
     </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

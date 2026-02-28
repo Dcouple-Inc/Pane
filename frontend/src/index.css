@@ -390,7 +390,7 @@ body.light {
 /* Monaco Editor CSS Variable Overrides */
 
 /* Dark theme overrides */
-:root.dark {
+:root.dark, :root.oled {
   --vscode-editor-background: #0d1117 !important;
   --vscode-editor-foreground: #e6edf3 !important;
   --vscode-editorWidget-background: #0d1117 !important;
@@ -402,7 +402,7 @@ body.light {
 }
 
 /* Light theme overrides */
-:root:not(.dark) {
+:root.light {
   --vscode-editor-background: #ffffff !important;
   --vscode-editor-foreground: #1f2328 !important;
   --vscode-editorWidget-background: #ffffff !important;

@@ -30,6 +30,7 @@ const getCSSVariable = (name: string): string => {
   // Provide smart fallbacks based on current theme
   const isLight = document.documentElement.classList.contains('light');
   const isDark = document.documentElement.classList.contains('dark');
+  const isOled = document.documentElement.classList.contains('oled');
   
   // Define theme-aware fallbacks (already in hex format)
   const fallbacks: Record<string, { light: string; dark: string }> = {
@@ -45,7 +46,7 @@ const getCSSVariable = (name: string): string => {
   const fallback = fallbacks[name];
   if (fallback) {
     // Prioritize explicit dark class, then light class, then default to dark
-    if (isDark) return fallback.dark;
+    if (isDark || isOled) return fallback.dark;
     if (isLight) return fallback.light;
     return fallback.dark;
   }
@@ -84,13 +85,14 @@ export const getScriptTerminalTheme = () => {
   const baseTheme = getTerminalTheme();
   const isLight = document.documentElement.classList.contains('light');
   const isDark = document.documentElement.classList.contains('dark');
+  const isOled = document.documentElement.classList.contains('oled');
   
   // Use surface colors for better integration with the UI
   const surfaceBackground = getCSSVariable('--color-surface-secondary');
   
   return {
     ...baseTheme,
-    background: surfaceBackground || (isLight ? '#f9fafb' : isDark ? '#1f2937' : '#1f2937'),
+    background: surfaceBackground || (isLight ? '#f9fafb' : isOled ? '#080808' : isDark ? '#1f2937' : '#1f2937'),
   };
 };
 
@@ -98,6 +100,7 @@ export const getScriptTerminalTheme = () => {
 export const debugTerminalTheme = () => {
   const isLight = document.documentElement.classList.contains('light');
   const isDark = document.documentElement.classList.contains('dark');
+  const isOled = document.documentElement.classList.contains('oled');
   
   // Check actual CSS variable values
   const bgVar = getComputedStyle(document.documentElement).getPropertyValue('--color-terminal-bg').trim();
@@ -108,6 +111,7 @@ export const debugTerminalTheme = () => {
     classes: document.documentElement.className,
     isLight,
     isDark,
+    isOled,
     cssVariables: {
       '--color-terminal-bg': bgVar || 'NOT SET',
       '--color-terminal-fg': fgVar || 'NOT SET',
