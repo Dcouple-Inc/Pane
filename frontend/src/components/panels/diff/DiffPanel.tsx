@@ -90,7 +90,8 @@ export const DiffPanel: React.FC<DiffPanelProps> = ({
       
       return () => clearTimeout(timer);
     }
-  }, [isActive, isStale, panel.id, sessionId, panel.state, diffState]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- panel.state/diffState intentionally excluded: they are written inside this effect via IPC and must not re-trigger it
+  }, [isActive, isStale, panel.id, sessionId]);
   
   // Manual refresh button removed (redundant with header refresh in CombinedDiffView)
   

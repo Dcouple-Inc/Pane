@@ -33,7 +33,7 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
   const [showCommitDialog, setShowCommitDialog] = useState(false);
   const [mainBranch, setMainBranch] = useState<string>('main');
   const [historySource, setHistorySource] = useState<'remote' | 'local' | 'branch'>(isMainRepo ? 'remote' : 'branch');
-  const [lastVisibleState, setLastVisibleState] = useState<boolean>(isVisible);
+  const lastVisibleRef = useRef<boolean>(isVisible);
   const [forceRefresh, setForceRefresh] = useState<number>(0);
   const [selectedFile, setSelectedFile] = useState<string | undefined>();
 
@@ -129,32 +129,36 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
 
   // Detect when tab becomes visible and force refresh
   useEffect(() => {
-    if (isVisible && !lastVisibleState) {
+    if (isVisible && !lastVisibleRef.current) {
       // Tab just became visible - force refresh to get latest git state
       console.log('Diff panel became visible, forcing refresh of git data...');
       setForceRefresh(prev => prev + 1); // Increment to trigger reload
       setCombinedDiff(null); // Clear diff data
       setSelectedExecutions([]); // Clear selection to force re-selection
     }
-    setLastVisibleState(isVisible);
-  }, [isVisible, lastVisibleState]);
+    lastVisibleRef.current = isVisible;
+  }, [isVisible]);
 
   // Load executions for the session
   useEffect(() => {
     // Load executions when component mounts, sessionId changes, or becomes visible
     // This ensures we always have the latest git state when viewing the diff tab
-    
+
     if (!isVisible) {
       // Don't load if not visible
       return;
     }
-    
+
+    let cancelled = false;
+
     // Add a small delay to debounce rapid updates
     const timeoutId = setTimeout(() => {
       const loadExecutions = async () => {
         try {
           setLoading(true);
           const response = await API.sessions.getExecutions(sessionId);
+
+          if (cancelled) return;
 
           if (!response.success) {
             throw new Error(response.error || 'Failed to load executions');
@@ -181,14 +185,14 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
               return 'branch';
             });
           }
-          
+
           // If no initial selection and session just changed, select all executions by default
           if (selectedExecutions.length === 0 && data.length > 0) {
             // Select all commits (excluding uncommitted changes if present)
             const allCommitIds = data
               .filter((exec: ExecutionDiff) => exec.id !== 0)
               .map((exec: ExecutionDiff) => exec.id);
-            
+
             if (allCommitIds.length > 0) {
               // Select from first to last commit as a range
               setSelectedExecutions([allCommitIds[allCommitIds.length - 1], allCommitIds[0]]);
@@ -198,17 +202,28 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
             }
           }
         } catch (err) {
-          setError(err instanceof Error ? err.message : 'Failed to load executions');
+          if (!cancelled) {
+            setError(err instanceof Error ? err.message : 'Failed to load executions');
+          }
         } finally {
-          setLoading(false);
+          if (!cancelled) {
+            setLoading(false);
+          }
         }
       };
 
       loadExecutions();
     }, 100); // Reduced to 100ms for more responsive loading
 
-    return () => clearTimeout(timeoutId);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
   }, [sessionId, isMainRepo, isVisible, forceRefresh]);
+
+  // Keep a ref to executions.length so the diff effect doesn't re-trigger when executions load
+  const executionsLengthRef = useRef(executions.length);
+  executionsLengthRef.current = executions.length;
 
   // Load combined diff when selection changes
   useEffect(() => {
@@ -216,7 +231,9 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
     if (!isVisible) {
       return;
     }
-    
+
+    let cancelled = false;
+
     // Add debouncing to prevent rapid API calls
     const timeoutId = setTimeout(() => {
       const loadCombinedDiff = async () => {
@@ -228,13 +245,13 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
         try {
           setLoading(true);
           setError(null);
-          
+
           console.log('CombinedDiffView loadCombinedDiff called:', {
             sessionId,
             selectedExecutions,
-            executionsLength: executions.length
+            executionsLength: executionsLengthRef.current
           });
-          
+
           let response;
           if (selectedExecutions.length === 1) {
             // For single commit selection
@@ -247,7 +264,7 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
               console.log('Requesting single commit:', selectedExecutions[0]);
               response = await API.sessions.getCombinedDiff(sessionId, [selectedExecutions[0], selectedExecutions[0]]);
             }
-          } else if (selectedExecutions.length === executions.length) {
+          } else if (selectedExecutions.length === executionsLengthRef.current) {
             // Get all diffs
             console.log('Getting all diffs');
             response = await API.sessions.getCombinedDiff(sessionId);
@@ -256,11 +273,13 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
             console.log('Requesting range of diffs:', selectedExecutions);
             response = await API.sessions.getCombinedDiff(sessionId, selectedExecutions);
           }
-          
+
+          if (cancelled) return;
+
           if (!response.success) {
             throw new Error(response.error || 'Failed to load combined diff');
           }
-          
+
           const data = response.data;
           console.log('Received diff data:', {
             hasDiff: !!data?.diff,
@@ -270,18 +289,26 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
           });
           setCombinedDiff(data);
         } catch (err) {
-          setError(err instanceof Error ? err.message : 'Failed to load combined diff');
-          setCombinedDiff(null);
+          if (!cancelled) {
+            setError(err instanceof Error ? err.message : 'Failed to load combined diff');
+            setCombinedDiff(null);
+          }
         } finally {
-          setLoading(false);
+          if (!cancelled) {
+            setLoading(false);
+          }
         }
       };
 
       loadCombinedDiff();
     }, 100); // Reduced to 100ms for more responsive loading
 
-    return () => clearTimeout(timeoutId);
-  }, [selectedExecutions, sessionId, executions.length, isVisible]);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- executions.length read via ref to avoid re-triggering when executions reload
+  }, [selectedExecutions, sessionId, isVisible]);
 
   const handleSelectionChange = (newSelection: number[]) => {
     setSelectedExecutions(newSelection);
