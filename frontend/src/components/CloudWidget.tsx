@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useState } from 'react';
-import { Play, Square, Loader2, Cloud, Monitor, Terminal, Settings } from 'lucide-react';
+import { Play, Square, Loader2, Cloud, Monitor, Terminal } from 'lucide-react';
 import { useCloudStore } from '../stores/cloudStore';
 import { useSessionStore } from '../stores/sessionStore';
 import { panelApi } from '../services/panelApi';
@@ -120,32 +120,10 @@ export function CloudWidget() {
     }
   }, [activeSessionId]);
 
-  // Show setup button if cloud is not provisioned
-  const isNotProvisioned = !vmState || vmState.status === 'not_provisioned';
-
-  if (isNotProvisioned) {
-    // Only show setup button if there's an active session to create the terminal in
-    if (!activeSessionId) {
-      return null;
-    }
-
-    return (
-      <div className="fixed bottom-4 right-4 flex items-center gap-1.5" style={{ zIndex: 1300 }}>
-        <button
-          onClick={handleOpenSetupTerminal}
-          disabled={setupLoading}
-          className="flex items-center gap-2 px-3 py-2 bg-bg-secondary/95 backdrop-blur-sm border border-border-primary rounded-xl shadow-lg hover:bg-bg-tertiary transition-colors disabled:opacity-50"
-          title="Set up Pane Cloud VM"
-        >
-          {setupLoading ? (
-            <Loader2 className="w-4 h-4 animate-spin text-interactive" />
-          ) : (
-            <Settings className="w-4 h-4 text-interactive" />
-          )}
-          <span className="text-xs text-text-primary">Setup Cloud</span>
-        </button>
-      </div>
-    );
+  // Hide widget entirely if cloud is not provisioned — only show once user
+  // has configured cloud through Settings
+  if (!vmState || vmState.status === 'not_provisioned') {
+    return null;
   }
 
   const isTransitioning = vmState.status === 'starting' || vmState.status === 'stopping' || vmState.status === 'initializing';
