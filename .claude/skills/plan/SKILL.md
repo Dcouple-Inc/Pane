@@ -2,6 +2,7 @@
 name: plan
 description: Creates an implementation plan with thorough codebase and web research. Auto-reviews the plan after creation and iterates with user feedback. Use when planning a new feature or significant change.
 argument-hint: "[feature description or ticket reference]"
+allowed-tools: Read, Grep, Glob, WebFetch, WebSearch, Write, Task
 ---
 
 # Plan Agent
@@ -45,9 +46,12 @@ The AI agent only gets the context in the plan plus codebase access. Include:
 
 ### Plan Guidelines
 
+- **Required Sections** (never leave empty): Files Being Changed (tree with ← NEW / ← MODIFIED markers), Architecture Overview (proportional to complexity), Key Pseudocode (hot spots and tricky logic only), and Tasks (concrete file-level steps in order).
+
 - **No Backwards Compatibility**: Replace things completely. No shims, fallbacks, re-exports, or compatibility layers unless user explicitly requests it.
 - **Deprecated Code**: Include a section at the end to remove code we no longer use as a result of this plan.
 - **No Unit/Integration Tests**: Do not include test creation in the plan.
+- **Flag Uncertainty**: When uncertain about a requirement, design decision, or implementation detail, do NOT guess or assume. Insert a `[NEEDS CLARIFICATION]` marker with a brief explanation of what's unclear and why it matters. These markers must be resolved with the user before the plan is finalized.
 
 ## Step 3: Save the Plan
 
@@ -69,7 +73,20 @@ Task tool:
     correctness issues, and better alternatives."
 ```
 
-2. **Present the reviewer's recommendations to the user as questions.** For each recommendation, ask the user whether they want to incorporate it, skip it, or modify it.
+2. **Present the review summary to the user.** When the reviewer finishes, provide the user with:
+
+   **a) Plan Summary** — Summarize the key points of the plan in 3-5 bullet points so the user can quickly recall what the plan covers without re-reading it.
+
+   **b) Reviewer Feedback with Context** — For each recommendation the reviewer raises, explain:
+   - The reviewer's question or concern
+   - **Context**: What the surrounding functionality does and why this matters. Reference specific files, patterns, or behaviors in the codebase so the user understands the implications.
+
+   **c) Plan Link** — Provide the plan path so the user can open it:
+   ```
+   Plan: ./tmp/ready-plans/[filename]
+   ```
+
+   **d) Questions** — Ask the user whether they want to incorporate, skip, or modify each recommendation.
 
 3. **Update the plan** based on the user's decisions. Save the updated file.
 
@@ -85,11 +102,9 @@ Task tool:
 Once the user confirms the plan is ready, tell them:
 
 ```
-Plan finalized. Your options:
-1. `/implement [path]` — Execute this plan with implementation agents
-2. Edit the plan manually, then run /implement
+Plan finalized! To implement, run:
 
-The plan is at: ./tmp/ready-plans/[filename]
+/implement ./tmp/ready-plans/[filename]
 ```
 
 ## Quality Checklist
@@ -99,6 +114,10 @@ The plan is at: ./tmp/ready-plans/[filename]
 - [ ] References existing patterns
 - [ ] Clear implementation path
 - [ ] Error handling documented
+- [ ] Files Being Changed trees are filled in
+- [ ] Architecture overview explains the big picture
+- [ ] Key pseudocode covers hot spots
+- [ ] No unresolved [NEEDS CLARIFICATION] markers
 
 Score the plan 1-10 (confidence for one-pass implementation success).
 

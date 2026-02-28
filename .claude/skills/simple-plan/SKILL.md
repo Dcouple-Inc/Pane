@@ -1,13 +1,13 @@
 ---
 name: simple-plan
-description: Creates a focused plan with root cause analysis, code references, and task list for straightforward changes. Spawns implementer agent after user approval. Use for quick fixes and small features.
-argument-hint: "[feature description or issue]"
+description: Quick gut-check before implementing when the user directly asks you to do something (e.g. "add X", "fix Y", "change Z"). Investigates, proposes a lightweight plan, and implements after approval. Use this instead of /plan when the user wants something done, not a formal plan.
+argument-hint: "[what the user wants done]"
 allowed-tools: Read, Grep, Glob, WebFetch
 ---
 
 # Simple Plan
 
-I will respond with a detailed plan about how to address the query. Before responding, I must investigate the situation by researching necessary files. I will follow relevant documentation in `./docs/`.
+When the user directly asks me to make a change, I will first investigate and propose a plan before implementing anything. This ensures alignment before any code is written.
 
 ## My Plan Will Include
 
