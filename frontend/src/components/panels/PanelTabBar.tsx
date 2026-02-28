@@ -1,5 +1,5 @@
 import React, { useCallback, memo, useState, useRef, useEffect, useMemo } from 'react';
-import { Plus, X, Terminal, ChevronDown, GitBranch, FileCode, MoreVertical, BarChart3, Edit2, PanelRight, FolderTree, TerminalSquare, Wrench, Play } from 'lucide-react';
+import { Plus, X, Terminal, ChevronDown, GitBranch, FileCode, MoreVertical, BarChart3, Edit2, PanelRight, FolderTree, TerminalSquare, Play } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useHotkey } from '../../hooks/useHotkey';
 import { PanelTabBarProps, PanelCreateOptions } from '../../types/panelComponents';
@@ -443,19 +443,19 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
                   <span className="ml-2">Terminal (Claude)</span>
                 </button>
               )}
-              {/* Setup Run Script - creates intelligent dev command */}
+              {/* Terminal with Codex CLI - second option */}
               {availablePanelTypes.includes('terminal') && (
                 <button
                   ref={(el) => { dropdownItemsRef.current[refIndex++] = el; }}
                   role="menuitem"
                   className={menuItemClass}
                   onClick={() => handleAddPanel('terminal', {
-                    initialCommand: `claude --dangerously-skip-permissions "${SETUP_RUN_SCRIPT_PROMPT.replace(/\n/g, ' ')}"`,
-                    title: 'Setup Run Script'
+                    initialCommand: 'codex',
+                    title: 'Codex CLI'
                   })}
                 >
-                  <Wrench className="w-4 h-4" />
-                  <span className="ml-2">Setup Run Script</span>
+                  <Terminal className="w-4 h-4" />
+                  <span className="ml-2">Terminal (Codex)</span>
                 </button>
               )}
               {/* Saved custom commands */}
