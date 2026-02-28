@@ -94,9 +94,9 @@ export function HomePage() {
               }}
               className="px-3 py-1.5 rounded-md bg-surface-tertiary hover:bg-surface-hover text-sm text-text-primary border border-border-secondary focus:outline-none focus:ring-2 focus:ring-interactive cursor-pointer"
             >
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-              <option value="oled">OLED Black</option>
+              <option value="light" className="bg-surface-tertiary text-text-primary">Light</option>
+              <option value="dark" className="bg-surface-tertiary text-text-primary">Dark</option>
+              <option value="oled" className="bg-surface-tertiary text-text-primary">OLED Black</option>
             </select>
           </div>
 
@@ -134,9 +134,9 @@ export function HomePage() {
                 onChange={(e) => handleShellChange(e.target.value)}
                 className="px-3 py-1.5 rounded-md border border-border-primary bg-surface-secondary text-text-primary text-sm focus:ring-2 focus:ring-interactive focus:border-interactive"
               >
-                <option value="auto">Auto (Git Bash)</option>
+                <option value="auto" className="bg-surface-secondary text-text-primary">Auto (Git Bash)</option>
                 {availableShells.map(shell => (
-                  <option key={shell.id} value={shell.id}>{shell.name}</option>
+                  <option key={shell.id} value={shell.id} className="bg-surface-secondary text-text-primary">{shell.name}</option>
                 ))}
               </select>
             </div>
