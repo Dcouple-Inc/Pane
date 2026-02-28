@@ -6,6 +6,7 @@ import type { AppServices } from './types';
 import type { Session } from '../types/session';
 import { GIT_ATTRIBUTION_ENV } from '../utils/attribution';
 import { commandExecutor } from '../utils/commandExecutor';
+import { buildGitCommitCommand } from '../utils/shellEscape';
 
 interface FileReadRequest {
   sessionId: string;
@@ -228,14 +229,9 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
         const config = configManager.getConfig();
         const enableCommitFooter = config?.enableCommitFooter !== false;
 
-        // Create the commit with Pane signature if enabled
-        const commitMessage = enableCommitFooter ? `${request.message}
-
-Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
-
-        // Escape commit message for shell and use -m (temp files aren't accessible across WSL boundary)
-        const escapedCommit = commitMessage.replace(/'/g, "'\\''");
-        await commandExecutor.execAsync(`git commit -m '${escapedCommit}'`, {
+        // Build platform-safe git commit command
+        const commitCommand = buildGitCommitCommand(request.message, enableCommitFooter);
+        await commandExecutor.execAsync(commitCommand, {
           cwd: session.worktreePath,
           timeout: 120_000,
           env: { ...process.env, ...GIT_ATTRIBUTION_ENV }
@@ -261,13 +257,9 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
             const config = configManager.getConfig();
             const enableCommitFooter = config?.enableCommitFooter !== false;
 
-            const retryMessage = enableCommitFooter ? `${request.message}
-
-Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
-
-            // Escape commit message for shell and use -m (temp files aren't accessible across WSL boundary)
-            const escapedRetry = retryMessage.replace(/'/g, "'\\''");
-            await commandExecutor.execAsync(`git commit -m '${escapedRetry}'`, {
+            // Build platform-safe git commit command
+            const retryCommitCommand = buildGitCommitCommand(request.message, enableCommitFooter);
+            await commandExecutor.execAsync(retryCommitCommand, {
               cwd: session.worktreePath,
               timeout: 120_000,
               env: { ...process.env, ...GIT_ATTRIBUTION_ENV }

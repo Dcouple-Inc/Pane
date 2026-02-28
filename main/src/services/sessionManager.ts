@@ -51,6 +51,7 @@ import { addSessionLog, cleanupSessionLogs } from '../ipc/logs';
 import { PathResolver } from '../utils/pathResolver';
 import { CommandRunner } from '../utils/commandRunner';
 import { withLock } from '../utils/mutex';
+import { escapeShellArg } from '../utils/shellEscape';
 import * as os from 'os';
 import { panelManager } from './panelManager';
 import type { AnalyticsManager } from './analyticsManager';
@@ -473,14 +474,44 @@ export class SessionManager extends EventEmitter {
         throw new Error(`Project with ID ${projectId} not found`);
       }
       
-      
+
       // Create a new main repo session
       const sessionId = randomUUID();
       const sessionName = `${project.name} (Main)`;
       const worktreePath = project.path; // Use the project path directly
       const worktreeName = 'main'; // Use 'main' as the worktree name
       const prompt = ''; // Empty prompt - user hasn't sent anything yet
-      
+
+      // Detect baseBranch and baseCommit from git (mirrors worktree creation pipeline)
+      const { commandRunner } = this.getOrCreateContext(project);
+      let baseBranch: string | undefined;
+      let baseCommit: string | undefined;
+      try {
+        const localBranch = (await commandRunner.execAsync('git branch --show-current', project.path)).stdout.trim();
+        if (localBranch) {
+          // Only set baseBranch when a remote tracking ref exists — this is used for stale detection.
+          // For local-only repos, leave baseBranch undefined to avoid false stale indicators.
+          // Branch display falls back to `git rev-parse --abbrev-ref HEAD` at render time.
+          const remoteRef = `origin/${localBranch}`;
+          try {
+            await commandRunner.execAsync(`git rev-parse --verify ${escapeShellArg(remoteRef)}`, project.path);
+            baseBranch = remoteRef;
+          } catch {
+            // No remote tracking branch — leave baseBranch undefined
+          }
+        }
+      } catch {
+        // Leave baseBranch undefined if git commands fail
+      }
+      try {
+        // Derive baseCommit from baseBranch ref so the pair is consistent
+        // (avoids stale-state mismatch when local is ahead of remote)
+        const commitRef = baseBranch || 'HEAD';
+        baseCommit = (await commandRunner.execAsync(`git rev-parse ${escapeShellArg(commitRef)}`, project.path)).stdout.trim();
+      } catch {
+        // Leave baseCommit undefined if git commands fail
+      }
+
       const session = this.createSessionWithId(
         sessionId,
         sessionName,
@@ -493,8 +524,8 @@ export class SessionManager extends EventEmitter {
         true, // autoCommit = true (default for main repo sessions)
         undefined, // folderId
         'claude', // tool_type
-        undefined, // baseCommit
-        undefined, // baseBranch
+        baseCommit,
+        baseBranch,
         project.commit_mode, // Use project's commit mode
         undefined // commit_mode_settings - let it use project defaults
       );
