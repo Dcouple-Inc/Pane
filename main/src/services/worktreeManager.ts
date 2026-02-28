@@ -659,7 +659,7 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : commitMessage;
         const escapedMessage = fullMessage.replace(/"/g, '\\"');
         command = `git commit -m "${escapedMessage}"`;
         executedCommands.push(`git commit -m "..." (in ${worktreePath})`);
-        const commitResult = await commandRunner.execAsync(command, worktreePath);
+        const commitResult = await commandRunner.execAsync(command, worktreePath, { env: GIT_ATTRIBUTION_ENV });
         lastOutput = commitResult.stdout || commitResult.stderr || '';
 
         // Switch to main branch in the main repository
