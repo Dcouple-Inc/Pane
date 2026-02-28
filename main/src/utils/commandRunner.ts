@@ -19,7 +19,7 @@ export class CommandRunner {
   }
 
   /** Execute command asynchronously, wrapping for WSL if needed */
-  async execAsync(command: string, cwd: string, options?: { timeout?: number }): Promise<{ stdout: string; stderr: string }> {
+  async execAsync(command: string, cwd: string, options?: { timeout?: number; maxBuffer?: number }): Promise<{ stdout: string; stderr: string }> {
     return commandExecutor.execAsync(command, { cwd, ...options }, this.wslContext);
   }
 }

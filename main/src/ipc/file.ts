@@ -405,7 +405,8 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
         // Use git show to get file content at specific revision
         const { stdout } = await commandRunner.execAsync(
           `git show ${revision}:${normalizedPath}`,
-          session.worktreePath
+          session.worktreePath,
+          { maxBuffer: 10 * 1024 * 1024 }
         );
 
         return { success: true, content: stdout };
@@ -563,6 +564,8 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
   ipcMain.handle('file:search', async (_, request: FileSearchRequest) => {
     try {
       // Determine the search directory and get path resolver
+      // storedDir = Linux path (for CommandRunner cwd), searchDirectory = filesystem path (for fs ops)
+      let storedDir: string;
       let searchDirectory: string;
       let pathResolver;
       let commandRunner;
@@ -576,14 +579,16 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
         if (!ctx) throw new Error('Project not found for session');
         pathResolver = ctx.pathResolver;
         commandRunner = ctx.commandRunner;
-        searchDirectory = pathResolver.toFileSystem(session.worktreePath);
+        storedDir = session.worktreePath;
+        searchDirectory = pathResolver.toFileSystem(storedDir);
       } else if (request.projectId) {
         const ctx = sessionManager.getProjectContextByProjectId(request.projectId);
         if (!ctx) throw new Error('Project not found');
         const { project } = ctx;
         pathResolver = ctx.pathResolver;
         commandRunner = ctx.commandRunner;
-        searchDirectory = pathResolver.toFileSystem(project.path);
+        storedDir = project.path;
+        searchDirectory = pathResolver.toFileSystem(storedDir);
       } else {
         throw new Error('Either sessionId or projectId must be provided');
       }
@@ -610,9 +615,10 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
       let isGitRepo = true;
       try {
         // Get list of all tracked files in the repository
+        // Use storedDir (Linux path) for CommandRunner, not filesystem path
         const { stdout: trackedStdout } = await commandRunner.execAsync(
           'git ls-files',
-          searchDirectory
+          storedDir
         );
 
         if (trackedStdout) {
@@ -626,7 +632,7 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
         // Also get untracked files that are not ignored
         const { stdout: untrackedStdout } = await commandRunner.execAsync(
           'git ls-files --others --exclude-standard',
-          searchDirectory
+          storedDir
         );
 
         if (untrackedStdout) {

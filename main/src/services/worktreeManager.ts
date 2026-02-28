@@ -255,7 +255,7 @@ export class WorktreeManager {
     try {
       // Fetch latest from all remotes (silent, catch errors)
       try {
-        await commandRunner.execAsync(`git fetch --all --prune`, projectPath);
+        await commandRunner.execAsync(`git fetch --all --prune`, projectPath, { timeout: 30000 });
       } catch {
         // Ignore fetch errors - user may be offline
       }
@@ -516,7 +516,7 @@ export class WorktreeManager {
         // Rebase the current worktree branch onto local main branch
         const command = `git rebase ${mainBranch}`;
         executedCommands.push(`${command} (in ${worktreePath})`);
-        const rebaseResult = await commandRunner.execAsync(command, worktreePath);
+        const rebaseResult = await commandRunner.execAsync(command, worktreePath, { timeout: 120000 });
         lastOutput = rebaseResult.stdout || rebaseResult.stderr || '';
 
         // Track successful rebase
@@ -625,7 +625,7 @@ export class WorktreeManager {
         command = `git rebase ${mainBranch}`;
         executedCommands.push(`git rebase ${mainBranch} (in ${worktreePath})`);
         try {
-          const rebaseWorktreeResult = await commandRunner.execAsync(command, worktreePath);
+          const rebaseWorktreeResult = await commandRunner.execAsync(command, worktreePath, { timeout: 120000 });
           lastOutput = rebaseWorktreeResult.stdout || rebaseWorktreeResult.stderr || '';
           console.log(`[WorktreeManager] Successfully rebased worktree onto ${mainBranch} before squashing`);
         } catch (error: unknown) {
@@ -775,7 +775,7 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : commitMessage;
         command = `git rebase ${mainBranch}`;
         executedCommands.push(`git rebase ${mainBranch} (in ${worktreePath})`);
         try {
-          const rebaseWorktreeResult = await commandRunner.execAsync(command, worktreePath);
+          const rebaseWorktreeResult = await commandRunner.execAsync(command, worktreePath, { timeout: 120000 });
           lastOutput = rebaseWorktreeResult.stdout || rebaseWorktreeResult.stderr || '';
           console.log(`[WorktreeManager] Successfully rebased worktree onto ${mainBranch}`);
         } catch (error: unknown) {
@@ -875,7 +875,7 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : commitMessage;
 
   async gitPull(worktreePath: string, commandRunner: CommandRunner): Promise<{ output: string }> {
     try {
-      const { stdout, stderr } = await commandRunner.execAsync('git pull', worktreePath);
+      const { stdout, stderr } = await commandRunner.execAsync('git pull', worktreePath, { timeout: 60000 });
       const output = stdout || stderr || 'Pull completed successfully';
 
       return { output };
@@ -905,7 +905,7 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : commitMessage;
 
       // Use -u to set upstream on first push, otherwise regular push
       const pushCommand = hasUpstream ? 'git push' : 'git push -u origin HEAD';
-      const { stdout, stderr } = await commandRunner.execAsync(pushCommand, worktreePath);
+      const { stdout, stderr } = await commandRunner.execAsync(pushCommand, worktreePath, { timeout: 60000 });
       const output = stdout || stderr || 'Push completed successfully';
 
       return { output };
@@ -923,7 +923,7 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : commitMessage;
 
   async gitFetch(worktreePath: string, commandRunner: CommandRunner): Promise<{ output: string }> {
     try {
-      const { stdout, stderr } = await commandRunner.execAsync('git fetch --all', worktreePath);
+      const { stdout, stderr } = await commandRunner.execAsync('git fetch --all', worktreePath, { timeout: 30000 });
       const output = stdout || stderr || 'Fetch completed successfully';
 
       return { output };
