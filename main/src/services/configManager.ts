@@ -58,7 +58,36 @@ export class ConfigManager extends EventEmitter {
         posthogHost: 'https://us.i.posthog.com'
       },
       disableAutoContext: true, // Default to disabled - users can manually run /context
-      terminalShortcuts: []
+      terminalShortcuts: [
+        {
+          id: 'default-root-cause',
+          label: 'Root cause or symptom?',
+          key: 'e',
+          text: 'Think hard: is this the root cause or a symptom? How might we solve this at the root?',
+          enabled: true
+        },
+        {
+          id: 'default-codex-review',
+          label: 'Codex review loop',
+          key: 'r',
+          text: "Prepare a PR once done with changes, then run in a subagent 'codex review --base main' and wait for it to respond. Read its response and make the fixes it suggests. Continue in a loop until it says there are no longer any issues.",
+          enabled: true
+        },
+        {
+          id: 'default-rebase-merge-release',
+          label: 'Rebase, merge & release',
+          key: 'd',
+          text: 'Rebase main and merge the PR to main, then bump a release patch.',
+          enabled: true
+        },
+        {
+          id: 'default-review-and-release',
+          label: 'Review and release loop',
+          key: 's',
+          text: "Prepare a PR once done with changes, then run in a subagent 'codex review --base main' and wait for it to respond. Read its response and make the fixes it suggests. Continue in a loop until it says there are no longer any issues. Once there are no issues, rebase main and merge the PR to main, then bump a release patch.",
+          enabled: true
+        }
+      ]
     };
   }
 
