@@ -79,7 +79,7 @@ let taskQueue: TaskQueue | null = null;
 // Service instances (configManager exported for shell preference access)
 export let configManager: ConfigManager;
 let logger: Logger;
-let sessionManager: SessionManager;
+export let sessionManager: SessionManager;
 let worktreeManager: WorktreeManager;
 let cliManagerFactory: CliManagerFactory;
 let defaultCliManager: AbstractCliManager;

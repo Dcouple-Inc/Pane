@@ -30,6 +30,8 @@ export function useResourceMonitor() {
 
     return () => {
       window.removeEventListener('resource-monitor:update', handler);
+      // Stop active polling if component unmounts while popover is open
+      window.electronAPI?.resourceMonitor?.stopActive?.();
     };
   }, []);
 
