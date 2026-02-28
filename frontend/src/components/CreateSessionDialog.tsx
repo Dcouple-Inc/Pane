@@ -301,15 +301,22 @@ export function CreateSessionDialog({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
 
-  // Auto-focus branch input once branches have loaded
+  // Auto-focus branch input on dialog open (branch is now first)
   useEffect(() => {
-    if (isOpen && branches.length > 0 && !isLoadingBranches) {
+    if (isOpen) {
+      // Small delay to let the dialog render
       const timer = setTimeout(() => {
-        branchInputRef.current?.focus();
-      }, 50);
+        if (branchInputRef.current) {
+          branchInputRef.current.focus();
+        } else {
+          // Fall back to session name if no branches
+          const input = document.getElementById('worktreeTemplate') as HTMLInputElement;
+          if (input) input.focus();
+        }
+      }, 100);
       return () => clearTimeout(timer);
     }
-  }, [isOpen, branches.length, isLoadingBranches]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
