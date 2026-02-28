@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useSession } from '../contexts/SessionContext';
 import { CommitModeIndicator } from './CommitModeIndicator';
 import { GitBranch, AlertTriangle } from 'lucide-react';
 import { Button } from './ui/Button';
+import { GitHistoryGraph } from './GitHistoryGraph';
+import { usePanelStore } from '../stores/panelStore';
 
 interface DetailPanelProps {
   isVisible: boolean;
@@ -28,6 +30,18 @@ function DetailSection({ title, children }: { title: string; children: React.Rea
 
 export function DetailPanel({ isVisible, width, onResize, mergeError, projectGitActions }: DetailPanelProps) {
   const sessionContext = useSession();
+  const setActivePanel = usePanelStore(s => s.setActivePanel);
+  const getSessionPanels = usePanelStore(s => s.getSessionPanels);
+
+  const handleSelectCommit = useCallback((_hash: string) => {
+    if (!sessionContext) return;
+    const sessionPanels = getSessionPanels(sessionContext.session.id);
+    const diffPanel = sessionPanels.find(p => p.type === 'diff');
+    if (diffPanel) {
+      setActivePanel(sessionContext.session.id, diffPanel.id);
+    }
+  }, [sessionContext, setActivePanel, getSessionPanels]);
+
   if (!isVisible || !sessionContext) return null;
 
   const { session, gitBranchActions, isMerging } = sessionContext;
@@ -153,6 +167,17 @@ export function DetailPanel({ isVisible, width, onResize, mergeError, projectGit
             )}
           </div>
         </DetailSection>
+
+        {/* Git History Graph */}
+        {session.worktreePath && (
+          <DetailSection title="History">
+            <GitHistoryGraph
+              sessionId={session.id}
+              baseBranch={session.baseBranch || 'main'}
+              onSelectCommit={handleSelectCommit}
+            />
+          </DetailSection>
+        )}
       </div>
     </div>
   );
