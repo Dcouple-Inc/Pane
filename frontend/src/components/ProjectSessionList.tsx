@@ -295,6 +295,7 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
     try {
       await API.projects.delete(String(projectId));
       loadProjects();
+      window.dispatchEvent(new Event('project-changed'));
     } catch (e) {
       console.error('Failed to delete project:', e);
     }
