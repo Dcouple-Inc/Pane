@@ -169,6 +169,8 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           if (ctrlOrMeta && e.shiftKey && e.key.toLowerCase() === 'm') return false;
           if (ctrlOrMeta && e.shiftKey && e.key.toLowerCase() === 'p') return false;
           if (ctrlOrMeta && e.shiftKey && e.key.toLowerCase() === 'l') return false;
+          // Ctrl/Cmd+Shift+N: new project
+          if (ctrlOrMeta && e.shiftKey && e.key.toLowerCase() === 'n') return false;
 
           // Session cycling - Tab
           if (ctrlOrMeta && e.key === 'Tab') return false;
