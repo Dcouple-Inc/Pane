@@ -17,6 +17,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useConfigStore } from '../stores/configStore';
 import { useSessionStore } from '../stores/sessionStore';
 import { API } from '../utils/api';
+import { Dropdown } from './ui/Dropdown';
 
 export function HomePage() {
   const { theme, setTheme } = useTheme();
@@ -86,18 +87,25 @@ export function HomePage() {
           {/* Theme */}
           <div className="flex items-center justify-between p-4 bg-surface-secondary rounded-lg">
             <span className="text-text-primary">Theme</span>
-            <select
-              value={theme}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (v === 'light' || v === 'dark' || v === 'oled') setTheme(v);
-              }}
-              className="px-3 py-1.5 rounded-md bg-surface-tertiary hover:bg-surface-hover text-sm text-text-primary border border-border-secondary focus:outline-none focus:ring-2 focus:ring-interactive cursor-pointer"
-            >
-              <option value="light" className="bg-surface-tertiary text-text-primary">Light</option>
-              <option value="dark" className="bg-surface-tertiary text-text-primary">Dark</option>
-              <option value="oled" className="bg-surface-tertiary text-text-primary">OLED Black</option>
-            </select>
+            <Dropdown
+              trigger={
+                <button
+                  type="button"
+                  className="px-3 py-1.5 rounded-md bg-surface-tertiary hover:bg-surface-hover text-sm text-text-primary border border-border-secondary focus:outline-none focus:ring-2 focus:ring-interactive cursor-pointer flex items-center gap-2"
+                >
+                  <span>{theme === 'light' ? 'Light' : theme === 'dark' ? 'Dark' : 'OLED Black'}</span>
+                  <ChevronDown className="w-3 h-3 text-text-tertiary" />
+                </button>
+              }
+              items={[
+                { id: 'light', label: 'Light', onClick: () => setTheme('light') },
+                { id: 'dark', label: 'Dark', onClick: () => setTheme('dark') },
+                { id: 'oled', label: 'OLED Black', onClick: () => setTheme('oled') },
+              ]}
+              selectedId={theme}
+              position="bottom-right"
+              width="sm"
+            />
           </div>
 
           {/* UI Scale */}
@@ -129,16 +137,28 @@ export function HomePage() {
                 <Terminal className="w-4 h-4 text-text-secondary" />
                 <span className="text-text-primary">Terminal Shell</span>
               </div>
-              <select
-                value={preferredShell}
-                onChange={(e) => handleShellChange(e.target.value)}
-                className="px-3 py-1.5 rounded-md border border-border-primary bg-surface-secondary text-text-primary text-sm focus:ring-2 focus:ring-interactive focus:border-interactive"
-              >
-                <option value="auto" className="bg-surface-secondary text-text-primary">Auto (Git Bash)</option>
-                {availableShells.map(shell => (
-                  <option key={shell.id} value={shell.id} className="bg-surface-secondary text-text-primary">{shell.name}</option>
-                ))}
-              </select>
+              <Dropdown
+                trigger={
+                  <button
+                    type="button"
+                    className="px-3 py-1.5 rounded-md bg-surface-tertiary hover:bg-surface-hover text-sm text-text-primary border border-border-secondary focus:outline-none focus:ring-2 focus:ring-interactive cursor-pointer flex items-center gap-2"
+                  >
+                    <span>{preferredShell === 'auto' ? 'Auto (Git Bash)' : availableShells.find(s => s.id === preferredShell)?.name ?? preferredShell}</span>
+                    <ChevronDown className="w-3 h-3 text-text-tertiary" />
+                  </button>
+                }
+                items={[
+                  { id: 'auto', label: 'Auto (Git Bash)', onClick: () => handleShellChange('auto') },
+                  ...availableShells.map(shell => ({
+                    id: shell.id,
+                    label: shell.name,
+                    onClick: () => handleShellChange(shell.id),
+                  })),
+                ]}
+                selectedId={preferredShell}
+                position="bottom-right"
+                width="sm"
+              />
             </div>
           )}
         </div>

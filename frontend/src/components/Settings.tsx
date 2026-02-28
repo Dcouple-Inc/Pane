@@ -33,6 +33,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { Modal, ModalHeader, ModalBody, ModalFooter } from './ui/Modal';
 import { CollapsibleCard } from './ui/CollapsibleCard';
 import { SettingsSection } from './ui/SettingsSection';
+import { Dropdown } from './ui/Dropdown';
 
 interface IPCResponse<T = unknown> {
   success: boolean;
@@ -339,18 +340,25 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
                 description="Choose your preferred theme"
                 icon={<Palette className="w-4 h-4" />}
               >
-                <select
-                  value={theme}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (v === 'light' || v === 'dark' || v === 'oled') setTheme(v);
-                  }}
-                  className="w-full px-4 py-3 bg-surface-secondary hover:bg-surface-hover rounded-lg transition-colors border border-border-secondary text-text-primary focus:outline-none focus:ring-2 focus:ring-interactive cursor-pointer"
-                >
-                  <option value="light">Light</option>
-                  <option value="dark">Dark</option>
-                  <option value="oled">OLED Black</option>
-                </select>
+                <Dropdown
+                  trigger={
+                    <button
+                      type="button"
+                      className="w-full px-4 py-3 bg-surface-secondary hover:bg-surface-hover rounded-lg transition-colors border border-border-secondary text-text-primary focus:outline-none focus:ring-2 focus:ring-interactive cursor-pointer flex items-center justify-between"
+                    >
+                      <span>{theme === 'light' ? 'Light' : theme === 'dark' ? 'Dark' : 'OLED Black'}</span>
+                      <ChevronDown className="w-4 h-4 text-text-tertiary" />
+                    </button>
+                  }
+                  items={[
+                    { id: 'light', label: 'Light', onClick: () => setTheme('light') },
+                    { id: 'dark', label: 'Dark', onClick: () => setTheme('dark') },
+                    { id: 'oled', label: 'OLED Black', onClick: () => setTheme('oled') },
+                  ]}
+                  selectedId={theme}
+                  position="bottom-left"
+                  width="full"
+                />
               </SettingsSection>
 
               <SettingsSection
@@ -834,16 +842,28 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
                   description="Default shell for terminal panels"
                   icon={<Terminal className="w-4 h-4" />}
                 >
-                  <select
-                    value={preferredShell}
-                    onChange={(e) => setPreferredShell(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-border-primary bg-surface-secondary text-text-primary focus:ring-2 focus:ring-interactive focus:border-interactive"
-                  >
-                    <option value="auto">Auto-detect (Git Bash preferred)</option>
-                    {availableShells.map(shell => (
-                      <option key={shell.id} value={shell.id}>{shell.name}</option>
-                    ))}
-                  </select>
+                  <Dropdown
+                    trigger={
+                      <button
+                        type="button"
+                        className="w-full px-4 py-3 bg-surface-secondary hover:bg-surface-hover rounded-lg transition-colors border border-border-secondary text-text-primary focus:outline-none focus:ring-2 focus:ring-interactive cursor-pointer flex items-center justify-between"
+                      >
+                        <span>{preferredShell === 'auto' ? 'Auto-detect (Git Bash preferred)' : availableShells.find(s => s.id === preferredShell)?.name ?? preferredShell}</span>
+                        <ChevronDown className="w-4 h-4 text-text-tertiary" />
+                      </button>
+                    }
+                    items={[
+                      { id: 'auto', label: 'Auto-detect (Git Bash preferred)', onClick: () => setPreferredShell('auto') },
+                      ...availableShells.map(shell => ({
+                        id: shell.id,
+                        label: shell.name,
+                        onClick: () => setPreferredShell(shell.id),
+                      })),
+                    ]}
+                    selectedId={preferredShell}
+                    position="bottom-left"
+                    width="full"
+                  />
                 </SettingsSection>
               )}
 
