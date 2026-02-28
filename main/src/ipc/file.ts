@@ -620,7 +620,7 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
         const { stdout: trackedStdout } = await commandRunner.execAsync(
           'git ls-files',
           storedDir,
-          { maxBuffer: 10 * 1024 * 1024 }
+          { maxBuffer: 10 * 1024 * 1024, timeout: 60_000 }
         );
 
         if (trackedStdout) {
@@ -634,7 +634,8 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
         // Also get untracked files that are not ignored
         const { stdout: untrackedStdout } = await commandRunner.execAsync(
           'git ls-files --others --exclude-standard',
-          storedDir
+          storedDir,
+          { maxBuffer: 10 * 1024 * 1024, timeout: 60_000 }
         );
 
         if (untrackedStdout) {
@@ -841,8 +842,8 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
         return arg;
       }).join(' ')}`;
 
-      // Execute git command using CommandRunner
-      const result = commandRunner.exec(command, project.path);
+      // Execute git command using CommandRunner (10MB buffer for large repos)
+      const result = commandRunner.exec(command, project.path, { maxBuffer: 10 * 1024 * 1024 });
 
       console.log('[git:execute-project] Command successful');
       return { success: true, output: result };
