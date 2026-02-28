@@ -91,6 +91,8 @@ const createTreeItemComparator = (ascending: boolean) => {
 
 export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProjectTreeViewProps) {
   const [projectsWithSessions, setProjectsWithSessions] = useState<ProjectWithSessions[]>([]);
+  const projectsWithSessionsRef = useRef(projectsWithSessions);
+  projectsWithSessionsRef.current = projectsWithSessions;
   const [archivedProjectsWithSessions, setArchivedProjectsWithSessions] = useState<ProjectWithSessions[]>([]);
   const [expandedProjects, setExpandedProjects] = useState<Set<number>>(new Set());
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
@@ -135,6 +137,8 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
   const [showCreateFolderDialog, setShowCreateFolderDialog] = useState(false);
   const [refreshingProjects, setRefreshingProjects] = useState<Set<number>>(new Set());
   const [runningProjectId, setRunningProjectId] = useState<number | null>(null);
+  const runningProjectIdRef = useRef(runningProjectId);
+  runningProjectIdRef.current = runningProjectId;
   const [closingProjectId, setClosingProjectId] = useState<number | null>(null);
   const [selectedProjectForFolder, setSelectedProjectForFolder] = useState<Project | null>(null);
   const [newFolderName, setNewFolderName] = useState('');
@@ -203,7 +207,7 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
   useEffect(() => {
     if (activeSessionId) {
       // Find the session to get its project and folder IDs
-      const session = projectsWithSessions
+      const session = projectsWithSessionsRef.current
         .flatMap(project => project.sessions)
         .find(s => s.id === activeSessionId);
 
@@ -229,7 +233,7 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
         });
       }
     }
-  }, [activeSessionId, projectsWithSessions]);
+  }, [activeSessionId]);
 
   const handleFolderCreated = (folder: Folder) => {
     // Add the folder to the appropriate project
@@ -564,12 +568,12 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
       if (panelEvent.type === 'process:ended' && panelEvent.source?.panelType === 'logs') {
         // Check if this was the running project's session
         const sessionId = panelEvent.source.sessionId;
-        if (sessionId && runningProjectId !== null) {
+        if (sessionId && runningProjectIdRef.current !== null) {
           // Find which project this session belongs to
-          const project = projectsWithSessions.find(p =>
+          const project = projectsWithSessionsRef.current.find(p =>
             p.sessions.some(s => s.id === sessionId && s.isMainRepo)
           );
-          if (project && project.id === runningProjectId) {
+          if (project && project.id === runningProjectIdRef.current) {
             setRunningProjectId(null);
             setClosingProjectId(null);
           }
@@ -586,7 +590,7 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
       window.removeEventListener('project-script-closing', handleProjectScriptClosing as EventListener);
       window.removeEventListener('panel:event', handlePanelEvent as EventListener);
     };
-  }, [runningProjectId, projectsWithSessions]);
+  }, []);
 
   // Listen for "Discard and Retry" events from session context menu
   useEffect(() => {
@@ -598,7 +602,7 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
       const { session, projectId, folderId } = event.detail;
 
       // Find the project for this session
-      const project = projectsWithSessions.find(p => p.id === projectId);
+      const project = projectsWithSessionsRef.current.find(p => p.id === projectId);
       if (!project) {
         console.error('[DraggableProjectTreeView] Project not found for discard-and-retry:', projectId);
         return;
@@ -627,7 +631,7 @@ export function DraggableProjectTreeView({ sessionSortAscending }: DraggableProj
     return () => {
       window.removeEventListener('discard-and-retry', handleDiscardAndRetry as EventListener);
     };
-  }, [projectsWithSessions]);
+  }, []);
 
   const loadProjectsWithSessions = async () => {
     try {
