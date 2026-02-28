@@ -16,7 +16,7 @@ import { useResizable } from '../hooks/useResizable';
 import { useResizableHeight } from '../hooks/useResizableHeight';
 import { usePanelStore } from '../stores/panelStore';
 import { panelApi } from '../services/panelApi';
-import { PanelTabBar, SETUP_RUN_SCRIPT_PROMPT } from './panels/PanelTabBar';
+import { PanelTabBar } from './panels/PanelTabBar';
 import { PanelContainer } from './panels/PanelContainer';
 import { SessionProvider } from '../contexts/SessionContext';
 import { ToolPanel, ToolPanelType, PANEL_CAPABILITIES } from '../../../shared/types/panels';
@@ -26,6 +26,8 @@ import type { Project } from '../types/project';
 import { devLog, renderLog } from '../utils/console';
 import { useConfigStore } from '../stores/configStore';
 import { cycleIndex } from '../utils/arrayUtils';
+import { formatKeyDisplay } from '../utils/hotkeyUtils';
+import { Tooltip } from './ui/Tooltip';
 
 export const SessionView = memo(() => {
   const { activeView, activeProjectId } = useNavigationStore();
@@ -277,14 +279,14 @@ export const SessionView = memo(() => {
   });
 
   useHotkey({
-    id: 'add-tool-setup-run-script',
-    label: 'Add Setup Run Script',
+    id: 'add-tool-terminal-codex',
+    label: 'Add Terminal (Codex)',
     keys: 'mod+shift+2',
     category: 'tools',
     enabled: () => isInSessionView,
     action: () => handlePanelCreate('terminal', {
-      initialCommand: `claude --dangerously-skip-permissions "${SETUP_RUN_SCRIPT_PROMPT.replace(/\n/g, ' ')}"`,
-      title: 'Setup Run Script'
+      initialCommand: 'codex',
+      title: 'Codex CLI'
     }),
   });
 
@@ -839,30 +841,32 @@ export const SessionView = memo(() => {
                   {/* Middle: scrollable pill shortcuts */}
                   <div className="flex-1 flex items-center gap-2 overflow-x-auto ml-3 scrollbar-none">
                     {/* Claude pill */}
-                    <button
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-text-tertiary border border-border-primary hover:bg-surface-hover hover:text-text-secondary transition-colors whitespace-nowrap flex-shrink-0"
-                      onClick={() => handlePanelCreate('terminal', {
-                        initialCommand: 'claude --dangerously-skip-permissions',
-                        title: 'Claude CLI'
-                      })}
-                      title="Open Claude CLI terminal"
-                    >
-                      <MessageSquare className="w-3 h-3" />
-                      Claude
-                    </button>
+                    <Tooltip content={<kbd className="px-1.5 py-0.5 text-xs font-mono bg-surface-tertiary rounded">{formatKeyDisplay('mod+shift+1')}</kbd>} side="top">
+                      <button
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-text-tertiary border border-border-primary hover:bg-surface-hover hover:text-text-secondary transition-colors whitespace-nowrap flex-shrink-0"
+                        onClick={() => handlePanelCreate('terminal', {
+                          initialCommand: 'claude --dangerously-skip-permissions',
+                          title: 'Claude CLI'
+                        })}
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        Claude
+                      </button>
+                    </Tooltip>
 
                     {/* Codex pill */}
-                    <button
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-text-tertiary border border-border-primary hover:bg-surface-hover hover:text-text-secondary transition-colors whitespace-nowrap flex-shrink-0"
-                      onClick={() => handlePanelCreate('terminal', {
-                        initialCommand: 'codex',
-                        title: 'Codex CLI'
-                      })}
-                      title="Open Codex CLI terminal"
-                    >
-                      <Code2 className="w-3 h-3" />
-                      Codex
-                    </button>
+                    <Tooltip content={<kbd className="px-1.5 py-0.5 text-xs font-mono bg-surface-tertiary rounded">{formatKeyDisplay('mod+shift+2')}</kbd>} side="top">
+                      <button
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-text-tertiary border border-border-primary hover:bg-surface-hover hover:text-text-secondary transition-colors whitespace-nowrap flex-shrink-0"
+                        onClick={() => handlePanelCreate('terminal', {
+                          initialCommand: 'codex',
+                          title: 'Codex CLI'
+                        })}
+                      >
+                        <Code2 className="w-3 h-3" />
+                        Codex
+                      </button>
+                    </Tooltip>
 
                     {/* Custom command pills */}
                     {customCommands.map((cmd, index) => (
