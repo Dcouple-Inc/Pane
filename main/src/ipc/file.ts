@@ -406,8 +406,7 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
         // Use git show to get file content at specific revision
         const { stdout } = await commandRunner.execAsync(
           `git show ${revision}:${normalizedPath}`,
-          session.worktreePath,
-          { maxBuffer: 10 * 1024 * 1024 }
+          session.worktreePath
         );
 
         return { success: true, content: stdout };
@@ -619,8 +618,7 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
         // Use storedDir (Linux path) for CommandRunner, not filesystem path
         const { stdout: trackedStdout } = await commandRunner.execAsync(
           'git ls-files',
-          storedDir,
-          { maxBuffer: 10 * 1024 * 1024, timeout: 60_000 }
+          storedDir
         );
 
         if (trackedStdout) {
@@ -634,8 +632,7 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
         // Also get untracked files that are not ignored
         const { stdout: untrackedStdout } = await commandRunner.execAsync(
           'git ls-files --others --exclude-standard',
-          storedDir,
-          { maxBuffer: 10 * 1024 * 1024, timeout: 60_000 }
+          storedDir
         );
 
         if (untrackedStdout) {
@@ -842,8 +839,8 @@ Co-Authored-By: Pane <runpane@users.noreply.github.com>` : request.message;
         return arg;
       }).join(' ')}`;
 
-      // Execute git command using CommandRunner (10MB buffer for large repos)
-      const result = commandRunner.exec(command, project.path, { maxBuffer: 10 * 1024 * 1024 });
+      // Execute git command using CommandRunner
+      const result = commandRunner.exec(command, project.path);
 
       console.log('[git:execute-project] Command successful');
       return { success: true, output: result };

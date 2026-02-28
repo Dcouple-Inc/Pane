@@ -225,7 +225,7 @@ export class GitDiffManager {
    */
   getCommitDiff(worktreePath: string, commitHash: string, commandRunner: CommandRunner): GitDiffResult {
     try {
-      const diff = commandRunner.exec(`git show --format= ${commitHash}`, worktreePath, { maxBuffer: 10 * 1024 * 1024 });
+      const diff = commandRunner.exec(`git show --format= ${commitHash}`, worktreePath);
 
       const stats = this.getCommitStats(worktreePath, commitHash, commandRunner);
       const changedFiles = this.getCommitChangedFiles(worktreePath, commitHash, commandRunner);
@@ -373,7 +373,7 @@ export class GitDiffManager {
 
       // Get diff of both staged and unstaged changes against HEAD
       // Using 'git diff HEAD' to include both staged and unstaged changes
-      let diff = commandRunner.exec('git diff HEAD', worktreePath, { maxBuffer: 10 * 1024 * 1024 });
+      let diff = commandRunner.exec('git diff HEAD', worktreePath);
       console.log(`Git diff in ${worktreePath}: ${diff.length} characters`);
 
       // Get untracked files and create diff-like output for them
