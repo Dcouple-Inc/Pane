@@ -141,6 +141,24 @@ function HeadlessFileTree({
     setExpandedItems,
   });
 
+  // Eagerly load root directory on mount so the cache is populated for search.
+  // Without this, restoring a persisted searchQuery shows "No matching files"
+  // because the tree's async loader only fires when the tree branch renders.
+  useEffect(() => {
+    if (filesCacheRef.current.size === 0) {
+      window.electronAPI.invoke('file:list', {
+        sessionId: sessionIdRef.current,
+        path: '',
+      }).then((result: { success: boolean; files: FileItem[]; error?: string }) => {
+        if (result.success) {
+          filesCacheRef.current.set('', result.files);
+        }
+      }).catch(() => {
+        // Errors are surfaced by the tree's data loader when it renders
+      });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Session switch: clear cache and invalidate root
   const prevSessionIdRef = useRef(sessionId);
   useEffect(() => {
