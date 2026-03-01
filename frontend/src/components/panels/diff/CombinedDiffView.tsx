@@ -37,8 +37,8 @@ function parseUnifiedDiffToFiles(diff: string): FileDiff[] {
     else if (chunk.includes('deleted file mode')) type = 'deleted';
     else if (chunk.includes('rename from') && chunk.includes('rename to')) type = 'renamed';
 
-    const additions = (chunk.match(/^\+[^+]/gm) || []).length;
-    const deletions = (chunk.match(/^-[^-]/gm) || []).length;
+    const additions = (chunk.match(/^\+(?!\+\+)/gm) || []).length;
+    const deletions = (chunk.match(/^-(?!--)/gm) || []).length;
 
     return [{ path: newPath || oldPath, oldPath, type, isBinary, additions, deletions, rawDiff: chunk }];
   });
