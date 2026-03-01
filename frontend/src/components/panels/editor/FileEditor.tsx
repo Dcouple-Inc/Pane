@@ -54,6 +54,8 @@ function HeadlessFileTree({
   const [error, setError] = useState<string | null>(null);
   const setErrorRef = useRef(setError);
   setErrorRef.current = setError;
+  // Counter to force rerender when cache is populated asynchronously (ref mutations don't trigger rerenders)
+  const [, setCacheVersion] = useState(0);
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery || '');
   const [showSearch, setShowSearch] = useState(initialShowSearch || false);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -141,33 +143,38 @@ function HeadlessFileTree({
     setExpandedItems,
   });
 
-  // Eagerly load root directory on mount so the cache is populated for search.
-  // Without this, restoring a persisted searchQuery shows "No matching files"
-  // because the tree's async loader only fires when the tree branch renders.
-  useEffect(() => {
-    if (filesCacheRef.current.size === 0) {
-      window.electronAPI.invoke('file:list', {
-        sessionId: sessionIdRef.current,
-        path: '',
-      }).then((result: { success: boolean; files: FileItem[]; error?: string }) => {
-        if (result.success) {
-          filesCacheRef.current.set('', result.files);
-        }
-      }).catch(() => {
-        // Errors are surfaced by the tree's data loader when it renders
-      });
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Load root directory into cache. Runs on mount and session switch.
+  // Needed because search mode skips the tree branch (and its async loader),
+  // so without this a persisted searchQuery shows "No matching files".
+  const loadRootIntoCache = useCallback(() => {
+    window.electronAPI.invoke('file:list', {
+      sessionId: sessionIdRef.current,
+      path: '',
+    }).then((result: { success: boolean; files: FileItem[]; error?: string }) => {
+      if (result.success) {
+        filesCacheRef.current.set('', result.files);
+        setCacheVersion(v => v + 1); // trigger rerender so search sees the data
+      }
+    }).catch(() => {
+      // Errors are surfaced by the tree's data loader when it renders
+    });
+  }, []);
 
-  // Session switch: clear cache and invalidate root
+  // Eager load on mount
+  useEffect(() => {
+    loadRootIntoCache();
+  }, [loadRootIntoCache]);
+
+  // Session switch: clear cache, invalidate tree, and reload root
   const prevSessionIdRef = useRef(sessionId);
   useEffect(() => {
     if (prevSessionIdRef.current !== sessionId) {
       filesCacheRef.current.clear();
       tree.getItemInstance(ROOT_ID)?.invalidateChildrenIds();
       prevSessionIdRef.current = sessionId;
+      loadRootIntoCache();
     }
-  }, [sessionId, tree]);
+  }, [sessionId, tree, loadRootIntoCache]);
 
   // Highlight matching text in search results
   const highlightText = useCallback((text: string, query: string) => {
