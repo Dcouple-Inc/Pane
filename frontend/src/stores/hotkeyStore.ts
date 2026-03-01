@@ -73,7 +73,17 @@ function normalizeKeyEvent(e: KeyboardEvent): string {
   if (e.altKey) parts.push('alt');
   if (e.shiftKey) parts.push('shift');
   // parts is already in canonical order because we push in that order
-  let key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  // Use e.code for letters when alt is held — macOS Option key modifies e.key
+  // (e.g. Option+A produces 'å' instead of 'a')
+  // Skip AltGr — on Windows/Linux international layouts AltGr sets both ctrlKey+altKey
+  // but is used for character input (e.g. AltGr+Q = '@' on German keyboards)
+  const isAltGr = e.getModifierState('AltGraph');
+  const altLetterMatch = e.altKey && !isAltGr && e.code.match(/^Key([A-Z])$/);
+  let key = altLetterMatch
+    ? altLetterMatch[1].toLowerCase()
+    : e.key.length === 1
+      ? e.key.toLowerCase()
+      : e.key;
   // Use e.code for digits when shift is held — e.key is layout-dependent
   // (e.g. Shift+2 produces '@' on US, '"' on UK, different on AZERTY)
   const digitMatch = e.shiftKey && e.code.match(/^Digit(\d)$/);
