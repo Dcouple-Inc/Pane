@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, memo, forwardRef, useImperativeHandle, us
 import { DiffView, DiffModeEnum } from '@git-diff-view/react';
 import type { DiffHighlighter } from '@git-diff-view/shiki';
 import { getDiffViewHighlighter } from '@git-diff-view/shiki';
-import { FileText, ChevronRight, ChevronDown, ExternalLink } from 'lucide-react';
+import { FileText, ChevronRight, ChevronDown, ExternalLink, ChevronsUpDown, ChevronsDownUp } from 'lucide-react';
 import type { DiffViewerProps, FileDiff } from '../../../types/diff';
 import { useTheme } from '../../../contexts/ThemeContext';
 import "@git-diff-view/react/styles/diff-view.css";
@@ -163,6 +163,14 @@ const DiffViewer = memo(forwardRef<DiffViewerHandle, DiffViewerProps>(({ files, 
     });
   }, []);
 
+  const expandAll = useCallback(() => {
+    setExpandedFiles(new Set(files.map((_, i) => i)));
+  }, [files]);
+
+  const collapseAll = useCallback(() => {
+    setExpandedFiles(new Set());
+  }, []);
+
   // Reset expanded files only when the actual file list changes (not just the array reference).
   // Expand all files by default.
   const fingerprint = useMemo(() => files.map(f => f.path).join('\0'), [files]);
@@ -207,6 +215,23 @@ const DiffViewer = memo(forwardRef<DiffViewerHandle, DiffViewerProps>(({ files, 
         <span className="text-sm text-text-secondary">
           {files.length} {files.length === 1 ? 'file' : 'files'} changed
         </span>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={expandAll}
+              title="Expand all files"
+              className="p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-surface-hover transition-colors"
+            >
+              <ChevronsUpDown className="w-4 h-4" />
+            </button>
+            <button
+              onClick={collapseAll}
+              title="Collapse all files"
+              className="p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-surface-hover transition-colors"
+            >
+              <ChevronsDownUp className="w-4 h-4" />
+            </button>
+          </div>
         <div className="inline-flex rounded-lg border border-border-primary bg-surface-primary">
           <button
             onClick={() => handleViewTypeChange(DiffModeEnum.Unified)}
@@ -228,6 +253,7 @@ const DiffViewer = memo(forwardRef<DiffViewerHandle, DiffViewerProps>(({ files, 
           >
             Split
           </button>
+        </div>
         </div>
       </div>
 
