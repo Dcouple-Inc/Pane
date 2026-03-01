@@ -3,7 +3,8 @@ import posthog from 'posthog-js';
 const DEFAULT_API_KEY = 'phc_uwOqT2KUa4C9Qx5WbEPwQSN9mUCoSGFg1aY0b670ft5';
 const DEFAULT_HOST = 'https://us.i.posthog.com';
 
-let initialized = false;
+let currentApiKey: string | undefined;
+let currentHost: string | undefined;
 
 export interface PostHogConfig {
   enabled: boolean;
@@ -12,10 +13,11 @@ export interface PostHogConfig {
 }
 
 export function initPostHog(config: PostHogConfig): void {
-  if (initialized) return;
-
   const apiKey = config.posthogApiKey || DEFAULT_API_KEY;
   const host = config.posthogHost || DEFAULT_HOST;
+
+  // Skip if already initialized with the same key/host
+  if (currentApiKey === apiKey && currentHost === host) return;
 
   posthog.init(apiKey, {
     api_host: host,
@@ -43,7 +45,8 @@ export function initPostHog(config: PostHogConfig): void {
     },
   });
 
-  initialized = true;
+  currentApiKey = apiKey;
+  currentHost = host;
 }
 
 export function optIn(): void {
