@@ -43,28 +43,20 @@ export function DetailPanel({ isVisible, width, onResize, mergeError, projectGit
     }
   }, [sessionContext, setActivePanel, getSessionPanels]);
 
-  // Build IDE dropdown items, showing configured command first if it differs from defaults
+  // Build IDE dropdown items, sending safe IDE keys (resolved to commands server-side)
   const ideItems = useMemo(() => {
     if (!sessionContext?.onOpenIDEWithCommand) return [];
     const handler = sessionContext.onOpenIDEWithCommand;
     const configured = sessionContext.configuredIDECommand?.trim();
-    const defaults = [
-      { id: 'vscode', label: 'VS Code', command: 'code .' },
-      { id: 'cursor', label: 'Cursor', command: 'cursor .' },
-    ];
-    const isCustom = configured && !defaults.some(d => d.command === configured);
+    const knownCommands = ['code .', 'cursor .'];
+    const isCustom = configured && !knownCommands.includes(configured);
     const items = isCustom
-      ? [{ id: 'configured', label: configured, description: 'Project default', icon: TerminalSquare, onClick: () => handler(configured) }]
+      ? [{ id: 'configured', label: configured, description: 'Project default', icon: TerminalSquare, onClick: () => handler() }]
       : [];
     return [
       ...items,
-      ...defaults.map(d => ({
-        id: d.id,
-        label: d.label,
-        description: d.command,
-        icon: Code2,
-        onClick: () => handler(d.command),
-      })),
+      { id: 'vscode', label: 'VS Code', description: 'code .', icon: Code2, onClick: () => handler('vscode') },
+      { id: 'cursor', label: 'Cursor', description: 'cursor .', icon: Code2, onClick: () => handler('cursor') },
     ];
   }, [sessionContext?.onOpenIDEWithCommand, sessionContext?.configuredIDECommand]);
 

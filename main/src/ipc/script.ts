@@ -201,7 +201,13 @@ export function registerScriptHandlers(ipcMain: IpcMain, { sessionManager }: App
     }
   });
 
-  ipcMain.handle('sessions:open-ide', async (_event, sessionId: string, command?: string) => {
+  // Allowlist of known IDE commands keyed by identifier
+  const IDE_COMMANDS: Record<string, string> = {
+    vscode: 'code .',
+    cursor: 'cursor .',
+  };
+
+  ipcMain.handle('sessions:open-ide', async (_event, sessionId: string, ideKey?: unknown) => {
     try {
       const session = await sessionManager.getSession(sessionId);
       if (!session || !session.worktreePath) {
@@ -209,7 +215,9 @@ export function registerScriptHandlers(ipcMain: IpcMain, { sessionManager }: App
       }
 
       const project = sessionManager.getProjectForSession(sessionId);
-      const ideCommand = command || project?.open_ide_command;
+      // Resolve command: use allowlisted key, fall back to project config
+      const safeKey = typeof ideKey === 'string' ? ideKey : undefined;
+      const ideCommand = (safeKey && IDE_COMMANDS[safeKey]) || project?.open_ide_command;
       if (!ideCommand) {
         return { success: false, error: 'No IDE command configured for this project' };
       }

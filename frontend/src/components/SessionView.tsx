@@ -533,10 +533,10 @@ export const SessionView = memo(() => {
   // IDE dropdown handlers
   const [showProjectSettings, setShowProjectSettings] = useState(false);
 
-  const handleOpenIDEWithCommand = useCallback(async (command?: string) => {
+  const handleOpenIDEWithCommand = useCallback(async (ideKey?: string) => {
     if (!activeSession) return;
     try {
-      const response = await API.sessions.openIDE(activeSession.id, command);
+      const response = await API.sessions.openIDE(activeSession.id, ideKey);
       if (!response.success) {
         useErrorStore.getState().showError({
           title: 'Failed to open IDE',
