@@ -1,12 +1,27 @@
 import { IpcMain, shell } from 'electron';
 import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
 import * as path from 'path';
+import { execSync } from 'child_process';
 import { glob } from 'glob';
 import type { AppServices } from './types';
 import type { Session } from '../types/session';
 import { GIT_ATTRIBUTION_ENV } from '../utils/attribution';
 import { commandExecutor } from '../utils/commandExecutor';
 import { buildGitCommitCommand } from '../utils/shellEscape';
+
+/** Detect if the Electron process is running inside WSL (e.g. via WSLg). */
+let _isWSL: boolean | null = null;
+function isRunningInWSL(): boolean {
+  if (_isWSL !== null) return _isWSL;
+  try {
+    const version = fsSync.readFileSync('/proc/version', 'utf-8');
+    _isWSL = /microsoft/i.test(version);
+  } catch {
+    _isWSL = false;
+  }
+  return _isWSL;
+}
 
 interface FileReadRequest {
   sessionId: string;
@@ -882,7 +897,14 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
       const basePath = ctx.pathResolver.toFileSystem(session.worktreePath);
       const targetPath = relativePath ? path.join(basePath, relativePath) : basePath;
 
-      shell.showItemInFolder(targetPath);
+      if (isRunningInWSL()) {
+        // Inside WSL, shell.showItemInFolder has no file manager.
+        // Convert to a Windows path and open with explorer.exe.
+        const winPath = execSync(`wslpath -w "${targetPath}"`, { encoding: 'utf-8' }).trim();
+        execSync(`explorer.exe /select,"${winPath}"`);
+      } else {
+        shell.showItemInFolder(targetPath);
+      }
       return { success: true };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Failed to show in folder' };
