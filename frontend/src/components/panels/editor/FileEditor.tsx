@@ -911,7 +911,7 @@ export function FileEditor({
     if (!selectedFile) return;
     const handlePanelEvent = (event: CustomEvent) => {
       const { type } = event.detail || {};
-      if (type === 'git:operation_completed' || type === 'diff:refreshed' || type === 'terminal:command_executed') {
+      if (type === 'git:operation_completed' || type === 'diff:refreshed' || type === 'terminal:command_executed' || type === 'files:changed') {
         window.electronAPI.invoke('git:file-status', sessionId, selectedFile.path).then((statusResult: { success: boolean; data?: { status: 'clean' | 'modified' | 'untracked' } }) => {
           if (statusResult.success && statusResult.data) {
             setGitStatus(statusResult.data.status);
