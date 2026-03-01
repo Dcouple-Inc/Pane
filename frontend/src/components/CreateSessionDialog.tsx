@@ -785,7 +785,7 @@ export function CreateSessionDialog({
           <Button
             type="submit"
             form="create-session-form"
-            disabled={isSubmitting || !!worktreeError || !sessionName.trim()}
+            disabled={isSubmitting || isLoadingBranches || !!worktreeError || !sessionName.trim()}
             loading={isSubmitting}
             title={
               isSubmitting ? 'Creating pane...' :
