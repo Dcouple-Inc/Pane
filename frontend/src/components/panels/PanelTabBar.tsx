@@ -10,6 +10,7 @@ import { StatusIndicator } from '../StatusIndicator';
 import { useConfigStore } from '../../stores/configStore';
 import { formatKeyDisplay } from '../../utils/hotkeyUtils';
 import { Tooltip } from '../ui/Tooltip';
+import { Kbd } from '../ui/Kbd';
 import { useResourceMonitor } from '../../hooks/useResourceMonitor';
 
 function formatMemory(mb: number): string {
@@ -470,7 +471,7 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
           return shortcutHint ? (
             <Tooltip
               key={panel.id}
-              content={<kbd className="px-1.5 py-0.5 text-xs font-mono bg-surface-tertiary rounded">{shortcutHint}</kbd>}
+              content={<Kbd>{shortcutHint}</Kbd>}
               side="bottom"
             >
               {tab}
@@ -482,7 +483,7 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
 
         {/* Add Panel dropdown button - outside overflow container so dropdown isn't clipped */}
         <div className="relative h-9 flex items-center ml-1 flex-shrink-0" ref={dropdownRef}>
-          <Tooltip content={<kbd className="px-1.5 py-0.5 text-xs font-mono bg-surface-tertiary rounded">{formatKeyDisplay('mod+t')}</kbd>} side="bottom">
+          <Tooltip content={<Kbd>{formatKeyDisplay('mod+t')}</Kbd>} side="bottom">
             <button
               className="inline-flex items-center h-9 px-3 text-sm text-text-tertiary hover:text-text-primary hover:bg-surface-hover rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring-subtle"
               onClick={() => setShowDropdown(!showDropdown)}
@@ -508,11 +509,37 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
 
             return (
             <div
-              className="absolute top-full left-0 mt-1 bg-surface-primary border border-border-primary rounded shadow-dropdown z-50 animate-dropdown-enter"
+              className="absolute top-full left-0 mt-1 min-w-[280px] bg-surface-primary border border-border-primary rounded shadow-dropdown z-50 animate-dropdown-enter"
               role="menu"
               onKeyDown={handleDropdownKeyDown}
             >
-              {/* Terminal with Claude CLI - first option */}
+              {/* Terminal - plain terminal */}
+              {availablePanelTypes.includes('terminal') && (
+                <button
+                  ref={(el) => { dropdownItemsRef.current[refIndex++] = el; }}
+                  role="menuitem"
+                  className={menuItemClass}
+                  onClick={() => handleAddPanel('terminal')}
+                >
+                  <Terminal className="w-4 h-4 flex-shrink-0" />
+                  <span className="ml-2">Terminal</span>
+                  <Kbd size="xs" variant="muted" className="ml-auto">{formatKeyDisplay('mod+shift+1')}</Kbd>
+                </button>
+              )}
+              {/* Explorer */}
+              {availablePanelTypes.includes('explorer') && (
+                <button
+                  ref={(el) => { dropdownItemsRef.current[refIndex++] = el; }}
+                  role="menuitem"
+                  className={menuItemClass}
+                  onClick={() => handleAddPanel('explorer')}
+                >
+                  <FolderTree className="w-4 h-4 flex-shrink-0" />
+                  <span className="ml-2">Explorer</span>
+                  <Kbd size="xs" variant="muted" className="ml-auto">{formatKeyDisplay('mod+shift+2')}</Kbd>
+                </button>
+              )}
+              {/* Terminal with Claude CLI */}
               {availablePanelTypes.includes('terminal') && (
                 <button
                   ref={(el) => { dropdownItemsRef.current[refIndex++] = el; }}
@@ -523,11 +550,12 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
                     title: 'Claude CLI'
                   })}
                 >
-                  <Terminal className="w-4 h-4" />
+                  <Terminal className="w-4 h-4 flex-shrink-0" />
                   <span className="ml-2">Terminal (Claude)</span>
+                  <Kbd size="xs" variant="muted" className="ml-auto">{formatKeyDisplay('mod+shift+3')}</Kbd>
                 </button>
               )}
-              {/* Terminal with Codex CLI - second option */}
+              {/* Terminal with Codex CLI */}
               {availablePanelTypes.includes('terminal') && (
                 <button
                   ref={(el) => { dropdownItemsRef.current[refIndex++] = el; }}
@@ -538,37 +566,39 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
                     title: 'Codex CLI'
                   })}
                 >
-                  <Terminal className="w-4 h-4" />
+                  <Terminal className="w-4 h-4 flex-shrink-0" />
                   <span className="ml-2">Terminal (Codex)</span>
+                  <Kbd size="xs" variant="muted" className="ml-auto">{formatKeyDisplay('mod+shift+4')}</Kbd>
                 </button>
               )}
               {/* Saved custom commands */}
               {availablePanelTypes.includes('terminal') && customCommands.map((cmd, index) => {
                 const currentRefIndex = refIndex++;
+                const shortcutNum = 5 + index; // mod+shift+5, 6, 7, ...
                 return (
-                <div key={`custom-${index}`} className="group/cmd flex items-center w-full text-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary focus-within:bg-surface-hover focus-within:text-text-primary">
-                  <button
-                    ref={(el) => { dropdownItemsRef.current[currentRefIndex] = el; }}
-                    role="menuitem"
-                    className="flex items-center flex-1 px-4 py-2 text-left min-w-0 focus:outline-none"
-                    onClick={() => handleAddPanel('terminal', {
-                      initialCommand: cmd.command,
-                      title: cmd.name
-                    })}
-                    onKeyDown={(e) => {
-                      // Delete or Backspace removes the custom command
-                      if (e.key === 'Delete' || e.key === 'Backspace') {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        deleteCustomCommand(index);
-                      }
-                    }}
-                    title={`${cmd.name} (Delete/Backspace to remove)`}
-                  >
-                    <TerminalSquare className="w-4 h-4 flex-shrink-0" />
-                    <span className="ml-2 truncate">{cmd.name}</span>
-                  </button>
-                </div>
+                <button
+                  key={`custom-${index}`}
+                  ref={(el) => { dropdownItemsRef.current[currentRefIndex] = el; }}
+                  role="menuitem"
+                  className={menuItemClass}
+                  onClick={() => handleAddPanel('terminal', {
+                    initialCommand: cmd.command,
+                    title: cmd.name
+                  })}
+                  onKeyDown={(e) => {
+                    // Delete or Backspace removes the custom command
+                    if (e.key === 'Delete' || e.key === 'Backspace') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      deleteCustomCommand(index);
+                    }
+                  }}
+                  title={`${cmd.name} (Delete/Backspace to remove)`}
+                >
+                  <TerminalSquare className="w-4 h-4 flex-shrink-0" />
+                  <span className="ml-2 truncate">{cmd.name}</span>
+                  {shortcutNum <= 9 && <Kbd size="xs" variant="muted" className="ml-auto">{formatKeyDisplay(`mod+shift+${shortcutNum}`)}</Kbd>}
+                </button>
               );})}
               {/* Add Custom Command input */}
               {availablePanelTypes.includes('terminal') && (
@@ -609,13 +639,13 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
                     className={`${menuItemClass} border-b border-border-primary`}
                     onClick={() => setShowCustomInput(true)}
                   >
-                    <Plus className="w-4 h-4" />
+                    <Plus className="w-4 h-4 flex-shrink-0" />
                     <span className="ml-2">Add Custom Command...</span>
                   </button>
                 )
               )}
-              {/* Other panel types */}
-              {availablePanelTypes.map((type) => {
+              {/* Other panel types (excluding terminal and explorer, already listed above) */}
+              {availablePanelTypes.filter(t => t !== 'terminal' && t !== 'explorer').map((type) => {
                 const currentRefIndex = refIndex++;
                 return (
                 <button
@@ -690,7 +720,7 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
 
           {/* Detail panel toggle */}
           {onToggleDetailPanel && (
-            <Tooltip content={<kbd className="px-1.5 py-0.5 text-xs font-mono bg-surface-tertiary rounded">{formatKeyDisplay('mod+shift+b')}</kbd>} side="bottom">
+            <Tooltip content={<Kbd>{formatKeyDisplay('mod+shift+b')}</Kbd>} side="bottom">
               <button
                 onClick={onToggleDetailPanel}
                 className={cn(

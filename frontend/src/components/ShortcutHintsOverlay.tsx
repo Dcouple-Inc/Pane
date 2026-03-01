@@ -1,5 +1,6 @@
 import type { TerminalShortcut } from '../types/config';
 import { formatKeyDisplay } from '../utils/hotkeyUtils';
+import { Kbd } from './ui/Kbd';
 
 interface ShortcutHintsOverlayProps {
   isVisible: boolean;
@@ -24,18 +25,18 @@ export function ShortcutHintsOverlay({ isVisible, shortcuts }: ShortcutHintsOver
           <div className="text-center py-4">
             <p className="text-sm text-text-tertiary">No shortcuts configured</p>
             <p className="text-xs text-text-tertiary mt-2">
-              Press <kbd className="text-xs font-mono bg-surface-tertiary px-1.5 py-0.5 rounded">
+              Press <Kbd>
                 {formatKeyDisplay('mod+alt+/')}
-              </kbd> to add some
+              </Kbd> to add some
             </p>
           </div>
         ) : (
           <div className="grid gap-2">
             {enabledShortcuts.map((s) => (
               <div key={s.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-secondary">
-                <kbd className="text-xs font-mono bg-surface-tertiary px-2 py-1 rounded text-text-primary min-w-fit">
+                <Kbd size="md" className="text-text-primary min-w-fit">
                   {modPrefix} + {s.key.toUpperCase()}
-                </kbd>
+                </Kbd>
                 <span className="text-sm text-text-secondary truncate">{s.label}</span>
               </div>
             ))}

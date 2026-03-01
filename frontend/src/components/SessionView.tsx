@@ -3,6 +3,7 @@ import { useSessionStore } from '../stores/sessionStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import { useSessionHistoryStore } from '../stores/sessionHistoryStore';
 import { useHotkey } from '../hooks/useHotkey';
+import { useHotkeyStore } from '../stores/hotkeyStore';
 import { HomePage } from './HomePage';
 import '@xterm/xterm/css/xterm.css';
 import { useSessionView } from '../hooks/useSessionView';
@@ -29,6 +30,7 @@ import { useConfigStore } from '../stores/configStore';
 import { cycleIndex } from '../utils/arrayUtils';
 import { formatKeyDisplay } from '../utils/hotkeyUtils';
 import { Tooltip } from './ui/Tooltip';
+import { Kbd } from './ui/Kbd';
 import { useErrorStore } from '../stores/errorStore';
 import ProjectSettings from './ProjectSettings';
 
@@ -270,9 +272,27 @@ export const SessionView = memo(() => {
   const isInSessionView = !!activeSession && activeView !== 'project';
 
   useHotkey({
+    id: 'add-tool-terminal',
+    label: 'Add Terminal',
+    keys: 'mod+shift+1',
+    category: 'tools',
+    enabled: () => isInSessionView,
+    action: () => handlePanelCreate('terminal'),
+  });
+
+  useHotkey({
+    id: 'add-tool-explorer',
+    label: 'Add Explorer',
+    keys: 'mod+shift+2',
+    category: 'tools',
+    enabled: () => isInSessionView && !sessionPanels.some(p => p.type === 'explorer'),
+    action: () => handlePanelCreate('explorer'),
+  });
+
+  useHotkey({
     id: 'add-tool-terminal-claude',
     label: 'Add Terminal (Claude)',
-    keys: 'mod+shift+1',
+    keys: 'mod+shift+3',
     category: 'tools',
     enabled: () => isInSessionView,
     action: () => handlePanelCreate('terminal', {
@@ -284,31 +304,13 @@ export const SessionView = memo(() => {
   useHotkey({
     id: 'add-tool-terminal-codex',
     label: 'Add Terminal (Codex)',
-    keys: 'mod+shift+2',
+    keys: 'mod+shift+4',
     category: 'tools',
     enabled: () => isInSessionView,
     action: () => handlePanelCreate('terminal', {
       initialCommand: 'codex',
       title: 'Codex CLI'
     }),
-  });
-
-  useHotkey({
-    id: 'add-tool-terminal',
-    label: 'Add Terminal',
-    keys: 'mod+shift+4',
-    category: 'tools',
-    enabled: () => isInSessionView,
-    action: () => handlePanelCreate('terminal'),
-  });
-
-  useHotkey({
-    id: 'add-tool-explorer',
-    label: 'Add Explorer',
-    keys: 'mod+shift+5',
-    category: 'tools',
-    enabled: () => isInSessionView && !sessionPanels.some(p => p.type === 'explorer'),
-    action: () => handlePanelCreate('explorer'),
   });
 
   // Close active panel tab (skip permanent panels like diff)
@@ -390,6 +392,39 @@ export const SessionView = memo(() => {
     },
     [activeSession, addPanel, setActivePanelInStore]
   );
+
+  // Dynamic shortcuts for custom commands (mod+shift+5, 6, 7, ...)
+  const registerHotkey = useHotkeyStore((s) => s.register);
+  const unregisterHotkey = useHotkeyStore((s) => s.unregister);
+  const handlePanelCreateRef = useRef(handlePanelCreate);
+  handlePanelCreateRef.current = handlePanelCreate;
+  const isInSessionViewRef = useRef(isInSessionView);
+  isInSessionViewRef.current = isInSessionView;
+
+  useEffect(() => {
+    const CUSTOM_CMD_START = 5; // mod+shift+1-4 are taken by built-in tools
+    const maxSlots = Math.min(customCommands.length, 5); // mod+shift+5 through 9
+    const ids: string[] = [];
+
+    for (let i = 0; i < maxSlots; i++) {
+      const cmd = customCommands[i];
+      const id = `add-tool-custom-${i}`;
+      ids.push(id);
+      registerHotkey({
+        id,
+        label: `Add ${cmd.name}`,
+        keys: `mod+shift+${CUSTOM_CMD_START + i}`,
+        category: 'tools',
+        enabled: () => isInSessionViewRef.current,
+        action: () => handlePanelCreateRef.current('terminal', {
+          initialCommand: cmd.command,
+          title: cmd.name,
+        }),
+      });
+    }
+
+    return () => { ids.forEach(id => unregisterHotkey(id)); };
+  }, [customCommands, registerHotkey, unregisterHotkey]);
 
   // Load project data for active session
   useEffect(() => {
@@ -881,7 +916,7 @@ export const SessionView = memo(() => {
                   {/* Middle: scrollable pill shortcuts */}
                   <div className="flex-1 flex items-center gap-2 overflow-x-auto ml-3 scrollbar-none">
                     {/* Claude pill */}
-                    <Tooltip content={<kbd className="px-1.5 py-0.5 text-xs font-mono bg-surface-tertiary rounded">{formatKeyDisplay('mod+shift+1')}</kbd>} side="top">
+                    <Tooltip content={<Kbd>{formatKeyDisplay('mod+shift+3')}</Kbd>} side="top">
                       <button
                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-text-tertiary border border-border-primary hover:bg-surface-hover hover:text-text-secondary transition-colors whitespace-nowrap flex-shrink-0"
                         onClick={() => handlePanelCreate('terminal', {
@@ -895,7 +930,7 @@ export const SessionView = memo(() => {
                     </Tooltip>
 
                     {/* Codex pill */}
-                    <Tooltip content={<kbd className="px-1.5 py-0.5 text-xs font-mono bg-surface-tertiary rounded">{formatKeyDisplay('mod+shift+2')}</kbd>} side="top">
+                    <Tooltip content={<Kbd>{formatKeyDisplay('mod+shift+4')}</Kbd>} side="top">
                       <button
                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-text-tertiary border border-border-primary hover:bg-surface-hover hover:text-text-secondary transition-colors whitespace-nowrap flex-shrink-0"
                         onClick={() => handlePanelCreate('terminal', {
@@ -909,20 +944,28 @@ export const SessionView = memo(() => {
                     </Tooltip>
 
                     {/* Custom command pills */}
-                    {customCommands.map((cmd, index) => (
-                      <button
-                        key={`shortcut-${index}`}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-text-tertiary border border-border-primary hover:bg-surface-hover hover:text-text-secondary transition-colors whitespace-nowrap flex-shrink-0"
-                        onClick={() => handlePanelCreate('terminal', {
-                          initialCommand: cmd.command,
-                          title: cmd.name
-                        })}
-                        title={cmd.command}
-                      >
-                        <TerminalSquare className="w-3 h-3" />
-                        {cmd.name.length > 18 ? cmd.name.slice(0, 18) + '...' : cmd.name}
-                      </button>
-                    ))}
+                    {customCommands.map((cmd, index) => {
+                      const shortcutNum = 5 + index;
+                      const pill = (
+                        <button
+                          key={`shortcut-${index}`}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-text-tertiary border border-border-primary hover:bg-surface-hover hover:text-text-secondary transition-colors whitespace-nowrap flex-shrink-0"
+                          onClick={() => handlePanelCreate('terminal', {
+                            initialCommand: cmd.command,
+                            title: cmd.name
+                          })}
+                          title={cmd.command}
+                        >
+                          <TerminalSquare className="w-3 h-3" />
+                          {cmd.name.length > 18 ? cmd.name.slice(0, 18) + '...' : cmd.name}
+                        </button>
+                      );
+                      return shortcutNum <= 9 ? (
+                        <Tooltip key={`shortcut-${index}`} content={<Kbd>{formatKeyDisplay(`mod+shift+${shortcutNum}`)}</Kbd>} side="top">
+                          {pill}
+                        </Tooltip>
+                      ) : pill;
+                    })}
                   </div>
 
                   {/* Right: resize grip (only when expanded, always outside scroll container) */}

@@ -8,6 +8,7 @@ import { usePaneLogo } from '../hooks/usePaneLogo';
 import { isMac } from '../utils/platformUtils';
 import { IconButton } from './ui/Button';
 import { Tooltip } from './ui/Tooltip';
+import { Kbd } from './ui/Kbd';
 import { formatKeyDisplay } from '../utils/hotkeyUtils';
 import { Modal, ModalHeader, ModalBody } from './ui/Modal';
 import { Dropdown } from './ui/Dropdown';
@@ -214,7 +215,7 @@ export function Sidebar({ onHelpClick, onAboutClick, onSettingsClick, isSettings
 
           {/* Bottom actions */}
           <div className="flex-shrink-0 flex flex-col items-center gap-1 py-2 border-t border-border-primary">
-            <Tooltip content={<kbd className="px-1.5 py-0.5 text-xs font-mono bg-surface-tertiary rounded">{formatKeyDisplay('mod+,')}</kbd>} side="right">
+            <Tooltip content={<Kbd>{formatKeyDisplay('mod+,')}</Kbd>} side="right">
               <IconButton
                 onClick={onSettingsClick}
                 aria-label="Settings"
@@ -222,7 +223,7 @@ export function Sidebar({ onHelpClick, onAboutClick, onSettingsClick, isSettings
                 icon={<SettingsIcon className="w-4 h-4" />}
               />
             </Tooltip>
-            <Tooltip content={<kbd className="px-1.5 py-0.5 text-xs font-mono bg-surface-tertiary rounded">{formatKeyDisplay('mod+b')}</kbd>} side="right">
+            <Tooltip content={<Kbd>{formatKeyDisplay('mod+b')}</Kbd>} side="right">
               <IconButton
                 onClick={onToggleCollapse}
                 aria-label="Expand sidebar"
@@ -282,7 +283,7 @@ export function Sidebar({ onHelpClick, onAboutClick, onSettingsClick, isSettings
           </div>
           <div className="flex items-center space-x-2 flex-shrink-0">
             {onToggleCollapse && (
-              <Tooltip content={<kbd className="px-1.5 py-0.5 text-xs font-mono bg-surface-tertiary rounded">{formatKeyDisplay('mod+b')}</kbd>} side="bottom">
+              <Tooltip content={<Kbd>{formatKeyDisplay('mod+b')}</Kbd>} side="bottom">
                 <IconButton
                   onClick={onToggleCollapse}
                   aria-label="Collapse sidebar"
@@ -301,7 +302,7 @@ export function Sidebar({ onHelpClick, onAboutClick, onSettingsClick, isSettings
                 </svg>
               }
             />
-            <Tooltip content={<kbd className="px-1.5 py-0.5 text-xs font-mono bg-surface-tertiary rounded">{formatKeyDisplay('mod+,')}</kbd>} side="bottom">
+            <Tooltip content={<Kbd>{formatKeyDisplay('mod+,')}</Kbd>} side="bottom">
               <IconButton
                 onClick={onSettingsClick}
                 aria-label="Settings"

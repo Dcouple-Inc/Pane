@@ -3,6 +3,7 @@ import { GitBranch, Terminal, Folder, Zap, MessageSquare, Settings, Bell, Histor
 import { Modal, ModalHeader, ModalBody } from './ui/Modal';
 import { useHotkeyStore, type HotkeyDefinition } from '../stores/hotkeyStore';
 import { formatKeyDisplay, CATEGORY_LABELS } from '../utils/hotkeyUtils';
+import { Kbd } from './ui/Kbd';
 
 function KeyboardShortcutsSection() {
   const hotkeys = useHotkeyStore((s) => s.hotkeys);
@@ -31,7 +32,7 @@ function KeyboardShortcutsSection() {
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <span className="text-text-secondary">Send Input / Continue Conversation</span>
-            <kbd className="px-2 py-1 bg-surface-tertiary rounded text-sm font-mono">Cmd/Ctrl + Enter</kbd>
+            <Kbd size="md">Cmd/Ctrl + Enter</Kbd>
           </div>
         </div>
         {/* Dynamic shortcuts from registry */}
@@ -45,9 +46,9 @@ function KeyboardShortcutsSection() {
                 <div key={hotkey.id} className="flex justify-between items-center">
                   <span className="text-text-secondary">{hotkey.label}</span>
                   {hotkey.keys ? (
-                    <kbd className="px-2 py-1 bg-surface-tertiary rounded text-sm font-mono">
+                    <Kbd size="md">
                       {formatKeyDisplay(hotkey.keys)}
-                    </kbd>
+                    </Kbd>
                   ) : (
                     <span className="text-xs text-text-muted italic">palette only</span>
                   )}
@@ -146,7 +147,7 @@ export default function Help({ isOpen, onClose }: HelpProps) {
                   <h4 className="font-medium text-text-primary">Continuing Conversations</h4>
                   <ul className="list-disc list-inside text-text-secondary mt-1 space-y-1">
                     <li>Click on a stopped pane to resume it</li>
-                    <li>Use <kbd className="px-2 py-1 bg-surface-tertiary rounded text-sm">Cmd/Ctrl + Enter</kbd> to send input</li>
+                    <li>Use <Kbd size="md">Cmd/Ctrl + Enter</Kbd> to send input</li>
                     <li>Full conversation history is preserved</li>
                   </ul>
                 </div>
