@@ -87,6 +87,12 @@ importers:
 
   frontend:
     dependencies:
+      '@headless-tree/core':
+        specifier: ^1.6.3
+        version: 1.6.3
+      '@headless-tree/react':
+        specifier: ^1.6.3
+        version: 1.6.3(@headless-tree/core@1.6.3)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@monaco-editor/react':
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.52.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -913,6 +919,16 @@ packages:
 
   '@hapi/topo@6.0.2':
     resolution: {integrity: sha512-KR3rD5inZbGMrHmgPxsJ9dbi6zEK+C3ZwUwTa+eMwWLz7oijWUTWD2pMSNNYJAU6Qq+65NkxXjqHr/7LM2Xkqg==}
+
+  '@headless-tree/core@1.6.3':
+    resolution: {integrity: sha512-en0EOaZfiCRF2B8DEnhGhSaUf3hVr9Bauye8G8aswPbHOKSyhJiN4bsczz1GvqF4Xb7Ga3LP0vLA6Zih7YLoyw==}
+
+  '@headless-tree/react@1.6.3':
+    resolution: {integrity: sha512-aiRwG6e2EPBSec9uLLy9GlTvAuCtSTouU30Nwcr5ZTsYjG/i7B/ouC8f8Zu4unzo/v1h5ztbemp+EH2TPTKh+g==}
+    peerDependencies:
+      '@headless-tree/core': '*'
+      react: '*'
+      react-dom: '*'
 
   '@humanfs/core@0.19.1':
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}
@@ -6117,6 +6133,14 @@ snapshots:
   '@hapi/topo@6.0.2':
     dependencies:
       '@hapi/hoek': 11.0.7
+
+  '@headless-tree/core@1.6.3': {}
+
+  '@headless-tree/react@1.6.3(@headless-tree/core@1.6.3)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
+    dependencies:
+      '@headless-tree/core': 1.6.3
+      react: 19.1.0
+      react-dom: 19.1.0(react@19.1.0)
 
   '@humanfs/core@0.19.1': {}
 

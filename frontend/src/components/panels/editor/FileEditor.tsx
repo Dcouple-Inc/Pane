@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { flushSync } from 'react-dom';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Editor from '@monaco-editor/react';
 import type * as monaco from 'monaco-editor';
 import { ChevronRight, ChevronDown, File, Folder, RefreshCw, Plus, Trash2, FolderPlus, Search, X, Eye, Code, Copy, FolderOpen } from 'lucide-react';
+import { useTree } from '@headless-tree/react';
+import { asyncDataLoaderFeature, selectionFeature, hotkeysCoreFeature, expandAllFeature } from '@headless-tree/core';
+import type { ItemInstance } from '@headless-tree/core';
 import { MonacoErrorBoundary } from '../../MonacoErrorBoundary';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { debounce } from '../../../utils/debounce';
@@ -21,143 +23,44 @@ interface FileItem {
   modified?: Date;
 }
 
-interface FileTreeNodeProps {
-  file: FileItem;
-  level: number;
-  onFileClick: (file: FileItem) => void;
-  onRefresh: (path: string) => void;
-  onDelete: (file: FileItem) => void;
-  onContextMenu: (e: React.MouseEvent, file: FileItem) => void;
-  selectedPath: string | null;
-  expandedDirs: Set<string>;
-  onToggleDir: (path: string) => void;
-  searchQuery?: string;
-}
+const ROOT_ID = '\0root';
 
-function FileTreeNode({ file, level, onFileClick, onRefresh, onDelete, onContextMenu, selectedPath, expandedDirs, onToggleDir, searchQuery }: FileTreeNodeProps) {
-  const isExpanded = expandedDirs.has(file.path);
-  const isSelected = selectedPath === file.path;
-
-  const handleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    if (file.isDirectory) {
-      onToggleDir(file.path);
-    } else {
-      onFileClick(file);
-    }
-  };
-
-  const handleRefresh = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onRefresh(file.path);
-  };
-
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onDelete(file);
-  };
-
-  // Highlight matching text
-  const highlightText = (text: string) => {
-    if (!searchQuery) return text;
-    
-    // Escape special regex characters
-    const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const parts = text.split(new RegExp(`(${escapedQuery})`, 'gi'));
-    return (
-      <>
-        {parts.map((part, index) => 
-          part.toLowerCase() === searchQuery.toLowerCase() ? (
-            <span key={index} className="bg-status-warning text-text-primary">
-              {part}
-            </span>
-          ) : (
-            part
-          )
-        )}
-      </>
-    );
-  };
-
-  return (
-    <div onClick={(e) => e.stopPropagation()}>
-      <div
-        className={`flex items-center px-2 py-1 hover:bg-surface-hover cursor-pointer group ${
-          isSelected ? 'bg-interactive' : ''
-        }`}
-        style={{ paddingLeft: `${level * 16 + 8}px` }}
-        onClick={handleClick}
-        onDoubleClick={(e) => e.preventDefault()}
-        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, file); }}
-      >
-        {file.isDirectory ? (
-          <>
-            {isExpanded ? (
-              <ChevronDown className="w-4 h-4 mr-1 text-text-tertiary" />
-            ) : (
-              <ChevronRight className="w-4 h-4 mr-1 text-text-tertiary" />
-            )}
-            <Folder className="w-4 h-4 mr-2 text-interactive" />
-          </>
-        ) : (
-          <>
-            <div className="w-4 h-4 mr-1" />
-            <File className="w-4 h-4 mr-2 text-text-tertiary" />
-          </>
-        )}
-        <span className="flex-1 text-sm truncate text-text-primary">{highlightText(file.name)}</span>
-        {file.isDirectory && (
-          <button
-            onClick={handleRefresh}
-            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-surface-hover rounded text-text-tertiary hover:text-text-primary"
-            title="Refresh folder"
-          >
-            <RefreshCw className="w-3 h-3" />
-          </button>
-        )}
-        <button
-          onClick={handleDelete}
-          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-surface-hover rounded ml-1"
-          title={`Delete ${file.isDirectory ? 'folder' : 'file'}`}
-        >
-          <Trash2 className="w-3 h-3 text-status-error" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-interface FileTreeProps {
+interface HeadlessFileTreeProps {
   sessionId: string;
   onFileSelect: (file: FileItem | null) => void;
   selectedPath: string | null;
+  initialExpandedDirs?: string[];
   initialSearchQuery?: string;
   initialShowSearch?: boolean;
   onTreeStateChange?: (state: { expandedDirs: string[]; searchQuery: string; showSearch: boolean }) => void;
 }
 
-function FileTree({ 
-  sessionId, 
-  onFileSelect, 
+function HeadlessFileTree({
+  sessionId,
+  onFileSelect,
   selectedPath,
+  initialExpandedDirs,
   initialSearchQuery,
   initialShowSearch,
-  onTreeStateChange 
-}: FileTreeProps) {
-  const [files, setFiles] = useState<Map<string, FileItem[]>>(new Map());
-  const [expandedDirs, setExpandedDirs] = useState<Set<string>>(
-    new Set([''])
-  );
-  const [loading, setLoading] = useState(false);
+  onTreeStateChange,
+}: HeadlessFileTreeProps) {
+  // Cache stores loaded directory contents. Key = dirPath, Value = FileItem[].
+  const filesCacheRef = useRef(new Map<string, FileItem[]>());
+
+  // Refs for values used in dataLoader (avoids stale closures)
+  const sessionIdRef = useRef(sessionId);
+  sessionIdRef.current = sessionId;
+
   const [error, setError] = useState<string | null>(null);
+  const setErrorRef = useRef(setError);
+  setErrorRef.current = setError;
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery || '');
   const [showSearch, setShowSearch] = useState(initialShowSearch || false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [showNewItemDialog, setShowNewItemDialog] = useState<'file' | 'folder' | null>(null);
   const [newItemName, setNewItemName] = useState('');
+  const [newItemParentPath, setNewItemParentPath] = useState('');
   const newItemInputRef = useRef<HTMLInputElement>(null);
-  const pendingToggleRef = useRef<string | null>(null);
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -169,12 +72,121 @@ function FileTree({
   // Platform-adaptive label
   const revealLabel = isMac() ? 'Reveal in Finder' : isWindows() ? 'Show in Explorer' : 'Show in File Manager';
 
-  const handleContextMenu = useCallback((e: React.MouseEvent, file: FileItem) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setContextMenu({ x: e.clientX, y: e.clientY, file });
+  // Initialize expanded state from persisted state or default to root expanded.
+  // Normalize legacy '' root to ROOT_ID so saved state from the old FileTree still works.
+  const [expandedItems, setExpandedItems] = useState<string[]>(() => {
+    if (!initialExpandedDirs?.length) return [ROOT_ID];
+    const normalized = initialExpandedDirs.map(d => d === '' ? ROOT_ID : d);
+    if (!normalized.includes(ROOT_ID)) normalized.unshift(ROOT_ID);
+    return normalized;
+  });
+
+  // Data loader using getChildrenWithData for efficient loading
+  const dataLoader = useMemo(() => ({
+    getItem: (itemId: string): FileItem => {
+      if (itemId === ROOT_ID) {
+        return { name: '', path: '', isDirectory: true };
+      }
+      // Look up item in cache by checking its parent directory
+      const parentPath = itemId.includes('/')
+        ? itemId.substring(0, itemId.lastIndexOf('/'))
+        : '';
+      const siblings = filesCacheRef.current.get(parentPath);
+      const found = siblings?.find(f => f.path === itemId);
+      if (found) return found;
+
+      // Fallback: return a placeholder that will be replaced when parent loads
+      return { name: itemId.split('/').pop() || '', path: itemId, isDirectory: false };
+    },
+
+    getChildrenWithData: async (itemId: string): Promise<Array<{ id: string; data: FileItem }>> => {
+      const dirPath = itemId === ROOT_ID ? '' : itemId;
+
+      // If not root, check if this is actually a directory
+      if (itemId !== ROOT_ID) {
+        const parentPath = itemId.includes('/')
+          ? itemId.substring(0, itemId.lastIndexOf('/'))
+          : '';
+        const parentItems = filesCacheRef.current.get(parentPath);
+        const item = parentItems?.find(f => f.path === itemId);
+        if (item && !item.isDirectory) return [];
+      }
+
+      try {
+        const result = await window.electronAPI.invoke('file:list', {
+          sessionId: sessionIdRef.current,
+          path: dirPath,
+        });
+        if (result.success) {
+          filesCacheRef.current.set(dirPath, result.files);
+          return result.files.map((f: FileItem) => ({ id: f.path, data: f }));
+        }
+        setErrorRef.current(result.error ?? 'Failed to load directory');
+      } catch (err) {
+        console.error('Failed to load directory:', dirPath, err);
+        setErrorRef.current(err instanceof Error ? err.message : 'Failed to load directory');
+      }
+      return [];
+    },
+  }), []); // Empty deps — uses refs internally
+
+  const tree = useTree<FileItem>({
+    rootItemId: ROOT_ID,
+    getItemName: (item: ItemInstance<FileItem>) => item.getItemData()?.name ?? '',
+    isItemFolder: (item: ItemInstance<FileItem>) => item.getItemData()?.isDirectory ?? false,
+    dataLoader,
+    createLoadingItemData: () => ({ name: 'Loading...', path: '', isDirectory: false }),
+    features: [asyncDataLoaderFeature, selectionFeature, hotkeysCoreFeature, expandAllFeature],
+    state: { expandedItems },
+    setExpandedItems,
+  });
+
+  // Session switch: clear cache and invalidate root
+  const prevSessionIdRef = useRef(sessionId);
+  useEffect(() => {
+    if (prevSessionIdRef.current !== sessionId) {
+      filesCacheRef.current.clear();
+      tree.getItemInstance(ROOT_ID)?.invalidateChildrenIds();
+      prevSessionIdRef.current = sessionId;
+    }
+  }, [sessionId, tree]);
+
+  // Highlight matching text in search results
+  const highlightText = useCallback((text: string, query: string) => {
+    if (!query) return text;
+    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const parts = text.split(new RegExp(`(${escapedQuery})`, 'gi'));
+    return (
+      <>
+        {parts.map((part, index) =>
+          part.toLowerCase() === query.toLowerCase() ? (
+            <span key={index} className="bg-status-warning text-text-primary">
+              {part}
+            </span>
+          ) : (
+            part
+          )
+        )}
+      </>
+    );
   }, []);
 
+  // Search: flat filtered results from cache
+  const getFilteredFiles = useCallback((): FileItem[] => {
+    if (!searchQuery) return [];
+    const results: FileItem[] = [];
+    const query = searchQuery.toLowerCase();
+    filesCacheRef.current.forEach((items) => {
+      for (const item of items) {
+        if (item.name.toLowerCase().includes(query) || item.path.toLowerCase().includes(query)) {
+          results.push(item);
+        }
+      }
+    });
+    return results;
+  }, [searchQuery]);
+
+  // Context menu handlers
   const handleCopyPath = useCallback(async () => {
     if (!contextMenu) return;
     try {
@@ -185,8 +197,8 @@ function FileTree({
       if (result.success && result.path) {
         await navigator.clipboard.writeText(result.path);
       }
-    } catch (error) {
-      console.error('Failed to copy path:', error);
+    } catch (err) {
+      console.error('Failed to copy path:', err);
     }
     setContextMenu(null);
   }, [contextMenu, sessionId]);
@@ -198,133 +210,92 @@ function FileTree({
         sessionId,
         path: contextMenu.file.path,
       });
-    } catch (error) {
-      console.error('Failed to reveal in file manager:', error);
+    } catch (err) {
+      console.error('Failed to reveal in file manager:', err);
     }
     setContextMenu(null);
   }, [contextMenu, sessionId]);
 
-  const loadFiles = useCallback(async (path: string = '') => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await window.electronAPI.invoke('file:list', {
-        sessionId,
-        path
-      });
-      
-      if (result.success) {
-        setFiles(prev => new Map(prev).set(path, result.files));
-      } else {
-        setError(result.error);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load files');
-    } finally {
-      setLoading(false);
-    }
-  }, [sessionId]);
-
-  useEffect(() => {
-    loadFiles('');
-  }, [loadFiles]);
-
-  const toggleDir = useCallback((path: string) => {
-    // Prevent double-toggles from React StrictMode
-    if (pendingToggleRef.current === path) {
-      console.log('Ignoring duplicate toggle for:', path);
-      return;
-    }
-    
-    pendingToggleRef.current = path;
-    
-    // Use flushSync to ensure state updates are applied immediately
-    flushSync(() => {
-      setExpandedDirs(prev => {
-        const next = new Set(prev);
-        if (next.has(path)) {
-          next.delete(path);
-          console.log('Collapsed:', path);
-        } else {
-          next.add(path);
-          console.log('Expanded:', path);
-          // Load files immediately if needed
-          if (!files.has(path)) {
-            loadFiles(path);
-          }
-        }
-        return next;
-      });
-    });
-    
-    // Clear the pending toggle after a short delay
-    setTimeout(() => {
-      if (pendingToggleRef.current === path) {
-        pendingToggleRef.current = null;
-      }
-    }, 50);
-  }, [files, loadFiles]);
-
+  // Delete handler
   const handleDelete = useCallback(async (file: FileItem) => {
-    const confirmMessage = file.isDirectory 
+    const confirmMessage = file.isDirectory
       ? `Are you sure you want to delete the folder "${file.name}" and all its contents?`
       : `Are you sure you want to delete the file "${file.name}"?`;
-    
-    if (!confirm(confirmMessage)) {
-      return;
-    }
+    if (!confirm(confirmMessage)) return;
 
     try {
       const result = await window.electronAPI.invoke('file:delete', {
         sessionId,
-        filePath: file.path
+        filePath: file.path,
       });
-      
+
       if (result.success) {
-        // Refresh the parent directory
-        const parentPath = file.path.split('/').slice(0, -1).join('/') || '';
-        loadFiles(parentPath);
-        
-        // If the deleted file was selected, clear the selection
+        const parentPath = file.path.includes('/')
+          ? file.path.substring(0, file.path.lastIndexOf('/'))
+          : '';
+        filesCacheRef.current.delete(parentPath);
+
+        // Purge deleted directory's subtree from cache so stale entries
+        // don't appear in search results
+        if (file.isDirectory) {
+          const prefix = file.path + '/';
+          for (const key of filesCacheRef.current.keys()) {
+            if (key === file.path || key.startsWith(prefix)) {
+              filesCacheRef.current.delete(key);
+            }
+          }
+        }
+
+        const parentItemId = parentPath || ROOT_ID;
+        tree.getItemInstance(parentItemId)?.invalidateChildrenIds();
+
         if (selectedPath === file.path) {
           onFileSelect(null);
         }
       } else {
-        setError(`Failed to delete ${file.isDirectory ? 'folder' : 'file'}: ${result.error}`);
+        setError(`Failed to delete: ${result.error}`);
       }
     } catch (err) {
       console.error('Failed to delete:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete item');
     }
-  }, [sessionId, loadFiles, selectedPath, onFileSelect]);
+  }, [sessionId, selectedPath, onFileSelect, tree]);
 
-  const handleNewFile = useCallback(() => {
-    setShowNewItemDialog('file');
-    setNewItemName('');
-  }, []);
-
-  const handleNewFolder = useCallback(() => {
-    setShowNewItemDialog('folder');
-    setNewItemName('');
-  }, []);
-
+  // New file/folder creation with auto-open (the .md bug fix)
   const handleCreateNewItem = useCallback(async () => {
     if (!newItemName.trim()) return;
 
     try {
       const isFolder = showNewItemDialog === 'folder';
-      const filePath = isFolder ? `${newItemName}/.gitkeep` : newItemName;
-      
+      const relativePath = newItemParentPath
+        ? `${newItemParentPath}/${newItemName}`
+        : newItemName;
+      const filePath = isFolder ? `${relativePath}/.gitkeep` : relativePath;
+
       const result = await window.electronAPI.invoke('file:write', {
         sessionId,
         filePath,
-        content: ''
+        content: '',
       });
 
       if (result.success) {
-        loadFiles('');
+        filesCacheRef.current.delete(newItemParentPath);
+        const parentItemId = newItemParentPath || ROOT_ID;
+        tree.getItemInstance(parentItemId)?.invalidateChildrenIds();
+
+        // AUTO-OPEN: Select and open the new file in editor — this is the bug fix
+        if (!isFolder) {
+          const newFile: FileItem = {
+            name: newItemName,
+            path: relativePath,
+            isDirectory: false,
+          };
+          onFileSelect(newFile);
+        }
+
         setShowNewItemDialog(null);
         setNewItemName('');
+        setNewItemParentPath('');
       } else {
         setError(`Failed to create ${isFolder ? 'folder' : 'file'}: ${result.error}`);
       }
@@ -332,7 +303,18 @@ function FileTree({
       console.error('Failed to create item:', err);
       setError(err instanceof Error ? err.message : 'Failed to create item');
     }
-  }, [sessionId, loadFiles, newItemName, showNewItemDialog]);
+  }, [sessionId, newItemName, newItemParentPath, showNewItemDialog, onFileSelect, tree]);
+
+  // Refresh all
+  const handleRefreshAll = useCallback(() => {
+    filesCacheRef.current.clear();
+    tree.getItemInstance(ROOT_ID)?.invalidateChildrenIds();
+    for (const item of tree.getItems()) {
+      if (item.getItemData()?.isDirectory) {
+        item.invalidateChildrenIds();
+      }
+    }
+  }, [tree]);
 
   // Focus input when dialog is shown
   useEffect(() => {
@@ -349,84 +331,6 @@ function FileTree({
     }
   }, [error]);
 
-  // Filter function for search
-  const matchesSearch = useCallback((file: FileItem): boolean => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return file.name.toLowerCase().includes(query) || file.path.toLowerCase().includes(query);
-  }, [searchQuery]);
-
-  // Check if any child matches search
-  const hasMatchingChild = useCallback((dirPath: string): boolean => {
-    const queue = [dirPath];
-    const visited = new Set<string>();
-    
-    while (queue.length > 0) {
-      const currentPath = queue.shift()!;
-      if (visited.has(currentPath)) continue;
-      visited.add(currentPath);
-      
-      const items = files.get(currentPath) || [];
-      for (const item of items) {
-        if (matchesSearch(item)) return true;
-        if (item.isDirectory) {
-          queue.push(item.path);
-        }
-      }
-    }
-    return false;
-  }, [files, matchesSearch]);
-
-  const renderTree = (path: string, level: number = 0): React.ReactNode => {
-    const items = files.get(path) || [];
-    
-    return items
-      .filter(file => {
-        if (!searchQuery) return true;
-        // Show file if it matches or if it's a directory with matching children
-        return matchesSearch(file) || (file.isDirectory && hasMatchingChild(file.path));
-      })
-      .map(file => (
-        <React.Fragment key={file.path}>
-          <FileTreeNode
-            file={file}
-            level={level}
-            onFileClick={onFileSelect}
-            onRefresh={loadFiles}
-            onDelete={handleDelete}
-            onContextMenu={handleContextMenu}
-            selectedPath={selectedPath}
-            expandedDirs={expandedDirs}
-            onToggleDir={toggleDir}
-            searchQuery={searchQuery}
-          />
-          {file.isDirectory && expandedDirs.has(file.path) && (
-            <div onClick={(e) => e.stopPropagation()} style={{ minHeight: '1px' }}>
-              {renderTree(file.path, level + 1)}
-            </div>
-          )}
-        </React.Fragment>
-      ));
-  };
-
-  // Auto-expand directories when searching
-  useEffect(() => {
-    if (searchQuery) {
-      // Expand all directories to show search results
-      const allDirs = new Set<string>(['']);
-      files.forEach((items, dirPath) => {
-        allDirs.add(dirPath);
-        items.forEach(item => {
-          if (item.isDirectory) {
-            allDirs.add(item.path);
-          }
-        });
-      });
-      setExpandedDirs(allDirs);
-    }
-    // Note: We don't collapse when search is cleared to preserve user's expanded state
-  }, [searchQuery, files]);
-
   // Focus search input when shown
   useEffect(() => {
     if (showSearch && searchInputRef.current) {
@@ -434,77 +338,50 @@ function FileTree({
     }
   }, [showSearch]);
 
-  // Notify parent about tree state changes
-  // Use a ref to track if this is the initial mount to avoid calling on first render
+  // State persistence: notify parent about tree state changes
   const isInitialMount = useRef(true);
-  
+
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
-      console.log('[FileTree] Skipping initial mount state update');
-      return; // Skip the first render
+      return;
     }
-    
-    console.log('[FileTree] State changed:', {
-      expandedDirs: Array.from(expandedDirs),
-      searchQuery,
-      showSearch
-    });
-    
     if (onTreeStateChange) {
-      console.log('[FileTree] Calling onTreeStateChange');
       onTreeStateChange({
-        expandedDirs: Array.from(expandedDirs),
+        expandedDirs: expandedItems,
         searchQuery,
-        showSearch
+        showSearch,
       });
-    } else {
-      console.log('[FileTree] No onTreeStateChange callback');
     }
-  }, [expandedDirs, searchQuery, showSearch]); // Remove onTreeStateChange from deps to avoid loops
-  
-  // Handle keyboard shortcuts
+  }, [expandedItems, searchQuery, showSearch]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Toggle search with Cmd/Ctrl+F
       if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
         e.preventDefault();
-        setShowSearch(!showSearch);
+        setShowSearch(prev => !prev);
       }
-      
-      // ESC key handling
       if (e.key === 'Escape') {
-        // Dismiss context menu first
         if (contextMenu) {
           setContextMenu(null);
           return;
         }
-        // Close new item dialog if open
         if (showNewItemDialog) {
           setShowNewItemDialog(null);
           setNewItemName('');
+          return;
         }
-        // Clear search if active
-        else if (searchQuery) {
+        if (searchQuery) {
           setSearchQuery('');
-          if (searchInputRef.current) {
-            searchInputRef.current.focus();
-          }
+          searchInputRef.current?.focus();
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showSearch, searchQuery, showNewItemDialog, contextMenu]);
-
-  if (loading && files.size === 0) {
-    return <div className="p-4 text-text-secondary">Loading files...</div>;
-  }
-
-  if (error) {
-    return <div className="p-4 text-status-error">Error: {error}</div>;
-  }
+  }, [searchQuery, showNewItemDialog, contextMenu]);
 
   return (
     <div className="h-full flex flex-col">
@@ -512,28 +389,28 @@ function FileTree({
         <span className="text-sm font-medium text-text-primary">Files</span>
         <div className="flex gap-1">
           <button
-            onClick={() => setShowSearch(!showSearch)}
+            onClick={() => setShowSearch(prev => !prev)}
             className={`p-1 rounded text-text-tertiary hover:text-text-primary ${showSearch ? 'bg-surface-tertiary' : 'hover:bg-surface-hover'}`}
             title="Search files (Cmd/Ctrl+F)"
           >
             <Search className="w-4 h-4" />
           </button>
           <button
-            onClick={handleNewFile}
+            onClick={() => { setShowNewItemDialog('file'); setNewItemName(''); setNewItemParentPath(''); }}
             className="p-1 hover:bg-surface-hover rounded text-text-tertiary hover:text-text-primary"
             title="New file"
           >
             <Plus className="w-4 h-4" />
           </button>
           <button
-            onClick={handleNewFolder}
+            onClick={() => { setShowNewItemDialog('folder'); setNewItemName(''); setNewItemParentPath(''); }}
             className="p-1 hover:bg-surface-hover rounded text-text-tertiary hover:text-text-primary"
             title="New folder"
           >
             <FolderPlus className="w-4 h-4" />
           </button>
           <button
-            onClick={() => loadFiles('')}
+            onClick={handleRefreshAll}
             className="p-1 hover:bg-surface-hover rounded text-text-tertiary hover:text-text-primary"
             title="Refresh all"
           >
@@ -572,26 +449,26 @@ function FileTree({
       {showNewItemDialog && (
         <div className="p-2 border-b border-border-primary bg-surface-secondary">
           <form onSubmit={(e) => { e.preventDefault(); handleCreateNewItem(); }}>
-            <div className="flex items-center gap-2">
-              <input
-                ref={newItemInputRef}
-                type="text"
-                value={newItemName}
-                onChange={(e) => setNewItemName(e.target.value)}
-                placeholder={`Enter ${showNewItemDialog} name...`}
-                className="flex-1 px-2 py-1 bg-surface-primary border border-border-primary rounded text-sm text-text-primary placeholder-text-tertiary focus:outline-none focus:border-interactive focus:ring-1 focus:ring-interactive"
-              />
+            <input
+              ref={newItemInputRef}
+              type="text"
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              placeholder={`Enter ${showNewItemDialog} name${newItemParentPath ? ` in ${newItemParentPath}` : ''}...`}
+              className="w-full px-2 py-1 mb-2 bg-surface-primary border border-border-primary rounded text-sm text-text-primary placeholder-text-tertiary focus:outline-none focus:border-interactive focus:ring-1 focus:ring-interactive"
+            />
+            <div className="flex gap-2">
               <button
                 type="submit"
                 disabled={!newItemName.trim()}
-                className="px-3 py-1 bg-interactive hover:bg-interactive-hover disabled:bg-surface-tertiary disabled:text-text-tertiary text-white rounded text-sm transition-colors"
+                className="flex-1 px-3 py-1 bg-interactive hover:bg-interactive-hover disabled:bg-surface-tertiary disabled:text-text-tertiary text-white rounded text-sm transition-colors"
               >
                 Create
               </button>
               <button
                 type="button"
-                onClick={() => { setShowNewItemDialog(null); setNewItemName(''); }}
-                className="px-3 py-1 bg-surface-tertiary hover:bg-surface-hover text-text-secondary rounded text-sm transition-colors"
+                onClick={() => { setShowNewItemDialog(null); setNewItemName(''); setNewItemParentPath(''); }}
+                className="flex-1 px-3 py-1 bg-surface-tertiary hover:bg-surface-hover text-text-secondary rounded text-sm transition-colors"
               >
                 Cancel
               </button>
@@ -604,8 +481,135 @@ function FileTree({
           {error}
         </div>
       )}
-      <div className="flex-1 overflow-auto" onClick={(e) => e.stopPropagation()}>
-        {renderTree('')}
+      {/* Search mode: flat filtered results overlay */}
+      {searchQuery && (
+        <div className="flex-1 overflow-auto">
+          {getFilteredFiles().map(file => (
+            <div
+              key={file.path}
+              className={`flex items-center px-2 py-1 hover:bg-surface-hover cursor-pointer group ${
+                selectedPath === file.path ? 'bg-interactive' : ''
+              }`}
+              style={{ paddingLeft: '8px' }}
+              onClick={() => {
+                if (!file.isDirectory) onFileSelect(file);
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setContextMenu({ x: e.clientX, y: e.clientY, file });
+              }}
+            >
+              {file.isDirectory ? (
+                <Folder className="w-4 h-4 mr-2 text-interactive flex-shrink-0" />
+              ) : (
+                <File className="w-4 h-4 mr-2 text-text-tertiary flex-shrink-0" />
+              )}
+              <span className="flex-1 text-sm truncate text-text-primary">
+                {highlightText(file.name, searchQuery)}
+              </span>
+              <span className="text-xs text-text-tertiary ml-2 truncate max-w-[120px]">
+                {file.path}
+              </span>
+            </div>
+          ))}
+          {getFilteredFiles().length === 0 && (
+            <div className="p-4 text-text-secondary text-sm">No matching files</div>
+          )}
+        </div>
+      )}
+      {/* Tree view: always rendered so the async data loader stays active and
+          populates the cache. Hidden (not unmounted) when search is active. */}
+      <div
+        {...tree.getContainerProps()}
+        className={`overflow-auto outline-none ${searchQuery ? 'hidden' : 'flex-1'}`}
+      >
+        {tree.getItems().map((item: ItemInstance<FileItem>) => {
+          const data = item.getItemData();
+          if (!data || item.getId() === ROOT_ID) return null;
+
+          const isFolder = data.isDirectory;
+          const level = item.getItemMeta().level;
+          const isExpanded = item.isExpanded();
+          const isSelected = selectedPath === data.path;
+
+          return (
+            <div
+              key={item.getId()}
+              {...item.getProps()}
+              className={`flex items-center px-2 py-1 hover:bg-surface-hover cursor-pointer group ${
+                isSelected ? 'bg-interactive' : ''
+              }`}
+              style={{ paddingLeft: `${level * 16 + 8}px` }}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isFolder) {
+                  if (isExpanded) item.collapse();
+                  else item.expand();
+                } else {
+                  onFileSelect(data);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (isFolder) {
+                    if (isExpanded) item.collapse();
+                    else item.expand();
+                  } else {
+                    onFileSelect(data);
+                  }
+                }
+              }}
+              onDoubleClick={(e) => e.preventDefault()}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setContextMenu({ x: e.clientX, y: e.clientY, file: data });
+              }}
+            >
+              {isFolder ? (
+                <>
+                  {isExpanded ? (
+                    <ChevronDown className="w-4 h-4 mr-1 text-text-tertiary" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 mr-1 text-text-tertiary" />
+                  )}
+                  <Folder className="w-4 h-4 mr-2 text-interactive" />
+                </>
+              ) : (
+                <>
+                  <div className="w-4 h-4 mr-1" />
+                  <File className="w-4 h-4 mr-2 text-text-tertiary" />
+                </>
+              )}
+              <span className="flex-1 text-sm truncate text-text-primary">{data.name}</span>
+              {isFolder && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    filesCacheRef.current.delete(data.path);
+                    item.invalidateChildrenIds();
+                  }}
+                  className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 p-1 hover:bg-surface-hover rounded text-text-tertiary hover:text-text-primary"
+                  title="Refresh folder"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                </button>
+              )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(data);
+                }}
+                className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 p-1 hover:bg-surface-hover rounded ml-1"
+                title={`Delete ${isFolder ? 'folder' : 'file'}`}
+              >
+                <Trash2 className="w-3 h-3 text-status-error" />
+              </button>
+            </div>
+          );
+        })}
       </div>
       <TerminalPopover
         visible={!!contextMenu}
@@ -939,10 +943,11 @@ export function FileEditor({
         className="bg-surface-secondary border-r border-border-primary relative flex-shrink-0"
         style={{ width: `${fileTreeWidth}px` }}
       >
-        <FileTree
+        <HeadlessFileTree
           sessionId={sessionId}
           onFileSelect={loadFile}
           selectedPath={selectedFile?.path || null}
+          initialExpandedDirs={initialState?.expandedDirs}
           initialSearchQuery={initialState?.searchQuery}
           initialShowSearch={initialState?.showSearch}
           onTreeStateChange={handleTreeStateChange}
@@ -1056,7 +1061,6 @@ export function FileEditor({
                       fontSize: 14,
                       wordWrap: 'on',
                       automaticLayout: true,
-                      scrollBeyondLastLine: false,
                     }}
                     language={getLanguageFromPath(selectedFile.path)}
                   />
