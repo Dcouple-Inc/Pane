@@ -8,8 +8,6 @@ export const usePanelStore = create<PanelStore>()(
   immer((set, get) => ({
     panels: {},
     activePanels: {},
-    panelEvents: [],
-    eventSubscriptions: {},
 
     // Pure synchronous state updates
     setPanels: (sessionId, panels) => {
@@ -68,43 +66,6 @@ export const usePanelStore = create<PanelStore>()(
     getActivePanel: (sessionId) => {
       const panels = get().panels[sessionId] || [];
       return panels.find(p => p.id === get().activePanels[sessionId]);
-    },
-
-    // Event management
-    subscribeToPanelEvents: (panelId, eventTypes) => {
-      set((state) => {
-        if (!state.eventSubscriptions[panelId]) {
-          state.eventSubscriptions[panelId] = new Set();
-        }
-        eventTypes.forEach(type => state.eventSubscriptions[panelId].add(type));
-      });
-    },
-
-    unsubscribeFromPanelEvents: (panelId, eventTypes) => {
-      set((state) => {
-        if (state.eventSubscriptions[panelId]) {
-          eventTypes.forEach(type => state.eventSubscriptions[panelId].delete(type));
-        }
-      });
-    },
-
-    addPanelEvent: (event) => {
-      set((state) => {
-        state.panelEvents.push(event);
-        // Keep only last 100 events
-        if (state.panelEvents.length > 100) {
-          state.panelEvents = state.panelEvents.slice(-100);
-        }
-      });
-    },
-
-    getPanelEvents: (panelId, eventTypes) => {
-      const events = get().panelEvents;
-      return events.filter(e => {
-        const matchesPanel = !panelId || e.source.panelId === panelId;
-        const matchesType = !eventTypes || eventTypes.includes(e.type);
-        return matchesPanel && matchesType;
-      });
     }
   }))
 );

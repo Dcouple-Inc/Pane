@@ -275,26 +275,5 @@ export class CliManagerFactory {
 /**
  * Convenience function to get the factory instance
  */
-export const getCliManagerFactory = (logger?: Logger, configManager?: ConfigManager) => 
+export const getCliManagerFactory = (logger?: Logger, configManager?: ConfigManager) =>
   CliManagerFactory.getInstance(logger, configManager);
-
-/**
- * Convenience function to create a Claude manager (backward compatibility)
- */
-export const createClaudeManager = async (config: CliManagerFactoryConfig): Promise<AbstractCliManager> => {
-  const factory = CliManagerFactory.getInstance(config.logger, config.configManager);
-  return factory.createManager('claude', config);
-};
-
-/**
- * Example of how future tools would be created:
- */
-export const createAiderManager = async (config: CliManagerFactoryConfig): Promise<AbstractCliManager> => {
-  const factory = CliManagerFactory.getInstance(config.logger, config.configManager);
-  return factory.createManager('aider', config);
-};
-
-export const createContinueManager = async (config: CliManagerFactoryConfig): Promise<AbstractCliManager> => {
-  const factory = CliManagerFactory.getInstance(config.logger, config.configManager);
-  return factory.createManager('continue', config);
-};

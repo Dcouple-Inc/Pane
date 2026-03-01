@@ -235,20 +235,6 @@ export class ShellDetector {
   }
 
   /**
-   * Check if a shell exists at the given path
-   * @param shellPath Path to the shell executable
-   * @returns true if the shell exists and is executable
-   */
-  static isShellAvailable(shellPath: string): boolean {
-    try {
-      fs.accessSync(shellPath, fs.constants.X_OK);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  /**
    * Get a list of available shells on Windows
    * @returns Array of available shells with id, name, and path
    */
