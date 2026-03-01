@@ -30,6 +30,7 @@ export class CloudVmManager extends EventEmitter {
   private isRefreshingToken = false;
   private consecutiveErrors = 0;
   private pollingStopped = false;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private configManager: ConfigManager,
@@ -346,7 +347,8 @@ export class CloudVmManager extends EventEmitter {
           reject(new Error(`Tunnel exited with code ${code} before becoming ready`));
         } else if (wasRunning) {
           this.logger?.warn('[CloudVM] Tunnel process died unexpectedly. Attempting auto-reconnect in 3s...');
-          setTimeout(async () => {
+          this.reconnectTimer = setTimeout(async () => {
+            this.reconnectTimer = null;
             try {
               await this.startTunnel();
               this.logger?.info('[CloudVM] Auto-reconnect succeeded.');
@@ -375,6 +377,12 @@ export class CloudVmManager extends EventEmitter {
    * Stop the IAP tunnel child process.
    */
   stopTunnel(): void {
+    // Cancel any pending auto-reconnect timer so it doesn't fire after
+    // an intentional stop (e.g., user stops the VM or app is quitting)
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     if (this.tunnelProcess) {
       this.logger?.info('[CloudVM] Stopping IAP tunnel...');
       try {
