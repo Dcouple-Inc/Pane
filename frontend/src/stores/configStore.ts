@@ -36,10 +36,17 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
         // Refetch to ensure we have the latest config
         await get().fetchConfig();
       } else {
-        set({ error: response.error || 'Failed to update config' });
+        const msg = response.error || 'Failed to update config';
+        set({ error: msg });
+        throw new Error(msg);
       }
     } catch (error) {
+      if (error instanceof Error && get().error) {
+        // Already set above — re-throw so callers can react
+        throw error;
+      }
       set({ error: 'Failed to update config' });
+      throw new Error('Failed to update config');
     }
   },
 }));

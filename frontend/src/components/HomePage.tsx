@@ -67,13 +67,13 @@ export function HomePage() {
   const handleScaleChange = async (delta: number) => {
     const newScale = Math.round((uiScale + delta) * 10) / 10; // Avoid floating point issues
     if (newScale >= 0.8 && newScale <= 1.5) {
-      await updateConfig({ uiScale: newScale });
+      await updateConfig({ uiScale: newScale }).catch(() => {});
     }
   };
 
   const handleShellChange = async (shell: string) => {
     setPreferredShell(shell);
-    await updateConfig({ preferredShell: shell as 'auto' | 'gitbash' | 'powershell' | 'pwsh' | 'cmd' });
+    await updateConfig({ preferredShell: shell as 'auto' | 'gitbash' | 'powershell' | 'pwsh' | 'cmd' }).catch(() => {});
   };
 
   return (

@@ -86,14 +86,14 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
     const existing = config?.customCommands ?? [];
     await updateConfig({
       customCommands: [...existing, { name, command }]
-    });
+    }).catch(() => {});
   }, [config, updateConfig]);
 
   const deleteCustomCommand = useCallback(async (index: number) => {
     const existing = config?.customCommands ?? [];
     await updateConfig({
       customCommands: existing.filter((_, i) => i !== index)
-    });
+    }).catch(() => {});
   }, [config, updateConfig]);
   
   // Resource monitor handlers
