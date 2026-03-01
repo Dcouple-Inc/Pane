@@ -768,7 +768,7 @@ export function CreateSessionDialog({
 
       <ModalFooter className="flex items-center justify-between">
         <div className="text-xs text-text-tertiary">
-          <span className="font-medium">Tip:</span> Press {navigator.platform.includes('Mac') ? 'Cmd' : 'Ctrl'}+Enter to create <span className="opacity-60">↵</span>
+          <span className="font-medium">Tip:</span> Press {navigator.platform.includes('Mac') ? 'Cmd' : 'Ctrl'}+Enter to create
         </div>
         <div className="flex items-center gap-3">
           <Button
@@ -794,7 +794,7 @@ export function CreateSessionDialog({
               undefined
             }
           >
-            {isSubmitting ? 'Creating...' : `Create${sessionCount > 1 ? ` ${sessionCount} Panes` : ''}`}
+            {isSubmitting ? 'Creating...' : <>{`Create${sessionCount > 1 ? ` ${sessionCount} Panes` : ''}`} <span className="opacity-60">↵</span></>}
           </Button>
         </div>
       </ModalFooter>
