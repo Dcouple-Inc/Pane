@@ -316,7 +316,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     dismissInterrupted: (sessionIds: string[]): Promise<IPCResponse> => ipcRenderer.invoke('sessions:dismiss-interrupted', sessionIds),
     
     // IDE operations
-    openIDE: (sessionId: string): Promise<IPCResponse> => ipcRenderer.invoke('sessions:open-ide', sessionId),
+    openIDE: (sessionId: string, ideKey?: string): Promise<IPCResponse> => ipcRenderer.invoke('sessions:open-ide', sessionId, ideKey),
     
     // Reorder operations
     reorder: (sessionOrders: Array<{ id: string; displayOrder: number }>): Promise<IPCResponse> => ipcRenderer.invoke('sessions:reorder', sessionOrders),

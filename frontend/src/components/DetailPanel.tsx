@@ -1,8 +1,9 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useSession } from '../contexts/SessionContext';
-import { CommitModeIndicator } from './CommitModeIndicator';
-import { GitBranch, AlertTriangle } from 'lucide-react';
+import { GitBranch, AlertTriangle, Code2, Settings, Link, TerminalSquare } from 'lucide-react';
 import { Button } from './ui/Button';
+import { Tooltip } from './ui/Tooltip';
+import { Dropdown, DropdownMenuItem } from './ui/Dropdown';
 import { GitHistoryGraph } from './GitHistoryGraph';
 import { usePanelStore } from '../stores/panelStore';
 
@@ -42,9 +43,26 @@ export function DetailPanel({ isVisible, width, onResize, mergeError, projectGit
     }
   }, [sessionContext, setActivePanel, getSessionPanels]);
 
+  // Build IDE dropdown items, sending safe IDE keys (resolved to commands server-side)
+  const ideItems = useMemo(() => {
+    if (!sessionContext?.onOpenIDEWithCommand) return [];
+    const handler = sessionContext.onOpenIDEWithCommand;
+    const configured = sessionContext.configuredIDECommand?.trim();
+    const knownCommands = ['code .', 'cursor .'];
+    const isCustom = configured && !knownCommands.includes(configured);
+    const items = isCustom
+      ? [{ id: 'configured', label: configured, description: 'Project default', icon: TerminalSquare, onClick: () => handler() }]
+      : [];
+    return [
+      ...items,
+      { id: 'vscode', label: 'VS Code', description: 'code .', icon: Code2, onClick: () => handler('vscode') },
+      { id: 'cursor', label: 'Cursor', description: 'cursor .', icon: Code2, onClick: () => handler('cursor') },
+    ];
+  }, [sessionContext?.onOpenIDEWithCommand, sessionContext?.configuredIDECommand]);
+
   if (!isVisible || !sessionContext) return null;
 
-  const { session, gitBranchActions, isMerging } = sessionContext;
+  const { session, gitBranchActions, isMerging, gitCommands, onOpenIDEWithCommand, onConfigureIDE, onSetTracking, trackingBranch } = sessionContext;
   const gitStatus = session.gitStatus;
   const isProject = !!session.isMainRepo;
 
@@ -61,7 +79,8 @@ export function DetailPanel({ isVisible, width, onResize, mergeError, projectGit
         <div className="absolute inset-0 group-hover:bg-interactive transition-colors" />
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      {/* All sections in a single scrollable container */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {/* Changes — worktree sessions only */}
         {!isProject && gitStatus && (
           <DetailSection title="Changes">
@@ -99,11 +118,64 @@ export function DetailPanel({ isVisible, width, onResize, mergeError, projectGit
             <div className="flex items-center gap-2 text-sm">
               <GitBranch className="w-3.5 h-3.5 text-text-tertiary flex-shrink-0" />
               <span className="text-text-primary font-medium truncate">
-                {session.baseBranch || 'unknown'}
+                {(gitCommands?.currentBranch?.trim()) || session.baseBranch?.replace(/^origin\//, '') || 'unknown'}
               </span>
             </div>
-            {session.commitMode && session.commitMode !== 'disabled' && (
-              <CommitModeIndicator mode={session.commitMode} />
+            {session.baseBranch && gitCommands?.currentBranch &&
+             gitCommands.currentBranch !== session.baseBranch.replace(/^origin\//, '') && (
+              <div className="text-xs text-text-tertiary pl-5">
+                from {session.baseBranch.replace(/^origin\//, '')}
+              </div>
+            )}
+            {/* Branch-level actions */}
+            {!isProject && (
+              <div className="space-y-1 pt-1">
+                {onSetTracking && (
+                  <>
+                    <Tooltip content="Set upstream tracking branch for git pull/push" side="left">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start text-sm"
+                        onClick={onSetTracking}
+                        disabled={isMerging}
+                      >
+                        <Link className="w-4 h-4 mr-2" />
+                        Set Tracking
+                      </Button>
+                    </Tooltip>
+                    {trackingBranch && (
+                      <div className="text-xs text-text-tertiary pl-6 truncate">
+                        {trackingBranch}
+                      </div>
+                    )}
+                  </>
+                )}
+                {onOpenIDEWithCommand && (
+                  <Dropdown
+                    trigger={
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start text-sm"
+                      >
+                        <Code2 className="w-4 h-4 mr-2" />
+                        Open in IDE
+                      </Button>
+                    }
+                    items={ideItems}
+                    footer={
+                      <DropdownMenuItem
+                        icon={Settings}
+                        label="Configure..."
+                        onClick={onConfigureIDE}
+                      />
+                    }
+                    position="auto"
+                    width="sm"
+                  />
+                )}
+              </div>
             )}
           </div>
         </DetailSection>
@@ -125,17 +197,23 @@ export function DetailPanel({ isVisible, width, onResize, mergeError, projectGit
           <div className="space-y-1">
             {/* Worktree: rebase/merge from gitBranchActions */}
             {!isProject && gitBranchActions?.map(action => (
-              <Button
-                key={action.id}
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start text-sm"
-                onClick={action.onClick}
-                disabled={action.disabled || isMerging}
-              >
-                <action.icon className="w-4 h-4 mr-2" />
-                {action.label}
-              </Button>
+              <React.Fragment key={action.id}>
+                {(action.id === 'stash' || action.id === 'rebase-from-main') && (
+                  <div className="border-t border-border-primary my-1" />
+                )}
+                <Tooltip content={action.description} side="left">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start text-sm"
+                    onClick={action.onClick}
+                    disabled={action.disabled || isMerging}
+                  >
+                    <action.icon className="w-4 h-4 mr-2" />
+                    {action.label}
+                  </Button>
+                </Tooltip>
+              </React.Fragment>
             ))}
 
             {/* Project: Pull/Push */}
