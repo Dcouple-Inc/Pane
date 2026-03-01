@@ -11,6 +11,21 @@ interface LogEntry {
   source?: string;
 }
 
+// Buffer analytics events that arrive before the renderer registers its callback.
+// This prevents race conditions where main-process events (e.g. app_opened) are
+// sent before the React useEffect listener is attached.
+type AnalyticsEvent = { eventName: string; properties: Record<string, unknown> };
+const analyticsEventBuffer: AnalyticsEvent[] = [];
+let analyticsForwardCallback: ((event: AnalyticsEvent) => void) | null = null;
+
+ipcRenderer.on('analytics:main-event', (_event: unknown, data: AnalyticsEvent) => {
+  if (analyticsForwardCallback) {
+    analyticsForwardCallback(data);
+  } else {
+    analyticsEventBuffer.push(data);
+  }
+});
+
 interface DialogOptions {
   title?: string;
   defaultPath?: string;
@@ -647,12 +662,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Analytics tracking
   analytics: {
     onMainEvent: (callback: (event: { eventName: string; properties: Record<string, unknown> }) => void) => {
-      const handler = (_event: unknown, data: { eventName: string; properties: Record<string, unknown> }) => {
-        callback(data);
-      };
-      ipcRenderer.on('analytics:main-event', handler);
+      // Replay any events that arrived before this callback was registered
+      for (const buffered of analyticsEventBuffer) {
+        callback(buffered);
+      }
+      analyticsEventBuffer.length = 0;
+      analyticsForwardCallback = callback;
       return () => {
-        ipcRenderer.removeListener('analytics:main-event', handler);
+        analyticsForwardCallback = null;
       };
     },
   },

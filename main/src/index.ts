@@ -14,6 +14,7 @@ app.commandLine.appendSwitch('force_discrete_gpu', '0');
 // Now import the rest of electron
 import { BrowserWindow, ipcMain, shell, dialog, IpcMainInvokeEvent } from 'electron';
 import * as path from 'path';
+import * as os from 'os';
 import { TaskQueue } from './services/taskQueue';
 import { SessionManager } from './services/sessionManager';
 import { ConfigManager } from './services/configManager';
@@ -984,12 +985,34 @@ app.on('before-quit', async (event) => {
       versionChecker.stopPeriodicCheck();
     }
 
-    // Track app closed event with session duration
-    if (analyticsManager && appStartTime) {
+    // Track app closed event with session duration.
+    // Send directly via HTTP instead of IPC — the renderer may already be
+    // tearing down, so an IPC-forwarded event would likely be dropped.
+    if (configManager && configManager.isAnalyticsEnabled() && appStartTime) {
       try {
+        const settings = configManager.getAnalyticsSettings();
+        const apiKey = settings.posthogApiKey || 'phc_uwOqT2KUa4C9Qx5WbEPwQSN9mUCoSGFg1aY0b670ft5';
+        const host = settings.posthogHost || 'https://us.i.posthog.com';
+        const distinctId = configManager.getAnalyticsDistinctId() || 'anonymous';
         const sessionDurationSeconds = Math.floor((Date.now() - appStartTime) / 1000);
-        analyticsManager.track('app_closed', {
-          session_duration_seconds: sessionDurationSeconds,
+
+        const { net } = await import('electron');
+        await net.fetch(`${host}/capture/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            api_key: apiKey,
+            event: 'app_closed',
+            properties: {
+              distinct_id: distinctId,
+              token: apiKey,
+              session_duration_seconds: sessionDurationSeconds,
+              app_version: app.getVersion(),
+              platform: os.platform(),
+              $lib: 'posthog-node',
+            },
+            timestamp: new Date().toISOString(),
+          }),
         });
       } catch (error) {
         console.error('[Analytics] Failed to track app_closed event:', error);
