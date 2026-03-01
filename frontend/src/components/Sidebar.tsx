@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Settings } from './Settings';
 import { CreateSessionDialog } from './CreateSessionDialog';
 import { ProjectSessionList, ArchivedSessions } from './ProjectSessionList';
@@ -8,7 +8,9 @@ import { usePaneLogo } from '../hooks/usePaneLogo';
 import { isMac } from '../utils/platformUtils';
 import { IconButton } from './ui/Button';
 import { Tooltip } from './ui/Tooltip';
+import { Kbd } from './ui/Kbd';
 import { formatKeyDisplay } from '../utils/hotkeyUtils';
+import { useHotkeyStore } from '../stores/hotkeyStore';
 import { Modal, ModalHeader, ModalBody } from './ui/Modal';
 import { Dropdown } from './ui/Dropdown';
 import type { DropdownItem } from './ui/Dropdown';
@@ -32,6 +34,11 @@ interface SidebarProps {
 
 export function Sidebar({ onHelpClick, onAboutClick, onSettingsClick, isSettingsOpen, onSettingsClose, settingsInitialSection, width, onResize, collapsed, onToggleCollapse }: SidebarProps) {
   const paneLogo = usePaneLogo();
+  const hotkeys = useHotkeyStore((s) => s.hotkeys);
+  const hotkeyDisplay = useCallback((id: string) => {
+    const keys = hotkeys.get(id)?.keys;
+    return keys ? formatKeyDisplay(keys) : null;
+  }, [hotkeys]);
   const [showStatusGuide, setShowStatusGuide] = useState(false);
   const [version, setVersion] = useState<string>('');
   const [gitCommit, setGitCommit] = useState<string>('');
@@ -214,7 +221,7 @@ export function Sidebar({ onHelpClick, onAboutClick, onSettingsClick, isSettings
 
           {/* Bottom actions */}
           <div className="flex-shrink-0 flex flex-col items-center gap-1 py-2 border-t border-border-primary">
-            <Tooltip content={<kbd className="px-1.5 py-0.5 text-xs font-mono bg-surface-tertiary rounded">{formatKeyDisplay('mod+,')}</kbd>} side="right">
+            <Tooltip content={hotkeyDisplay('open-settings') ? <Kbd>{hotkeyDisplay('open-settings')}</Kbd> : undefined} side="right">
               <IconButton
                 onClick={onSettingsClick}
                 aria-label="Settings"
@@ -222,7 +229,7 @@ export function Sidebar({ onHelpClick, onAboutClick, onSettingsClick, isSettings
                 icon={<SettingsIcon className="w-4 h-4" />}
               />
             </Tooltip>
-            <Tooltip content={<kbd className="px-1.5 py-0.5 text-xs font-mono bg-surface-tertiary rounded">{formatKeyDisplay('mod+b')}</kbd>} side="right">
+            <Tooltip content={hotkeyDisplay('toggle-sidebar') ? <Kbd>{hotkeyDisplay('toggle-sidebar')}</Kbd> : undefined} side="right">
               <IconButton
                 onClick={onToggleCollapse}
                 aria-label="Expand sidebar"
@@ -282,7 +289,7 @@ export function Sidebar({ onHelpClick, onAboutClick, onSettingsClick, isSettings
           </div>
           <div className="flex items-center space-x-2 flex-shrink-0">
             {onToggleCollapse && (
-              <Tooltip content={<kbd className="px-1.5 py-0.5 text-xs font-mono bg-surface-tertiary rounded">{formatKeyDisplay('mod+b')}</kbd>} side="bottom">
+              <Tooltip content={hotkeyDisplay('toggle-sidebar') ? <Kbd>{hotkeyDisplay('toggle-sidebar')}</Kbd> : undefined} side="bottom">
                 <IconButton
                   onClick={onToggleCollapse}
                   aria-label="Collapse sidebar"
@@ -301,7 +308,7 @@ export function Sidebar({ onHelpClick, onAboutClick, onSettingsClick, isSettings
                 </svg>
               }
             />
-            <Tooltip content={<kbd className="px-1.5 py-0.5 text-xs font-mono bg-surface-tertiary rounded">{formatKeyDisplay('mod+,')}</kbd>} side="bottom">
+            <Tooltip content={hotkeyDisplay('open-settings') ? <Kbd>{hotkeyDisplay('open-settings')}</Kbd> : undefined} side="bottom">
               <IconButton
                 onClick={onSettingsClick}
                 aria-label="Settings"

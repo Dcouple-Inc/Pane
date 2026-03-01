@@ -4,6 +4,7 @@ import { Modal } from './ui/Modal';
 import { Input } from './ui/Input';
 import { useHotkeyStore, type HotkeyDefinition } from '../stores/hotkeyStore';
 import { formatKeyDisplay, CATEGORY_LABELS, CATEGORY_ORDER } from '../utils/hotkeyUtils';
+import { Kbd } from './ui/Kbd';
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -143,9 +144,9 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
               >
                 <span>{item.hotkey.label}</span>
                 {item.hotkey.keys && (
-                  <kbd className="text-xs text-text-tertiary bg-surface-tertiary px-2 py-0.5 rounded font-mono ml-4 shrink-0">
+                  <Kbd variant="muted" className="ml-4 shrink-0">
                     {formatKeyDisplay(item.hotkey.keys)}
-                  </kbd>
+                  </Kbd>
                 )}
               </button>
             );
@@ -155,9 +156,9 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
 
       {/* Footer hint */}
       <div className="px-4 py-2 border-t border-border-primary flex items-center gap-4 text-xs text-text-muted">
-        <span><kbd className="px-1 py-0.5 bg-surface-tertiary rounded font-mono">↑↓</kbd> navigate</span>
-        <span><kbd className="px-1 py-0.5 bg-surface-tertiary rounded font-mono">↵</kbd> execute</span>
-        <span><kbd className="px-1 py-0.5 bg-surface-tertiary rounded font-mono">esc</kbd> close</span>
+        <span><Kbd size="xs">↑↓</Kbd> navigate</span>
+        <span><Kbd size="xs">↵</Kbd> execute</span>
+        <span><Kbd size="xs">esc</Kbd> close</span>
       </div>
     </Modal>
   );
