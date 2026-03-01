@@ -54,8 +54,6 @@ function HeadlessFileTree({
   const [error, setError] = useState<string | null>(null);
   const setErrorRef = useRef(setError);
   setErrorRef.current = setError;
-  // Counter to force rerender when cache is populated asynchronously (ref mutations don't trigger rerenders)
-  const [, setCacheVersion] = useState(0);
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery || '');
   const [showSearch, setShowSearch] = useState(initialShowSearch || false);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -143,38 +141,15 @@ function HeadlessFileTree({
     setExpandedItems,
   });
 
-  // Load root directory into cache. Runs on mount and session switch.
-  // Needed because search mode skips the tree branch (and its async loader),
-  // so without this a persisted searchQuery shows "No matching files".
-  const loadRootIntoCache = useCallback(() => {
-    window.electronAPI.invoke('file:list', {
-      sessionId: sessionIdRef.current,
-      path: '',
-    }).then((result: { success: boolean; files: FileItem[]; error?: string }) => {
-      if (result.success) {
-        filesCacheRef.current.set('', result.files);
-        setCacheVersion(v => v + 1); // trigger rerender so search sees the data
-      }
-    }).catch(() => {
-      // Errors are surfaced by the tree's data loader when it renders
-    });
-  }, []);
-
-  // Eager load on mount
-  useEffect(() => {
-    loadRootIntoCache();
-  }, [loadRootIntoCache]);
-
-  // Session switch: clear cache, invalidate tree, and reload root
+  // Session switch: clear cache and invalidate root
   const prevSessionIdRef = useRef(sessionId);
   useEffect(() => {
     if (prevSessionIdRef.current !== sessionId) {
       filesCacheRef.current.clear();
       tree.getItemInstance(ROOT_ID)?.invalidateChildrenIds();
       prevSessionIdRef.current = sessionId;
-      loadRootIntoCache();
     }
-  }, [sessionId, tree, loadRootIntoCache]);
+  }, [sessionId, tree]);
 
   // Highlight matching text in search results
   const highlightText = useCallback((text: string, query: string) => {
@@ -506,8 +481,8 @@ function HeadlessFileTree({
           {error}
         </div>
       )}
-      {searchQuery ? (
-        // Search mode: flat filtered results
+      {/* Search mode: flat filtered results overlay */}
+      {searchQuery && (
         <div className="flex-1 overflow-auto">
           {getFilteredFiles().map(file => (
             <div
@@ -542,97 +517,100 @@ function HeadlessFileTree({
             <div className="p-4 text-text-secondary text-sm">No matching files</div>
           )}
         </div>
-      ) : (
-        // Normal tree view
-        <div {...tree.getContainerProps()} className="flex-1 overflow-auto outline-none">
-          {tree.getItems().map((item: ItemInstance<FileItem>) => {
-            const data = item.getItemData();
-            if (!data || item.getId() === ROOT_ID) return null;
+      )}
+      {/* Tree view: always rendered so the async data loader stays active and
+          populates the cache. Hidden (not unmounted) when search is active. */}
+      <div
+        {...tree.getContainerProps()}
+        className={`overflow-auto outline-none ${searchQuery ? 'hidden' : 'flex-1'}`}
+      >
+        {tree.getItems().map((item: ItemInstance<FileItem>) => {
+          const data = item.getItemData();
+          if (!data || item.getId() === ROOT_ID) return null;
 
-            const isFolder = data.isDirectory;
-            const level = item.getItemMeta().level;
-            const isExpanded = item.isExpanded();
-            const isSelected = selectedPath === data.path;
+          const isFolder = data.isDirectory;
+          const level = item.getItemMeta().level;
+          const isExpanded = item.isExpanded();
+          const isSelected = selectedPath === data.path;
 
-            return (
-              <div
-                key={item.getId()}
-                {...item.getProps()}
-                className={`flex items-center px-2 py-1 hover:bg-surface-hover cursor-pointer group ${
-                  isSelected ? 'bg-interactive' : ''
-                }`}
-                style={{ paddingLeft: `${level * 16 + 8}px` }}
-                onClick={(e) => {
-                  e.stopPropagation();
+          return (
+            <div
+              key={item.getId()}
+              {...item.getProps()}
+              className={`flex items-center px-2 py-1 hover:bg-surface-hover cursor-pointer group ${
+                isSelected ? 'bg-interactive' : ''
+              }`}
+              style={{ paddingLeft: `${level * 16 + 8}px` }}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isFolder) {
+                  if (isExpanded) item.collapse();
+                  else item.expand();
+                } else {
+                  onFileSelect(data);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
                   if (isFolder) {
                     if (isExpanded) item.collapse();
                     else item.expand();
                   } else {
                     onFileSelect(data);
                   }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if (isFolder) {
-                      if (isExpanded) item.collapse();
-                      else item.expand();
-                    } else {
-                      onFileSelect(data);
-                    }
-                  }
-                }}
-                onDoubleClick={(e) => e.preventDefault()}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setContextMenu({ x: e.clientX, y: e.clientY, file: data });
-                }}
-              >
-                {isFolder ? (
-                  <>
-                    {isExpanded ? (
-                      <ChevronDown className="w-4 h-4 mr-1 text-text-tertiary" />
-                    ) : (
-                      <ChevronRight className="w-4 h-4 mr-1 text-text-tertiary" />
-                    )}
-                    <Folder className="w-4 h-4 mr-2 text-interactive" />
-                  </>
-                ) : (
-                  <>
-                    <div className="w-4 h-4 mr-1" />
-                    <File className="w-4 h-4 mr-2 text-text-tertiary" />
-                  </>
-                )}
-                <span className="flex-1 text-sm truncate text-text-primary">{data.name}</span>
-                {isFolder && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      filesCacheRef.current.delete(data.path);
-                      item.invalidateChildrenIds();
-                    }}
-                    className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 p-1 hover:bg-surface-hover rounded text-text-tertiary hover:text-text-primary"
-                    title="Refresh folder"
-                  >
-                    <RefreshCw className="w-3 h-3" />
-                  </button>
-                )}
+                }
+              }}
+              onDoubleClick={(e) => e.preventDefault()}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setContextMenu({ x: e.clientX, y: e.clientY, file: data });
+              }}
+            >
+              {isFolder ? (
+                <>
+                  {isExpanded ? (
+                    <ChevronDown className="w-4 h-4 mr-1 text-text-tertiary" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 mr-1 text-text-tertiary" />
+                  )}
+                  <Folder className="w-4 h-4 mr-2 text-interactive" />
+                </>
+              ) : (
+                <>
+                  <div className="w-4 h-4 mr-1" />
+                  <File className="w-4 h-4 mr-2 text-text-tertiary" />
+                </>
+              )}
+              <span className="flex-1 text-sm truncate text-text-primary">{data.name}</span>
+              {isFolder && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleDelete(data);
+                    filesCacheRef.current.delete(data.path);
+                    item.invalidateChildrenIds();
                   }}
-                  className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 p-1 hover:bg-surface-hover rounded ml-1"
-                  title={`Delete ${isFolder ? 'folder' : 'file'}`}
+                  className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 p-1 hover:bg-surface-hover rounded text-text-tertiary hover:text-text-primary"
+                  title="Refresh folder"
                 >
-                  <Trash2 className="w-3 h-3 text-status-error" />
+                  <RefreshCw className="w-3 h-3" />
                 </button>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(data);
+                }}
+                className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 p-1 hover:bg-surface-hover rounded ml-1"
+                title={`Delete ${isFolder ? 'folder' : 'file'}`}
+              >
+                <Trash2 className="w-3 h-3 text-status-error" />
+              </button>
+            </div>
+          );
+        })}
+      </div>
       <TerminalPopover
         visible={!!contextMenu}
         x={contextMenu?.x ?? 0}
