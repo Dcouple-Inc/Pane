@@ -266,7 +266,8 @@ async function createWindow() {
   });
 
   // Log any console messages from the renderer
-  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+  mainWindow.webContents.on('console-message', (event) => {
+    const { level, message, lineNumber, sourceId } = event;
     // Skip messages that are already prefixed to avoid circular logging
     if (message.includes('[Main Process]') || message.includes('[Renderer]')) {
       return;
@@ -275,29 +276,21 @@ async function createWindow() {
     if (message.includes('Electron Security Warning') || sourceId.includes('electron/js2c')) {
       return;
     }
-    
+
     // In development, log ALL console messages to help with debugging
     if (isDevelopment) {
-      const levelNames = ['verbose', 'info', 'warning', 'error'];
-      const levelName = levelNames[level] || 'unknown';
       const timestamp = new Date().toISOString();
-      const logMessage = `[${timestamp}] [FRONTEND ${levelName.toUpperCase()}] ${message}`;
-      
-      // Always log to main console
-      
+      const logMessage = `[${timestamp}] [FRONTEND ${level.toUpperCase()}] ${message}`;
+
       // Also write to debug log file for Claude Code to read
       const debugLogPath = path.join(process.cwd(), 'frontend-debug.log');
-      const logLine = `${logMessage} (${path.basename(sourceId)}:${line})\n`;
-      
+      const logLine = `${logMessage} (${path.basename(sourceId)}:${lineNumber})\n`;
+
       try {
         fs.appendFileSync(debugLogPath, logLine);
       } catch (error) {
         // Don't crash if we can't write to the log file
         console.error('Failed to write to debug log:', error);
-      }
-    } else {
-      // In production, only log errors and warnings from renderer
-      if (level >= 2) { // 2 = warning, 3 = error
       }
     }
   });
