@@ -633,8 +633,8 @@ function SessionRow({
     <div
       className={`group/session w-full text-left pl-6 pr-1 py-1.5 transition-colors flex items-start gap-1 ${
         isActive
-          ? 'bg-interactive/10 border-l-2 border-interactive'
-          : 'hover:bg-surface-hover border-l-2 border-transparent'
+          ? 'bg-interactive/30 border-l-4 border-interactive'
+          : 'hover:bg-surface-hover border-l-4 border-transparent'
       }`}
     >
       {/* Clickable session content */}
