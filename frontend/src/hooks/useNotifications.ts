@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSessionStore } from '../stores/sessionStore';
 import { API } from '../utils/api';
-import { AnalyticsService } from '../services/analyticsService';
 
 // Extend window interface for webkit audio context compatibility
 declare global {
@@ -84,7 +83,7 @@ export function useNotifications() {
     }
   };
 
-  const showNotification = (title: string, body: string, icon?: string, triggerEvent?: string, trackingKey?: string) => {
+  const showNotification = (title: string, body: string, icon?: string, _triggerEvent?: string, trackingKey?: string) => {
     if (!settings.enabled) return;
 
     requestPermission().then((hasPermission) => {
@@ -108,16 +107,6 @@ export function useNotifications() {
             trackedNotificationsRef.current.add(trackingKey);
           }
 
-          const notificationType = title.includes('Error') || title.includes('error') ? 'error' :
-                                   title.includes('Complete') || title.includes('complete') ? 'success' :
-                                   title.includes('Required') || title.includes('waiting') ? 'info' : 'other';
-
-          AnalyticsService.trackNotificationShown({
-            notification_type: notificationType,
-            trigger_event: triggerEvent || 'unknown',
-          }).catch((error) => {
-            console.error('[Notifications] Failed to track notification:', error);
-          });
         }
       }
     });

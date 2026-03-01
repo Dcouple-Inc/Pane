@@ -31,6 +31,7 @@ import { CloudWidget } from './components/CloudWidget';
 import { CreateSessionDialog } from './components/CreateSessionDialog';
 import { AddProjectDialog } from './components/AddProjectDialog';
 import { useNavigationStore } from './stores/navigationStore';
+import { initPostHog, capture } from './services/posthog';
 import type { VersionUpdateInfo, PermissionInput } from './types/session';
 import type { TerminalShortcut } from './types/config';
 import type { ResumableSession } from '../../shared/types/panels';
@@ -233,6 +234,25 @@ function App() {
     setHasCheckedAnalyticsConsent(true);
     checkAnalyticsConsent();
   }, [hasCheckedAnalyticsConsent]);
+
+  // Initialize PostHog after config loads
+  useEffect(() => {
+    if (!appConfig) return;
+    initPostHog({
+      enabled: appConfig.analytics?.enabled ?? false,
+      posthogApiKey: appConfig.analytics?.posthogApiKey,
+      posthogHost: appConfig.analytics?.posthogHost,
+    });
+  }, [appConfig]);
+
+  // Listen for main-process analytics events and forward to PostHog
+  useEffect(() => {
+    if (!window.electronAPI?.analytics?.onMainEvent) return;
+    const cleanup = window.electronAPI.analytics.onMainEvent((event) => {
+      capture(event.eventName, event.properties);
+    });
+    return cleanup;
+  }, []);
 
   // CRITICAL PERFORMANCE FIX: Cleanup to prevent V8 array iteration issues
   // Uses visibility-aware interval: 60s when active, 600s when hidden

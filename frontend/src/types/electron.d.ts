@@ -342,12 +342,7 @@ interface ElectronAPI {
 
   // Analytics tracking
   analytics: {
-    trackUIEvent: (eventData: {
-      event: string;
-      properties: Record<string, string | number | boolean | string[] | undefined>;
-    }) => Promise<IPCResponse>;
-    categorizeResultCount: (count: number) => Promise<IPCResponse<string>>;
-    hashSessionId: (sessionId: string) => Promise<IPCResponse<string>>;
+    onMainEvent: (callback: (event: { eventName: string; properties: Record<string, unknown> }) => void) => () => void;
   };
 
   // Spotlight

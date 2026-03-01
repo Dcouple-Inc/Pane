@@ -95,9 +95,6 @@ let archiveProgressManager: ArchiveProgressManager;
 let analyticsManager: AnalyticsManager;
 let spotlightManager: SpotlightManager;
 
-// Store app start time for session duration tracking
-let appStartTime: number;
-
 // Store original console methods before overriding
 // These must be captured immediately when the module loads
 const originalLog: typeof console.log = console.log;
@@ -176,6 +173,11 @@ async function createWindow() {
       trafficLightPosition: { x: 10, y: 10 }
     } : {})
   });
+
+  // Set main window on analytics manager for IPC forwarding
+  if (analyticsManager) {
+    analyticsManager.setMainWindow(mainWindow);
+  }
 
   // Increase max listeners to prevent warning when many panels are active
   // Each panel can register multiple event listeners
@@ -590,7 +592,6 @@ async function initializeServices() {
 
   // Initialize analytics manager early so it can be used by SessionManager
   analyticsManager = new AnalyticsManager(configManager);
-  await analyticsManager.initialize();
 
   // Set analytics manager on logsManager for script execution tracking
   const { logsManager } = await import('./services/panels/logPanel/logsManager');
@@ -729,47 +730,18 @@ async function initializeServices() {
 }
 
 app.whenReady().then(async () => {
-  // Record app start time
-  appStartTime = Date.now();
-
   console.log('[Main] App is ready, initializing services...');
   await initializeServices();
   console.log('[Main] Services initialized, creating window...');
   await createWindow();
   console.log('[Main] Window created successfully');
 
-  // Track app lifecycle events
+  // Record app open in database with version
   try {
     const currentVersion = app.getVersion();
-    const lastVersion = databaseService.getLastAppVersion();
-    const isFirstLaunch = lastVersion === null;
-
-    // Check if version changed (app update)
-    if (lastVersion && lastVersion !== currentVersion) {
-      console.log(`[Analytics] App updated from ${lastVersion} to ${currentVersion}`);
-      analyticsManager.track('app_updated', {
-        previous_version: lastVersion,
-        new_version: currentVersion
-      });
-    }
-
-    // Track app opened - use minimal tracking if analytics is disabled
-    console.log(`[Analytics] App opened (version: ${currentVersion}, first_launch: ${isFirstLaunch}, analytics_enabled: ${configManager.isAnalyticsEnabled()})`);
-    if (configManager.isAnalyticsEnabled()) {
-      analyticsManager.track('app_opened', {
-        is_first_launch: isFirstLaunch
-      });
-    } else {
-      // Track minimal app_opened event even when opted out
-      analyticsManager.trackMinimalEvent('app_opened', {
-        is_first_launch: isFirstLaunch
-      });
-    }
-
-    // Record app open in database with version
     databaseService.recordAppOpen(false, false, currentVersion);
   } catch (error) {
-    console.error('[Analytics] Failed to track app lifecycle events:', error);
+    console.error('[Main] Failed to record app open:', error);
   }
 
   // Configure auto-updater
@@ -991,23 +963,6 @@ app.on('before-quit', async (event) => {
     // Stop version checker
     if (versionChecker) {
       versionChecker.stopPeriodicCheck();
-    }
-
-    // Track app closed event with session duration
-    if (analyticsManager && appStartTime) {
-      try {
-        const sessionDurationSeconds = Math.floor((Date.now() - appStartTime) / 1000);
-        console.log(`[Analytics] App closed after ${sessionDurationSeconds} seconds`);
-        analyticsManager.track('app_closed', {
-          session_duration_seconds: sessionDurationSeconds
-        });
-
-        // Flush analytics events before shutdown
-        await analyticsManager.flush();
-        await analyticsManager.shutdown();
-      } catch (error) {
-        console.error('[Analytics] Failed to track app_closed event:', error);
-      }
     }
 
     // Close logger to ensure all logs are flushed

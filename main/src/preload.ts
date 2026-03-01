@@ -646,12 +646,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Analytics tracking
   analytics: {
-    trackUIEvent: (eventData: {
-      event: 'view_switched' | 'help_dialog_opened' | 'settings_opened' | 'settings_saved' | 'sidebar_toggled' | 'search_used';
-      properties: Record<string, string | number | boolean | string[]>;
-    }): Promise<IPCResponse> => ipcRenderer.invoke('analytics:track-ui-event', eventData),
-    categorizeResultCount: (count: number): Promise<IPCResponse<string>> => ipcRenderer.invoke('analytics:categorize-result-count', count),
-    hashSessionId: (sessionId: string): Promise<IPCResponse<string>> => ipcRenderer.invoke('analytics:hash-session-id', sessionId),
+    onMainEvent: (callback: (event: { eventName: string; properties: Record<string, unknown> }) => void) => {
+      const handler = (_event: unknown, data: { eventName: string; properties: Record<string, unknown> }) => {
+        callback(data);
+      };
+      ipcRenderer.on('analytics:main-event', handler);
+      return () => {
+        ipcRenderer.removeListener('analytics:main-event', handler);
+      };
+    },
   },
 
   // Spotlight

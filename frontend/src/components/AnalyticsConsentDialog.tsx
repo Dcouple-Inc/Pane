@@ -4,7 +4,7 @@ import { usePaneLogo } from '../hooks/usePaneLogo';
 import { Modal, ModalBody, ModalFooter } from './ui/Modal';
 import { Button } from './ui/Button';
 import { useConfigStore } from '../stores/configStore';
-import { analyticsService } from '../services/analyticsService';
+import { optIn, capture, captureAndOptOut } from '../services/posthog';
 
 interface AnalyticsConsentDialogProps {
   isOpen: boolean;
@@ -28,7 +28,8 @@ export default function AnalyticsConsentDialog({ isOpen, onClose }: AnalyticsCon
       });
 
       // Track opt-in event
-      await analyticsService.trackAnalyticsOptedIn();
+      optIn();
+      capture('analytics_opted_in');
 
       // Mark consent as shown
       if (window.electron?.invoke) {
@@ -47,8 +48,8 @@ export default function AnalyticsConsentDialog({ isOpen, onClose }: AnalyticsCon
     setIsSubmitting(true);
     try {
       // Track opt-out event FIRST (before disabling analytics)
-      // This uses a special minimal tracking that works even when analytics is being disabled
-      await analyticsService.trackAnalyticsOptedOut();
+      // Uses captureAndOptOut to ensure the event is flushed before disabling
+      captureAndOptOut('analytics_opted_out');
 
       // Disable analytics (keep it disabled since it's opt-in)
       await updateConfig({

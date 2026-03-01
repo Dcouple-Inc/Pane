@@ -18,7 +18,6 @@ import { setupLogHandlers } from './logs';
 import { registerPanelHandlers } from './panels';
 import { registerEditorPanelHandlers } from './editorPanel';
 import { registerNimbalystHandlers } from './nimbalyst';
-import { registerAnalyticsHandlers } from './analytics';
 import { registerSpotlightHandlers } from './spotlight';
 import { registerCloudHandlers } from './cloud';
 import { registerClipboardHandlers } from './clipboard';
@@ -44,7 +43,6 @@ export function registerIpcHandlers(services: AppServices): void {
   registerPanelHandlers(ipcMain, services);
   registerEditorPanelHandlers(ipcMain, services);
   registerNimbalystHandlers(ipcMain, services);
-  registerAnalyticsHandlers(ipcMain, services);
   registerSpotlightHandlers(ipcMain, services);
   registerCloudHandlers(ipcMain, services);
   registerClipboardHandlers(ipcMain, services);

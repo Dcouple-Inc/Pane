@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { NotificationSettings } from './NotificationSettings';
 import { useNotifications } from '../hooks/useNotifications';
 import { API } from '../utils/api';
+import { optIn, capture, captureAndOptOut } from '../services/posthog';
 import type { AppConfig, TerminalShortcut } from '../types/config';
 import { useConfigStore } from '../stores/configStore';
 import {
@@ -204,23 +205,6 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
         .map(p => p.trim())
         .filter(p => p.length > 0);
       
-      // Track analytics opt-in/opt-out events if the preference changed
-      if (previousAnalyticsEnabled !== analyticsEnabled) {
-        if (analyticsEnabled) {
-          // User opted back in
-          await window.electronAPI.analytics.trackUIEvent({
-            event: 'analytics_opted_in',
-            properties: {}
-          });
-        } else {
-          // User opted out - send final event before disabling
-          await window.electronAPI.analytics.trackUIEvent({
-            event: 'analytics_opted_out',
-            properties: {}
-          });
-        }
-      }
-
       const response = await API.config.update({
         verbose,
         anthropicApiKey,
@@ -254,6 +238,16 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
 
       if (!response.success) {
         throw new Error(response.error || 'Failed to update configuration');
+      }
+
+      // Only toggle PostHog opt-in/opt-out after config save succeeds
+      if (previousAnalyticsEnabled !== analyticsEnabled) {
+        if (analyticsEnabled) {
+          optIn();
+          capture('analytics_opted_in');
+        } else {
+          captureAndOptOut('analytics_opted_out');
+        }
       }
 
       // Update the useNotifications hook with new settings
