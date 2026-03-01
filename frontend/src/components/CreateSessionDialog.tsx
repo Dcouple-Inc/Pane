@@ -303,18 +303,12 @@ export function CreateSessionDialog({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
 
-  // Auto-focus branch input on dialog open (branch is now first)
+  // Auto-focus name input on dialog open (always available immediately)
   useEffect(() => {
     if (isOpen) {
-      // Small delay to let the dialog render
       const timer = setTimeout(() => {
-        if (branchInputRef.current) {
-          branchInputRef.current.focus();
-        } else {
-          // Fall back to session name if no branches
-          const input = document.getElementById('worktreeTemplate') as HTMLInputElement;
-          if (input) input.focus();
-        }
+        const input = document.getElementById('worktreeTemplate') as HTMLInputElement;
+        if (input) input.focus();
       }, 100);
       return () => clearTimeout(timer);
     }
@@ -466,9 +460,10 @@ export function CreateSessionDialog({
 
       <ModalBody className="p-0">
         <div className="flex-1 overflow-y-auto">
-          {isLoadingBranches ? (
-            <div className="animate-pulse">
-              <div className="p-6 border-b border-border-primary">
+          <form id="create-session-form" onSubmit={handleSubmit}>
+            {/* 1. Base Branch (select first, auto-populates session name) */}
+            {isLoadingBranches && branches.length === 0 ? (
+              <div className="p-6 border-b border-border-primary animate-pulse">
                 <div className="flex items-center gap-2 mb-1">
                   <div className="w-4 h-4 bg-surface-tertiary rounded" />
                   <div className="w-24 h-4 bg-surface-tertiary rounded" />
@@ -476,19 +471,7 @@ export function CreateSessionDialog({
                 <div className="w-full h-9 bg-surface-tertiary rounded-md" />
                 <div className="w-64 h-3 bg-surface-tertiary rounded mt-1" />
               </div>
-              <div className="p-6 border-b border-border-primary">
-                <div className="w-20 h-4 bg-surface-tertiary rounded mb-1" />
-                <div className="w-full h-9 bg-surface-tertiary rounded-md" />
-                <div className="w-48 h-3 bg-surface-tertiary rounded mt-1" />
-              </div>
-              <div className="px-6 py-4">
-                <div className="w-20 h-6 bg-surface-tertiary rounded" />
-              </div>
-            </div>
-          ) : (
-          <form id="create-session-form" onSubmit={handleSubmit}>
-            {/* 1. Base Branch (select first, auto-populates session name) */}
-            {branches.length > 0 && (
+            ) : branches.length > 0 ? (
               <div className="p-6 border-b border-border-primary">
                 <div className="flex items-center gap-2 mb-1">
                   <GitBranch className="w-4 h-4 text-text-tertiary" />
@@ -640,7 +623,7 @@ export function CreateSessionDialog({
                   Remote branches will automatically track the remote for git pull/push.
                 </p>
               </div>
-            )}
+            ) : null}
 
             {/* 2. Pane Name (auto-populated from branch, editable) */}
             <div className="p-6 border-b border-border-primary">
@@ -780,7 +763,6 @@ export function CreateSessionDialog({
               </div>
             )}
           </form>
-          )}
         </div>
       </ModalBody>
 
@@ -803,7 +785,7 @@ export function CreateSessionDialog({
           <Button
             type="submit"
             form="create-session-form"
-            disabled={isSubmitting || isLoadingBranches || !!worktreeError || !sessionName.trim()}
+            disabled={isSubmitting || !!worktreeError || !sessionName.trim()}
             loading={isSubmitting}
             title={
               isSubmitting ? 'Creating pane...' :
