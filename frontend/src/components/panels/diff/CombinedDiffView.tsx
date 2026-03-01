@@ -25,10 +25,11 @@ function parseUnifiedDiffToFiles(diff: string): FileDiff[] {
   const fileChunks = diff.match(/diff --git[\s\S]*?(?=diff --git|$)/g);
   if (!fileChunks) return [];
 
-  return fileChunks.map(chunk => {
+  return fileChunks.flatMap(chunk => {
     const nameMatch = chunk.match(/diff --git a\/(.*?) b\/(.*?)(?:\n|$)/);
-    const oldPath = nameMatch?.[1] || '';
-    const newPath = nameMatch?.[2] || '';
+    if (!nameMatch) return [];
+    const oldPath = nameMatch[1];
+    const newPath = nameMatch[2];
     const isBinary = chunk.includes('Binary files') || chunk.includes('GIT binary patch');
 
     let type: FileDiff['type'] = 'modified';
@@ -39,7 +40,7 @@ function parseUnifiedDiffToFiles(diff: string): FileDiff[] {
     const additions = (chunk.match(/^\+[^+]/gm) || []).length;
     const deletions = (chunk.match(/^-[^-]/gm) || []).length;
 
-    return { path: newPath || oldPath, oldPath, type, isBinary, additions, deletions, rawDiff: chunk };
+    return [{ path: newPath || oldPath, oldPath, type, isBinary, additions, deletions, rawDiff: chunk }];
   });
 }
 
