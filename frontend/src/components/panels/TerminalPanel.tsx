@@ -142,8 +142,12 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           // Ctrl+Alt+1-9: switch panel tabs
           if (ctrlOrMeta && e.altKey && e.key >= '1' && e.key <= '9') return false;
           // Ctrl/Cmd+Alt+letter: terminal shortcuts — only release if a matching hotkey is registered
-          if (ctrlOrMeta && e.altKey && /^[a-zA-Z]$/.test(e.key)) {
-            const pressed = `mod+alt+${e.key.toLowerCase()}`;
+          // Use e.code instead of e.key because macOS Option key modifies e.key to special chars
+          // (e.g. Option+A produces e.key='å' but e.code='KeyA')
+          // Skip AltGr — on Windows/Linux international layouts AltGr sets both ctrlKey+altKey
+          // but is used for character input (e.g. AltGr+Q = '@' on German keyboards)
+          if (ctrlOrMeta && e.altKey && !e.getModifierState('AltGraph') && /^Key[A-Z]$/.test(e.code)) {
+            const pressed = `mod+alt+${e.code.slice(3).toLowerCase()}`;
             const hotkeys = useHotkeyStore.getState().hotkeys;
             for (const def of hotkeys.values()) {
               if (def.keys === pressed) return false;
