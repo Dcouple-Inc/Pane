@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { NotificationSettings } from './NotificationSettings';
 import { useNotifications } from '../hooks/useNotifications';
 import { API } from '../utils/api';
 import { optIn, capture, captureAndOptOut } from '../services/posthog';
 import type { AppConfig, TerminalShortcut } from '../types/config';
 import { useConfigStore } from '../stores/configStore';
+import { useSessionStore } from '../stores/sessionStore';
+import { panelApi } from '../services/panelApi';
 import {
   Shield,
   ShieldOff,
@@ -26,7 +28,9 @@ import {
   Keyboard,
   Plus,
   Power,
-  PowerOff
+  PowerOff,
+  Loader2,
+  Play
 } from 'lucide-react';
 import { Input, Textarea, Checkbox } from './ui/Input';
 import { Button } from './ui/Button';
@@ -87,9 +91,34 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
   const [cloudGcpZone, setCloudGcpZone] = useState('');
   const [cloudTunnelPort, setCloudTunnelPort] = useState('8080');
   const [terminalShortcuts, setTerminalShortcuts] = useState<TerminalShortcut[]>([]);
+  const [cloudSetupLoading, setCloudSetupLoading] = useState(false);
+  const activeSessionId = useSessionStore((state) => state.activeSessionId);
   const { updateSettings } = useNotifications();
   const { theme, setTheme } = useTheme();
   const { fetchConfig: refreshConfigStore } = useConfigStore();
+
+  const handleRunCloudSetup = useCallback(async () => {
+    if (!activeSessionId) return;
+    setCloudSetupLoading(true);
+    try {
+      const panel = await panelApi.createPanel({
+        sessionId: activeSessionId,
+        type: 'terminal',
+        title: 'Cloud Setup',
+        initialState: {
+          customState: {
+            initialCommand: 'bash cloud/scripts/setup-cloud.sh'
+          }
+        }
+      });
+      await panelApi.setActivePanel(activeSessionId, panel.id);
+      onClose();
+    } catch (err) {
+      console.error('[Settings] Failed to create cloud setup terminal:', err);
+    } finally {
+      setCloudSetupLoading(false);
+    }
+  }, [activeSessionId, onClose]);
 
   useEffect(() => {
     if (isOpen) {
@@ -567,6 +596,37 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
                     <span className="px-2 py-0.5 text-xs bg-status-success/20 text-status-success rounded-full">IAP Secured</span>
                   </div>
                   <p className="text-xs text-text-tertiary mt-1">e2-highmem-2 (2 vCPU, 16GB RAM) — access via IAP tunnel only, no public IP exposed</p>
+                </div>
+              </SettingsSection>
+
+              <SettingsSection
+                title="Setup"
+                description="Run the interactive setup script to provision or re-authenticate your cloud VM"
+                icon={<Play className="w-4 h-4" />}
+              >
+                <div className="p-3 rounded-lg bg-surface-secondary border border-border-secondary">
+                  <p className="text-sm text-text-secondary mb-3">
+                    Opens a terminal panel running the cloud setup script. Handles first-time provisioning, gcloud authentication, and reconnection.
+                  </p>
+                  {activeSessionId ? (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleRunCloudSetup}
+                      disabled={cloudSetupLoading}
+                    >
+                      {cloudSetupLoading ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Terminal className="w-4 h-4 mr-2" />
+                      )}
+                      Run Cloud Setup
+                    </Button>
+                  ) : (
+                    <p className="text-xs text-text-tertiary">
+                      Create or select a session first to run the setup script.
+                    </p>
+                  )}
                 </div>
               </SettingsSection>
 
