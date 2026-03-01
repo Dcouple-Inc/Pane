@@ -132,7 +132,6 @@ interface FileTreeProps {
   sessionId: string;
   onFileSelect: (file: FileItem | null) => void;
   selectedPath: string | null;
-  initialExpandedDirs?: string[];
   initialSearchQuery?: string;
   initialShowSearch?: boolean;
   onTreeStateChange?: (state: { expandedDirs: string[]; searchQuery: string; showSearch: boolean }) => void;
@@ -142,14 +141,13 @@ function FileTree({
   sessionId, 
   onFileSelect, 
   selectedPath,
-  initialExpandedDirs,
   initialSearchQuery,
   initialShowSearch,
   onTreeStateChange 
 }: FileTreeProps) {
   const [files, setFiles] = useState<Map<string, FileItem[]>>(new Map());
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(
-    new Set(initialExpandedDirs || [''])
+    new Set([''])
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -945,7 +943,6 @@ export function FileEditor({
           sessionId={sessionId}
           onFileSelect={loadFile}
           selectedPath={selectedFile?.path || null}
-          initialExpandedDirs={initialState?.expandedDirs}
           initialSearchQuery={initialState?.searchQuery}
           initialShowSearch={initialState?.showSearch}
           onTreeStateChange={handleTreeStateChange}
