@@ -477,6 +477,34 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
     }
   });
 
+  ipcMain.handle('git:file-status', async (_event, sessionId: string, filePath: string) => {
+    try {
+      const session = await sessionManager.getSession(sessionId);
+      if (!session || !session.worktreePath) {
+        return { success: false, error: 'Session not found' };
+      }
+      const ctx = sessionManager.getProjectContext(sessionId);
+      if (!ctx) return { success: false, error: 'No project context' };
+
+      // Check working tree + staged changes for this specific file
+      const modified = ctx.commandRunner.exec(
+        `git diff --name-only HEAD -- "${filePath}"`,
+        session.worktreePath
+      ).trim();
+
+      // Check if file is untracked
+      const untracked = ctx.commandRunner.exec(
+        `git ls-files --others --exclude-standard -- "${filePath}"`,
+        session.worktreePath
+      ).trim();
+
+      const status = untracked.length > 0 ? 'untracked' : modified.length > 0 ? 'modified' : 'clean';
+      return { success: true, data: { status } };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to check file status' };
+    }
+  });
+
   ipcMain.handle('sessions:git-diff', async (_event, sessionId: string) => {
     try {
       const session = await sessionManager.getSession(sessionId);

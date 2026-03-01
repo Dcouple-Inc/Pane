@@ -662,6 +662,7 @@ export function FileEditor({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'edit' | 'preview'>('edit');
+  const [gitStatus, setGitStatus] = useState<'clean' | 'modified' | 'untracked'>('clean');
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof monaco | null>(null);
 
@@ -702,9 +703,10 @@ export function FileEditor({
 
   const loadFile = useCallback(async (file: FileItem | null) => {
     if (!file || file.isDirectory) return;
-    
+
     setLoading(true);
     setError(null);
+    setGitStatus('clean');
     try {
       const result = await window.electronAPI.invoke('file:read', {
         sessionId,
@@ -761,6 +763,13 @@ export function FileEditor({
             }, 100);
           }
         }
+
+        // Check git status for this file
+        window.electronAPI.invoke('git:file-status', sessionId, file.path).then((statusResult: { success: boolean; data?: { status: 'clean' | 'modified' | 'untracked' } }) => {
+          if (statusResult.success && statusResult.data) {
+            setGitStatus(statusResult.data.status);
+          }
+        });
       } else {
         setError(result.error);
       }
@@ -860,19 +869,26 @@ export function FileEditor({
         
         if (result.success) {
           setOriginalContent(fileContent);
-          
+
           // Notify parent that file is saved
           if (onFileChange && selectedFile) {
             onFileChange(selectedFile.path, false);
           }
-          
+
           // Emit file saved event
           if (onStateChange) {
-            onStateChange({ 
-              filePath: selectedFile.path, 
-              isDirty: false 
+            onStateChange({
+              filePath: selectedFile.path,
+              isDirty: false
             });
           }
+
+          // Re-check git status after save
+          window.electronAPI.invoke('git:file-status', sessionId, selectedFile.path).then((statusResult: { success: boolean; data?: { status: 'clean' | 'modified' | 'untracked' } }) => {
+            if (statusResult.success && statusResult.data) {
+              setGitStatus(statusResult.data.status);
+            }
+          });
         } else {
           setError(result.error);
         }
@@ -889,6 +905,23 @@ export function FileEditor({
       autoSave();
     }
   }, [fileContent, originalContent, selectedFile, autoSave]);
+
+  // Re-check git status when git operations complete (e.g. commit from diff panel or terminal)
+  useEffect(() => {
+    if (!selectedFile) return;
+    const handlePanelEvent = (event: CustomEvent) => {
+      const { type } = event.detail || {};
+      if (type === 'git:operation_completed' || type === 'diff:refreshed') {
+        window.electronAPI.invoke('git:file-status', sessionId, selectedFile.path).then((statusResult: { success: boolean; data?: { status: 'clean' | 'modified' | 'untracked' } }) => {
+          if (statusResult.success && statusResult.data) {
+            setGitStatus(statusResult.data.status);
+          }
+        });
+      }
+    };
+    window.addEventListener('panel:event', handlePanelEvent as EventListener);
+    return () => window.removeEventListener('panel:event', handlePanelEvent as EventListener);
+  }, [selectedFile, sessionId]);
   
   // Load initial file if provided
   useEffect(() => {
@@ -982,6 +1015,15 @@ export function FileEditor({
                   {selectedFile.path}
                   {hasUnsavedChanges && <span className="text-status-warning ml-2">●</span>}
                 </span>
+                {gitStatus !== 'clean' && (
+                  <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${
+                    gitStatus === 'untracked'
+                      ? 'bg-status-success text-white'
+                      : 'bg-interactive text-white'
+                  }`}>
+                    {gitStatus === 'untracked' ? 'U' : 'M'}
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 {/* Preview Toggle for Markdown/Notebook Files */}
