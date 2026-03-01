@@ -1433,17 +1433,20 @@ export const useSessionView = (
     }
   };
 
-  const handleSetUpstream = async (remoteBranch: string) => {
-    if (!activeSession) return;
+  const handleSetUpstream = async (remoteBranch: string): Promise<boolean> => {
+    if (!activeSession) return false;
     setIsMerging(true);
     setMergeError(null);
     try {
       const response = await API.sessions.setUpstream(activeSession.id, remoteBranch);
       if (!response.success) {
         setMergeError(response.error || 'Failed to set tracking branch');
+        return false;
       }
+      return true;
     } catch (error) {
       setMergeError(error instanceof Error ? error.message : 'Failed to set tracking branch');
+      return false;
     } finally {
       setIsMerging(false);
     }

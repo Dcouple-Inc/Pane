@@ -419,11 +419,14 @@ export const SessionView = memo(() => {
       setCurrentUpstream(null);
       return;
     }
+    let cancelled = false;
     API.sessions.getUpstream(activeSession.id).then(response => {
-      if (response.success) {
-        setCurrentUpstream(response.data);
-      }
-    }).catch(() => setCurrentUpstream(null));
+      if (cancelled) return;
+      setCurrentUpstream(response.success ? response.data : null);
+    }).catch(() => {
+      if (!cancelled) setCurrentUpstream(null);
+    });
+    return () => { cancelled = true; };
   }, [activeSession?.id, activeSession?.isMainRepo]);
 
   // Load project data when activeProjectId changes
@@ -521,9 +524,10 @@ export const SessionView = memo(() => {
   const handleSelectUpstream = async (branch: string) => {
     if (!activeSession) return;
     setShowSetTrackingDialog(false);
-    await hook.handleSetUpstream(branch);
-    // Refresh displayed tracking branch immediately after setting
-    setCurrentUpstream(branch);
+    const success = await hook.handleSetUpstream(branch);
+    if (success) {
+      setCurrentUpstream(branch);
+    }
   };
 
   // IDE dropdown handlers
