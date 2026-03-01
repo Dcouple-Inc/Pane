@@ -126,7 +126,7 @@ interface ElectronAPI {
     getGitGraph: (sessionId: string) => Promise<IPCResponse>;
 
     // IDE operations
-    openIDE: (sessionId: string) => Promise<IPCResponse>;
+    openIDE: (sessionId: string, command?: string) => Promise<IPCResponse>;
     
     // Reorder operations
     reorder: (sessionOrders: Array<{ id: string; displayOrder: number }>) => Promise<IPCResponse>;

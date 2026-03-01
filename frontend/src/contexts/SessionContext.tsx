@@ -1,5 +1,5 @@
 import React, { createContext, useContext, ReactNode } from 'react';
-import { Session } from '../types/session';
+import { Session, GitCommands } from '../types/session';
 import type { LucideIcon } from 'lucide-react';
 
 interface SessionContextValue {
@@ -18,6 +18,11 @@ interface SessionContextValue {
     description: string;
   }>;
   isMerging?: boolean;
+  gitCommands?: GitCommands;
+  onOpenIDEWithCommand?: (command?: string) => void;
+  onConfigureIDE?: () => void;
+  onSetTracking?: () => void;
+  trackingBranch?: string | null;
 }
 
 export const SessionContext = createContext<SessionContextValue | undefined>(undefined);
@@ -36,7 +41,12 @@ export const SessionProvider: React.FC<{
     description: string;
   }>;
   isMerging?: boolean;
-}> = ({ children, session, projectName, gitBranchActions, isMerging }) => {
+  gitCommands?: GitCommands | null;
+  onOpenIDEWithCommand?: (command?: string) => void;
+  onConfigureIDE?: () => void;
+  onSetTracking?: () => void;
+  trackingBranch?: string | null;
+}> = ({ children, session, projectName, gitBranchActions, isMerging, gitCommands, onOpenIDEWithCommand, onConfigureIDE, onSetTracking, trackingBranch }) => {
   // FIX: Don't render children without a valid session
   // This prevents components that require session from rendering
   if (!session) {
@@ -54,7 +64,12 @@ export const SessionProvider: React.FC<{
     projectName,
     session,
     gitBranchActions,
-    isMerging
+    isMerging,
+    gitCommands: gitCommands ?? undefined,
+    onOpenIDEWithCommand,
+    onConfigureIDE,
+    onSetTracking,
+    trackingBranch
   };
 
   return (

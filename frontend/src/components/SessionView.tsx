@@ -22,13 +22,15 @@ import { PanelContainer } from './panels/PanelContainer';
 import { SessionProvider } from '../contexts/SessionContext';
 import { ToolPanel, ToolPanelType, PANEL_CAPABILITIES } from '../../../shared/types/panels';
 import { PanelCreateOptions } from '../types/panelComponents';
-import { Download, Upload, GitMerge, Code2, Terminal, GripHorizontal, ChevronDown, ChevronUp, RefreshCw, Archive, ArchiveRestore, GitCommitHorizontal, Link, MessageSquare, TerminalSquare } from 'lucide-react';
+import { Download, Upload, GitMerge, Code2, Terminal, GripHorizontal, ChevronDown, ChevronUp, RefreshCw, Archive, ArchiveRestore, GitCommitHorizontal, MessageSquare, TerminalSquare } from 'lucide-react';
 import type { Project } from '../types/project';
 import { devLog, renderLog } from '../utils/console';
 import { useConfigStore } from '../stores/configStore';
 import { cycleIndex } from '../utils/arrayUtils';
 import { formatKeyDisplay } from '../utils/hotkeyUtils';
 import { Tooltip } from './ui/Tooltip';
+import { useErrorStore } from '../stores/errorStore';
+import ProjectSettings from './ProjectSettings';
 
 export const SessionView = memo(() => {
   const { activeView, activeProjectId } = useNavigationStore();
@@ -411,6 +413,19 @@ export const SessionView = memo(() => {
     loadSessionProject();
   }, [activeSession?.projectId]);
 
+  // Fetch upstream tracking branch for display
+  useEffect(() => {
+    if (!activeSession?.id || activeSession.isMainRepo) {
+      setCurrentUpstream(null);
+      return;
+    }
+    API.sessions.getUpstream(activeSession.id).then(response => {
+      if (response.success) {
+        setCurrentUpstream(response.data);
+      }
+    }).catch(() => setCurrentUpstream(null));
+  }, [activeSession?.id, activeSession?.isMainRepo]);
+
   // Load project data when activeProjectId changes
   useEffect(() => {
     if (activeView === 'project' && activeProjectId) {
@@ -508,6 +523,27 @@ export const SessionView = memo(() => {
     setShowSetTrackingDialog(false);
     await hook.handleSetUpstream(branch);
   };
+
+  // IDE dropdown handlers
+  const [showProjectSettings, setShowProjectSettings] = useState(false);
+
+  const handleOpenIDEWithCommand = useCallback(async (command?: string) => {
+    if (!activeSession) return;
+    try {
+      const response = await API.sessions.openIDE(activeSession.id, command);
+      if (!response.success) {
+        useErrorStore.getState().showError({
+          title: 'Failed to open IDE',
+          error: response.error || 'Unknown error occurred',
+        });
+      }
+    } catch (error) {
+      useErrorStore.getState().showError({
+        title: 'Failed to open IDE',
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+      });
+    }
+  }, [activeSession]);
 
   // Detail panel state
   const [detailVisible, setDetailVisible] = useState(() => {
@@ -637,7 +673,9 @@ export const SessionView = memo(() => {
         },
         disabled: hook.isMerging || activeSession.status === 'running' || activeSession.status === 'initializing' || (!activeSession.gitStatus?.hasUncommittedChanges && !activeSession.gitStatus?.hasUntrackedFiles),
         variant: 'default' as const,
-        description: (activeSession.gitStatus?.hasUncommittedChanges || activeSession.gitStatus?.hasUntrackedFiles) ? 'Stage all changes and commit' : 'No changes to commit'
+        description: (activeSession.gitStatus?.hasUncommittedChanges || activeSession.gitStatus?.hasUntrackedFiles)
+          ? `Stage all changes and commit on ${hook.gitCommands?.currentBranch || 'current branch'}`
+          : 'No changes to commit'
       },
       // Push action
       {
@@ -648,7 +686,9 @@ export const SessionView = memo(() => {
         onClick: hook.handleGitPush,
         disabled: hook.isMerging || activeSession.status === 'running' || activeSession.status === 'initializing' || !activeSession.gitStatus?.ahead,
         variant: 'default' as const,
-        description: activeSession.gitStatus?.ahead ? `Push ${activeSession.gitStatus.ahead} commit(s) to remote` : 'No commits to push'
+        description: activeSession.gitStatus?.ahead
+          ? `Push ${activeSession.gitStatus.ahead} commit(s)${hook.gitCommands?.currentBranch ? ` from ${hook.gitCommands.currentBranch}` : ''} to remote`
+          : 'No commits to push'
       },
       // Pull action
       {
@@ -659,7 +699,7 @@ export const SessionView = memo(() => {
         onClick: hook.handleGitPull,
         disabled: hook.isMerging || activeSession.status === 'running' || activeSession.status === 'initializing',
         variant: 'default' as const,
-        description: 'Pull latest changes from remote'
+        description: `Pull latest changes into ${hook.gitCommands?.currentBranch || 'current branch'}`
       },
       // Fetch action
       {
@@ -669,7 +709,7 @@ export const SessionView = memo(() => {
         onClick: hook.handleGitFetch,
         disabled: hook.isMerging || activeSession.status === 'running' || activeSession.status === 'initializing',
         variant: 'default' as const,
-        description: 'Fetch from remote without merging'
+        description: `Fetch from remote into ${hook.gitCommands?.currentBranch || 'current branch'} without merging`
       },
       // Stash action
       {
@@ -679,7 +719,9 @@ export const SessionView = memo(() => {
         onClick: hook.handleGitStash,
         disabled: hook.isMerging || activeSession.status === 'running' || activeSession.status === 'initializing' || !activeSession.gitStatus?.hasUncommittedChanges,
         variant: 'default' as const,
-        description: activeSession.gitStatus?.hasUncommittedChanges ? 'Stash uncommitted changes' : 'No changes to stash'
+        description: activeSession.gitStatus?.hasUncommittedChanges
+          ? `Stash uncommitted changes on ${hook.gitCommands?.currentBranch || 'current branch'}`
+          : 'No changes to stash'
       },
       // Pop Stash action
       {
@@ -714,27 +756,9 @@ export const SessionView = memo(() => {
         description: (!activeSession.gitStatus?.totalCommits || activeSession.gitStatus?.totalCommits === 0 || activeSession.gitStatus?.ahead === 0) ?
                      'No commits to merge' :
                      (hook.gitCommands?.getSquashAndRebaseToMainCommand ? hook.gitCommands.getSquashAndRebaseToMainCommand() : `Merges all commits to ${hook.gitCommands?.mainBranch || 'main'} (with safety checks)`)
-      },
-      {
-        id: 'set-tracking',
-        label: 'Set Tracking',
-        icon: Link,
-        onClick: handleOpenSetTracking,
-        disabled: hook.isMerging || activeSession.status === 'running' || activeSession.status === 'initializing',
-        variant: 'default' as const,
-        description: 'Set upstream tracking branch for git pull/push'
-      },
-      {
-        id: 'open-ide',
-        label: hook.isOpeningIDE ? 'Opening...' : 'Open in IDE',
-        icon: Code2,
-        onClick: hook.handleOpenIDE,
-        disabled: activeSession.status === 'initializing' || hook.isOpeningIDE || !sessionProject?.open_ide_command,
-        variant: 'default' as const,
-        description: sessionProject?.open_ide_command ? 'Open the worktree in your default IDE' : 'No IDE command configured'
       }
     ];
-  }, [activeSession, hook.isMerging, hook.gitCommands, hook.hasChangesToRebase, hook.hasStash, hook.handleGitPull, hook.handleGitPush, hook.handleGitFetch, hook.handleGitStash, hook.handleGitStashPop, hook.setShowCommitMessageDialog, hook.setDialogType, hook.handleRebaseMainIntoWorktree, hook.handleSquashAndRebaseToMain, hook.handleOpenIDE, hook.isOpeningIDE, sessionProject?.open_ide_command, activeSession?.gitStatus, handleOpenSetTracking]);
+  }, [activeSession, hook.isMerging, hook.gitCommands, hook.hasChangesToRebase, hook.hasStash, hook.handleGitPull, hook.handleGitPush, hook.handleGitFetch, hook.handleGitStash, hook.handleGitStashPop, hook.setShowCommitMessageDialog, hook.setDialogType, hook.handleRebaseMainIntoWorktree, hook.handleSquashAndRebaseToMain, activeSession?.gitStatus]);
   
   // Removed unused variables - now handled by panels
 
@@ -771,7 +795,7 @@ export const SessionView = memo(() => {
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-bg-primary">
       {/* SINGLE SessionProvider wraps everything */}
-      <SessionProvider session={activeSession} gitBranchActions={branchActions} isMerging={hook.isMerging}>
+      <SessionProvider session={activeSession} gitBranchActions={branchActions} isMerging={hook.isMerging} gitCommands={hook.gitCommands} onOpenIDEWithCommand={handleOpenIDEWithCommand} onConfigureIDE={() => setShowProjectSettings(true)} onSetTracking={handleOpenSetTracking} trackingBranch={currentUpstream}>
 
         {/* Tab bar at top */}
         <PanelTabBar
@@ -979,6 +1003,27 @@ export const SessionView = memo(() => {
         onArchiveEntireFolder={hook.handleArchiveEntireFolder}
         onCancel={hook.handleCancelFolderArchive}
       />
+
+      {/* Project Settings Dialog (opened from IDE dropdown) */}
+      {sessionProject && (
+        <ProjectSettings
+          project={sessionProject}
+          isOpen={showProjectSettings}
+          onClose={() => setShowProjectSettings(false)}
+          onUpdate={() => {
+            // Refresh session project data
+            if (activeSession?.projectId) {
+              API.projects.getAll().then(response => {
+                if (response.success && response.data) {
+                  const project = response.data.find((p: Project) => p.id === activeSession.projectId);
+                  if (project) setSessionProject(project);
+                }
+              });
+            }
+          }}
+          onDelete={() => setShowProjectSettings(false)}
+        />
+      )}
 
       {/* Set Tracking Dialog */}
       {showSetTrackingDialog && (

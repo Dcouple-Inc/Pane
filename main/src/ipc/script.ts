@@ -201,7 +201,7 @@ export function registerScriptHandlers(ipcMain: IpcMain, { sessionManager }: App
     }
   });
 
-  ipcMain.handle('sessions:open-ide', async (_event, sessionId: string) => {
+  ipcMain.handle('sessions:open-ide', async (_event, sessionId: string, command?: string) => {
     try {
       const session = await sessionManager.getSession(sessionId);
       if (!session || !session.worktreePath) {
@@ -209,24 +209,25 @@ export function registerScriptHandlers(ipcMain: IpcMain, { sessionManager }: App
       }
 
       const project = sessionManager.getProjectForSession(sessionId);
-      if (!project || !project.open_ide_command) {
+      const ideCommand = command || project?.open_ide_command;
+      if (!ideCommand) {
         return { success: false, error: 'No IDE command configured for this project' };
       }
 
       // Execute the IDE command in the worktree directory
       const { exec } = require('child_process');
-      
+
       // Get enhanced shell PATH for packaged apps
       const shellPath = getShellPath();
-      
-      console.log(`[IDE] Opening IDE with command: ${project.open_ide_command}`);
+
+      console.log(`[IDE] Opening IDE with command: ${ideCommand}`);
       console.log(`[IDE] Working directory: ${session.worktreePath}`);
       console.log(`[IDE] Using PATH: ${shellPath.split(':').slice(0, 5).join(':')}...`);
-      
+
       // Wrap exec in a Promise to wait for completion
       return new Promise((resolve) => {
         exec(
-          project.open_ide_command,
+          ideCommand,
           {
             cwd: session.worktreePath,
             shell: true,
@@ -246,16 +247,16 @@ export function registerScriptHandlers(ipcMain: IpcMain, { sessionManager }: App
               // Provide more specific error messages
               if (error.code === 127 || stderr.includes('command not found')) {
                 // Try to extract just the command name (e.g., "code" from "code .")
-                const commandParts = project.open_ide_command!.trim().split(/\s+/);
+                const commandParts = ideCommand.trim().split(/\s+/);
                 const commandName = commandParts[0];
                 
                 // Try to find the executable in PATH
                 const foundPath = findExecutableInPath(commandName);
                 
                 if (foundPath) {
-                  errorMessage = `IDE command not found: ${project.open_ide_command}.\n\nThe command '${commandName}' was found at: ${foundPath}\n\nTry updating your project settings to use the full path:\n${foundPath} .`;
+                  errorMessage = `IDE command not found: ${ideCommand}.\n\nThe command '${commandName}' was found at: ${foundPath}\n\nTry updating your project settings to use the full path:\n${foundPath} .`;
                 } else {
-                  errorMessage = `IDE command not found: ${project.open_ide_command}.\n\nMake sure the command is in your PATH or use a full path.\n\nFor VS Code, try: /Applications/Visual\\ Studio\\ Code.app/Contents/Resources/app/bin/code .`;
+                  errorMessage = `IDE command not found: ${ideCommand}.\n\nMake sure the command is in your PATH or use a full path.\n\nFor VS Code, try: /Applications/Visual\\ Studio\\ Code.app/Contents/Resources/app/bin/code .`;
                 }
               } else if (error.code) {
                 errorMessage = `IDE command failed with exit code ${error.code}: ${stderr || error.message}`;
