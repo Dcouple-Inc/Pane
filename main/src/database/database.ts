@@ -2763,16 +2763,6 @@ export class DatabaseService {
     const session = this.db
       .prepare("SELECT * FROM sessions WHERE id = ?")
       .get(id) as Session | undefined;
-    if (session && session.skip_continue_next !== undefined) {
-      console.log(
-        `[Database] Retrieved session ${id} with skip_continue_next:`,
-        {
-          raw_value: session.skip_continue_next,
-          type: typeof session.skip_continue_next,
-          is_truthy: !!session.skip_continue_next,
-        },
-      );
-    }
     return session;
   }
 
