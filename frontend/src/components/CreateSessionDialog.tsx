@@ -67,6 +67,7 @@ export function CreateSessionDialog({
   const [isBranchDropdownOpen, setIsBranchDropdownOpen] = useState(false);
   const [highlightedBranchIndex, setHighlightedBranchIndex] = useState(0);
   const [userEditedName, setUserEditedName] = useState(false);
+  const userEditedNameRef = useRef(false);
   const branchDropdownRef = useRef<HTMLDivElement>(null);
   const branchInputRef = useRef<HTMLInputElement>(null);
   const branchListRef = useRef<HTMLDivElement>(null);
@@ -86,6 +87,7 @@ export function CreateSessionDialog({
       }
       setSessionCount(1);
       setUserEditedName(!!initialSessionName);
+      userEditedNameRef.current = !!initialSessionName;
       setFormData(prev => ({ ...prev, count: 1, baseBranch: initialBaseBranch }));
     }
   }, [isOpen, loadPreferences, initialSessionName, initialBaseBranch]);
@@ -138,7 +140,7 @@ export function CreateSessionDialog({
               if (defaultBranch) {
                 setFormData(prev => ({ ...prev, baseBranch: defaultBranch.name }));
                 // Auto-populate session name from default branch if user hasn't edited
-                if (!initialSessionName && !userEditedName) {
+                if (!initialSessionName && !userEditedNameRef.current) {
                   const baseName = defaultBranch.name.replace(/^[^/]+\//, '');
                   const existingNames = new Set(existingSessions.map(s => s.name));
                   let autoName = baseName;
@@ -642,6 +644,7 @@ export function CreateSessionDialog({
                   setSessionName(value);
                   setFormData({ ...formData, worktreeTemplate: value });
                   setUserEditedName(true);
+                  userEditedNameRef.current = true;
                   // Real-time validation
                   const error = validateWorktreeName(value);
                   setWorktreeError(error);
