@@ -52,6 +52,8 @@ function HeadlessFileTree({
   sessionIdRef.current = sessionId;
 
   const [error, setError] = useState<string | null>(null);
+  const setErrorRef = useRef(setError);
+  setErrorRef.current = setError;
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery || '');
   const [showSearch, setShowSearch] = useState(initialShowSearch || false);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -70,10 +72,14 @@ function HeadlessFileTree({
   // Platform-adaptive label
   const revealLabel = isMac() ? 'Reveal in Finder' : isWindows() ? 'Show in Explorer' : 'Show in File Manager';
 
-  // Initialize expanded state from persisted state or default to root expanded
-  const [expandedItems, setExpandedItems] = useState<string[]>(
-    initialExpandedDirs?.length ? initialExpandedDirs : [ROOT_ID]
-  );
+  // Initialize expanded state from persisted state or default to root expanded.
+  // Normalize legacy '' root to ROOT_ID so saved state from the old FileTree still works.
+  const [expandedItems, setExpandedItems] = useState<string[]>(() => {
+    if (!initialExpandedDirs?.length) return [ROOT_ID];
+    const normalized = initialExpandedDirs.map(d => d === '' ? ROOT_ID : d);
+    if (!normalized.includes(ROOT_ID)) normalized.unshift(ROOT_ID);
+    return normalized;
+  });
 
   // Data loader using getChildrenWithData for efficient loading
   const dataLoader = useMemo(() => ({
@@ -115,8 +121,10 @@ function HeadlessFileTree({
           filesCacheRef.current.set(dirPath, result.files);
           return result.files.map((f: FileItem) => ({ id: f.path, data: f }));
         }
+        setErrorRef.current(result.error ?? 'Failed to load directory');
       } catch (err) {
         console.error('Failed to load directory:', dirPath, err);
+        setErrorRef.current(err instanceof Error ? err.message : 'Failed to load directory');
       }
       return [];
     },
