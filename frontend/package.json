@@ -11,6 +11,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@git-diff-view/react": "^0.0.40",
+    "@git-diff-view/shiki": "^0.0.40",
     "@headless-tree/core": "^1.6.3",
     "@headless-tree/react": "^1.6.3",
     "@monaco-editor/react": "^4.7.0",
@@ -39,7 +41,6 @@
     "monaco-editor": "^0.52.2",
     "posthog-js": "^1.356.1",
     "react": "^19.0.0",
-    "react-diff-viewer-continued": "^3.4.0",
     "react-dom": "^19.0.0",
     "react-error-boundary": "^6.0.0",
     "react-json-view-lite": "^1.5.0",

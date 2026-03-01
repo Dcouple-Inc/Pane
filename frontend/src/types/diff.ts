@@ -36,21 +36,18 @@ export interface GitDiffResult {
 export interface FileDiff {
   path: string;
   oldPath: string;
-  oldValue: string;
-  newValue: string;
   type: 'added' | 'deleted' | 'modified' | 'renamed';
   isBinary: boolean;
   additions: number;
   deletions: number;
+  rawDiff: string;
 }
 
 export interface DiffViewerProps {
-  diff: string;
+  files: FileDiff[];
   className?: string;
   sessionId?: string;
-  onFileSave?: (filePath: string) => void;
-  isAllCommitsSelected?: boolean;
-  mainBranch?: string;
+  onOpenInEditor?: (filePath: string) => void;
 }
 
 export interface ExecutionListProps {
@@ -70,5 +67,4 @@ export interface CombinedDiffViewProps {
   selectedExecutions: number[];
   isGitOperationRunning?: boolean;
   isMainRepo?: boolean;
-  isVisible?: boolean;
 }

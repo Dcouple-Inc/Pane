@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import CombinedDiffView from './CombinedDiffView';
+import type { CombinedDiffViewHandle } from './CombinedDiffView';
 import type { ToolPanel, DiffPanelState } from '../../../../../shared/types/panels';
 import { AlertCircle } from 'lucide-react';
 
@@ -10,22 +11,22 @@ interface DiffPanelProps {
   isMainRepo?: boolean;
 }
 
-export const DiffPanel: React.FC<DiffPanelProps> = ({ 
-  panel, 
+export const DiffPanel: React.FC<DiffPanelProps> = ({
+  panel,
   isActive,
   sessionId,
   isMainRepo = false
 }) => {
   const [isStale, setIsStale] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
   const diffState = panel.state?.customState as DiffPanelState | undefined;
   const lastRefreshRef = useRef<number>(Date.now());
-  
+  const combinedDiffRef = useRef<CombinedDiffViewHandle>(null);
+
   // Listen for file change events from other panels
   useEffect(() => {
     const handlePanelEvent = (event: CustomEvent) => {
       const { type, source, data } = event.detail || {};
-      
+
       // Mark as stale when files change from other panels
       if (type === 'files:changed' || type === 'terminal:command_executed') {
         if (source.sessionId === sessionId && source.panelId !== panel.id) {
@@ -34,7 +35,6 @@ export const DiffPanel: React.FC<DiffPanelProps> = ({
       } else if (type === 'git:operation_completed') {
         // Refresh diff when git operations complete for this session (e.g., merge to main)
         if (source?.sessionId === sessionId) {
-          // Optionally check for operation types that affect diffs
           const op = data?.operation as string | undefined;
           if (!op || op === 'merge_to_main' || op === 'squash_and_merge') {
             setIsStale(true);
@@ -42,27 +42,23 @@ export const DiffPanel: React.FC<DiffPanelProps> = ({
         }
       }
     };
-    
+
     window.addEventListener('panel:event', handlePanelEvent as EventListener);
-    
+
     return () => {
       window.removeEventListener('panel:event', handlePanelEvent as EventListener);
     };
   }, [panel.id, sessionId]);
-  
+
   // Auto-refresh when becoming active and stale
   useEffect(() => {
     if (isActive && isStale) {
-      // Mark as not stale immediately to avoid double refreshes
       setIsStale(false);
-      // Force re-mount of CombinedDiffView to reload git data
-      setRefreshKey(prev => prev + 1);
-      
-      // Add a small delay to ensure any pending file operations are complete
+      combinedDiffRef.current?.refresh();
+
       const timer = setTimeout(() => {
         lastRefreshRef.current = Date.now();
-        
-        // Update panel state
+
         window.electron?.invoke('panels:update', panel.id, {
           state: {
             ...panel.state,
@@ -73,8 +69,7 @@ export const DiffPanel: React.FC<DiffPanelProps> = ({
             }
           }
         });
-        
-        // Emit refresh event
+
         window.dispatchEvent(new CustomEvent('panel:event', {
           detail: {
             type: 'diff:refreshed',
@@ -87,14 +82,12 @@ export const DiffPanel: React.FC<DiffPanelProps> = ({
           }
         }));
       }, 500);
-      
+
       return () => clearTimeout(timer);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- panel.state/diffState intentionally excluded: they are written inside this effect via IPC and must not re-trigger it
   }, [isActive, isStale, panel.id, sessionId]);
-  
-  // Manual refresh button removed (redundant with header refresh in CombinedDiffView)
-  
+
   return (
     <div className="diff-panel h-full flex flex-col bg-gray-800">
       {/* Stale indicator bar */}
@@ -106,20 +99,17 @@ export const DiffPanel: React.FC<DiffPanelProps> = ({
           </div>
         </div>
       )}
-      
+
       {/* Main diff view */}
       <div className="flex-1 overflow-hidden">
-        <CombinedDiffView 
-          key={refreshKey}
+        <CombinedDiffView
+          ref={combinedDiffRef}
           sessionId={sessionId}
           selectedExecutions={[]}
           isGitOperationRunning={false}
           isMainRepo={isMainRepo}
-          isVisible={isActive}
         />
       </div>
-      
-      {/* Bottom manual refresh removed; header refresh in CombinedDiffView remains */}
     </div>
   );
 };

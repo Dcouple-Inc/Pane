@@ -1,10 +1,10 @@
-import React, { useState, useEffect, memo, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, memo, useCallback, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
 import DiffViewer, { DiffViewerHandle } from './DiffViewer';
 import ExecutionList from '../../ExecutionList';
 import { CommitDialog } from '../../CommitDialog';
 import { FileList } from '../../FileList';
 import { API } from '../../../utils/api';
-import type { CombinedDiffViewProps } from '../../../types/diff';
+import type { CombinedDiffViewProps, FileDiff } from '../../../types/diff';
 import type { ExecutionDiff, GitDiffResult } from '../../../types/diff';
 import { Maximize2, Minimize2, RefreshCw } from 'lucide-react';
 
@@ -15,13 +15,44 @@ const DEFAULT_SIDEBAR_WIDTH = 300;
 const MIN_SIDEBAR_WIDTH = 150;
 const MAX_SIDEBAR_WIDTH = 600;
 
-const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
+// --- Unified diff parser (single pass, shared between FileList and DiffViewer) ---
+
+function parseUnifiedDiffToFiles(diff: string): FileDiff[] {
+  if (!diff?.trim()) return [];
+
+  const fileChunks = diff.match(/diff --git[\s\S]*?(?=diff --git|$)/g);
+  if (!fileChunks) return [];
+
+  return fileChunks.map(chunk => {
+    const nameMatch = chunk.match(/diff --git a\/(.*?) b\/(.*?)(?:\n|$)/);
+    const oldPath = nameMatch?.[1] || '';
+    const newPath = nameMatch?.[2] || '';
+    const isBinary = chunk.includes('Binary files') || chunk.includes('GIT binary patch');
+
+    let type: FileDiff['type'] = 'modified';
+    if (chunk.includes('new file mode')) type = 'added';
+    else if (chunk.includes('deleted file mode')) type = 'deleted';
+    else if (chunk.includes('rename from') && chunk.includes('rename to')) type = 'renamed';
+
+    const additions = (chunk.match(/^\+[^+]/gm) || []).length;
+    const deletions = (chunk.match(/^-[^-]/gm) || []).length;
+
+    return { path: newPath || oldPath, oldPath, type, isBinary, additions, deletions, rawDiff: chunk };
+  });
+}
+
+// --- CombinedDiffView ---
+
+export interface CombinedDiffViewHandle {
+  refresh: () => void;
+}
+
+const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffViewProps>(({
   sessionId,
   selectedExecutions: initialSelected,
   isGitOperationRunning = false,
   isMainRepo = false,
-  isVisible = true
-}) => {
+}, ref) => {
   const [executions, setExecutions] = useState<ExecutionDiff[]>([]);
   const [selectedExecutions, setSelectedExecutions] = useState<number[]>(initialSelected);
   const [lastSessionId, setLastSessionId] = useState<string>(sessionId);
@@ -29,13 +60,14 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [modifiedFiles, setModifiedFiles] = useState<Set<string>>(new Set());
   const [showCommitDialog, setShowCommitDialog] = useState(false);
   const [mainBranch, setMainBranch] = useState<string>('main');
   const [historySource, setHistorySource] = useState<'remote' | 'local' | 'branch'>(isMainRepo ? 'remote' : 'branch');
-  const lastVisibleRef = useRef<boolean>(isVisible);
   const [forceRefresh, setForceRefresh] = useState<number>(0);
   const [selectedFile, setSelectedFile] = useState<string | undefined>();
+
+  // Diff cache: keyed by sessionId + sorted selection
+  const diffCacheRef = useRef<Map<string, { diff: GitDiffResult; parsedFiles: FileDiff[] }>>(new Map());
 
   // Resizable sidebar state
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
@@ -51,6 +83,16 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
   const [isResizing, setIsResizing] = useState(false);
 
   const diffViewerRef = useRef<DiffViewerHandle>(null);
+
+  // Expose refresh() to parent (DiffPanel) via ref
+  useImperativeHandle(ref, () => ({
+    refresh: () => {
+      diffCacheRef.current.clear();
+      setForceRefresh(prev => prev + 1);
+      setCombinedDiff(null);
+      setSelectedExecutions([]);
+    }
+  }));
 
   // Save sidebar width to localStorage
   useEffect(() => {
@@ -77,7 +119,6 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
 
-    // Change cursor globally while resizing
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
 
@@ -110,7 +151,7 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
         console.error('Failed to load git commands:', err);
       }
     };
-    
+
     loadGitCommands();
   }, [sessionId, isMainRepo]);
 
@@ -119,39 +160,18 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
     if (sessionId !== lastSessionId) {
       setSelectedExecutions([]);
       setLastSessionId(sessionId);
-      setModifiedFiles(new Set());
       setCombinedDiff(null);
       setExecutions([]);
       setSelectedFile(undefined);
       setHistorySource(isMainRepo ? 'remote' : 'branch');
+      diffCacheRef.current.clear();
     }
   }, [sessionId, lastSessionId, isMainRepo]);
 
-  // Detect when tab becomes visible and force refresh
-  useEffect(() => {
-    if (isVisible && !lastVisibleRef.current) {
-      // Tab just became visible - force refresh to get latest git state
-      console.log('Diff panel became visible, forcing refresh of git data...');
-      setForceRefresh(prev => prev + 1); // Increment to trigger reload
-      setCombinedDiff(null); // Clear diff data
-      setSelectedExecutions([]); // Clear selection to force re-selection
-    }
-    lastVisibleRef.current = isVisible;
-  }, [isVisible]);
-
   // Load executions for the session
   useEffect(() => {
-    // Load executions when component mounts, sessionId changes, or becomes visible
-    // This ensures we always have the latest git state when viewing the diff tab
-
-    if (!isVisible) {
-      // Don't load if not visible
-      return;
-    }
-
     let cancelled = false;
 
-    // Add a small delay to debounce rapid updates
     const timeoutId = setTimeout(() => {
       const loadExecutions = async () => {
         try {
@@ -188,16 +208,13 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
 
           // If no initial selection and session just changed, select all executions by default
           if (selectedExecutions.length === 0 && data.length > 0) {
-            // Select all commits (excluding uncommitted changes if present)
             const allCommitIds = data
               .filter((exec: ExecutionDiff) => exec.id !== 0)
               .map((exec: ExecutionDiff) => exec.id);
 
             if (allCommitIds.length > 0) {
-              // Select from first to last commit as a range
               setSelectedExecutions([allCommitIds[allCommitIds.length - 1], allCommitIds[0]]);
             } else {
-              // If only uncommitted changes exist, select them
               setSelectedExecutions(data.map((exec: ExecutionDiff) => exec.id));
             }
           }
@@ -213,28 +230,22 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
       };
 
       loadExecutions();
-    }, 100); // Reduced to 100ms for more responsive loading
+    }, 100);
 
     return () => {
       cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [sessionId, isMainRepo, isVisible, forceRefresh]);
+  }, [sessionId, isMainRepo, forceRefresh]);
 
   // Keep a ref to executions.length so the diff effect doesn't re-trigger when executions load
   const executionsLengthRef = useRef(executions.length);
   executionsLengthRef.current = executions.length;
 
-  // Load combined diff when selection changes
+  // Load combined diff when selection changes (with caching)
   useEffect(() => {
-    // Only load if visible
-    if (!isVisible) {
-      return;
-    }
-
     let cancelled = false;
 
-    // Add debouncing to prevent rapid API calls
     const timeoutId = setTimeout(() => {
       const loadCombinedDiff = async () => {
         if (selectedExecutions.length === 0) {
@@ -242,35 +253,28 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
           return;
         }
 
+        // Check cache first
+        const cacheKey = `${sessionId}-${JSON.stringify(selectedExecutions.slice().sort((a, b) => a - b))}`;
+        const cached = diffCacheRef.current.get(cacheKey);
+        if (cached) {
+          setCombinedDiff(cached.diff);
+          return;
+        }
+
         try {
           setLoading(true);
           setError(null);
 
-          console.log('CombinedDiffView loadCombinedDiff called:', {
-            sessionId,
-            selectedExecutions,
-            executionsLength: executionsLengthRef.current
-          });
-
           let response;
           if (selectedExecutions.length === 1) {
-            // For single commit selection
             if (selectedExecutions[0] === 0) {
-              // Special case for uncommitted changes - pass as single element array
-              console.log('Requesting uncommitted changes for session:', sessionId, 'with executionIds:', [0]);
               response = await API.sessions.getCombinedDiff(sessionId, [0]);
             } else {
-              // For regular commits, pass it as a range with the same ID
-              console.log('Requesting single commit:', selectedExecutions[0]);
               response = await API.sessions.getCombinedDiff(sessionId, [selectedExecutions[0], selectedExecutions[0]]);
             }
           } else if (selectedExecutions.length === executionsLengthRef.current) {
-            // Get all diffs
-            console.log('Getting all diffs');
             response = await API.sessions.getCombinedDiff(sessionId);
           } else {
-            // Get selected diffs (range)
-            console.log('Requesting range of diffs:', selectedExecutions);
             response = await API.sessions.getCombinedDiff(sessionId, selectedExecutions);
           }
 
@@ -281,13 +285,13 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
           }
 
           const data = response.data;
-          console.log('Received diff data:', {
-            hasDiff: !!data?.diff,
-            diffLength: data?.diff?.length,
-            stats: data?.stats,
-            isUncommitted: selectedExecutions.length === 1 && selectedExecutions[0] === 0
-          });
           setCombinedDiff(data);
+
+          // Store in cache
+          if (data) {
+            const parsedFiles = parseUnifiedDiffToFiles(data.diff);
+            diffCacheRef.current.set(cacheKey, { diff: data, parsedFiles });
+          }
         } catch (err) {
           if (!cancelled) {
             setError(err instanceof Error ? err.message : 'Failed to load combined diff');
@@ -301,14 +305,14 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
       };
 
       loadCombinedDiff();
-    }, 100); // Reduced to 100ms for more responsive loading
+    }, 100);
 
     return () => {
       cancelled = true;
       clearTimeout(timeoutId);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- executions.length read via ref to avoid re-triggering when executions reload
-  }, [selectedExecutions, sessionId, isVisible]);
+  }, [selectedExecutions, sessionId]);
 
   const handleSelectionChange = (newSelection: number[]) => {
     setSelectedExecutions(newSelection);
@@ -319,66 +323,22 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
   };
 
   const handleManualRefresh = () => {
-    console.log('Manual refresh triggered');
+    diffCacheRef.current.clear();
     setForceRefresh(prev => prev + 1);
     setCombinedDiff(null);
     setSelectedExecutions([]);
   };
 
-  const handleFileSave = useCallback((filePath: string) => {
-    setModifiedFiles(prev => {
-      const newSet = new Set(prev);
-      newSet.add(filePath);
-      return newSet;
-    });
-    
-    // Refresh executions list to show uncommitted changes
-    const refreshExecutions = async () => {
-      try {
-        console.log('Refreshing executions after file save');
-        const response = await API.sessions.getExecutions(sessionId);
-        if (response.success) {
-          setExecutions(response.data);
-        }
-      } catch (err) {
-        console.error('Failed to refresh executions:', err);
-      }
-    };
-    refreshExecutions();
-    
-    // Refresh only uncommitted changes when a file is saved
-    if (selectedExecutions.includes(0)) {
-      // Reload the uncommitted changes diff
-      const loadUncommittedDiff = async () => {
-        try {
-          console.log('Refreshing uncommitted changes after file save');
-          const response = await API.sessions.getCombinedDiff(sessionId, [0]);
-          if (response.success) {
-            setCombinedDiff(response.data);
-          }
-        } catch (err) {
-          console.error('Failed to refresh uncommitted changes:', err);
-        }
-      };
-      loadUncommittedDiff();
-    }
-  }, [sessionId, selectedExecutions]);
-
   const handleCommit = useCallback(async (message: string) => {
-    console.log('Committing with message:', message);
-    
     const result = await window.electronAPI.invoke('git:commit', {
       sessionId,
       message
     });
-    
+
     if (!result.success) {
       throw new Error(result.error || 'Failed to commit changes');
     }
-    
-    // Clear modified files after successful commit
-    setModifiedFiles(new Set());
-    
+
     // Reload executions to reflect the new commit
     const response = await API.sessions.getExecutions(sessionId);
     if (response.success) {
@@ -396,16 +356,14 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
         sessionId,
         commitHash
       });
-      
+
       if (!result.success) {
         throw new Error(result.error || 'Failed to revert commit');
       }
-      
-      // Reload executions to reflect the new revert commit
+
       const response = await API.sessions.getExecutions(sessionId);
       if (response.success) {
         setExecutions(response.data);
-        // Clear selection to show the new revert commit
         setSelectedExecutions([]);
       }
     } catch (err) {
@@ -424,55 +382,10 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
     [executions]
   );
 
-  // Parse files from the diff
-  const filesFromDiff = useMemo(() => {
+  // Parse files from diff — single parse, shared between FileList and DiffViewer
+  const parsedFiles = useMemo(() => {
     if (!combinedDiff?.diff) return [];
-    
-    const files: Array<{
-      path: string;
-      type: 'added' | 'deleted' | 'modified' | 'renamed';
-      additions: number;
-      deletions: number;
-      isBinary?: boolean;
-    }> = [];
-    
-    const fileMatches = combinedDiff.diff.match(/diff --git[\s\S]*?(?=diff --git|$)/g);
-    
-    if (!fileMatches) return files;
-    
-    for (const fileContent of fileMatches) {
-      const fileNameMatch = fileContent.match(/diff --git a\/(.*?) b\/(.*?)(?:\n|$)/);
-      
-      if (!fileNameMatch) continue;
-      
-      const oldFileName = fileNameMatch[1] || '';
-      const newFileName = fileNameMatch[2] || '';
-      
-      const isBinary = fileContent.includes('Binary files') || fileContent.includes('GIT binary patch');
-      
-      let type: 'added' | 'deleted' | 'modified' | 'renamed' = 'modified';
-      if (fileContent.includes('new file mode')) {
-        type = 'added';
-      } else if (fileContent.includes('deleted file mode')) {
-        type = 'deleted';
-      } else if (fileContent.includes('rename from') && fileContent.includes('rename to')) {
-        type = 'renamed';
-      }
-      
-      // Count additions and deletions
-      const additions = (fileContent.match(/^\+[^+]/gm) || []).length;
-      const deletions = (fileContent.match(/^-[^-]/gm) || []).length;
-      
-      files.push({
-        path: newFileName || oldFileName,
-        type,
-        additions,
-        deletions,
-        isBinary
-      });
-    }
-    
-    return files;
+    return parseUnifiedDiffToFiles(combinedDiff.diff);
   }, [combinedDiff]);
 
   const handleFileClick = useCallback((filePath: string, index: number) => {
@@ -486,38 +399,29 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
         sessionId,
         filePath
       });
-      
+
       if (!result.success) {
         throw new Error(result.error || 'Failed to delete file');
       }
-      
-      // Clear modified files if the deleted file was modified
-      setModifiedFiles(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(filePath);
-        return newSet;
-      });
-      
+
       // Reload executions to reflect the deletion
       const response = await API.sessions.getExecutions(sessionId);
       if (response.success) {
         setExecutions(response.data);
       }
-      
+
       // Reload the diff to get the current state
+      diffCacheRef.current.clear();
       if (selectedExecutions.length > 0) {
         let diffResponse;
         if (selectedExecutions.length === 1 && selectedExecutions[0] === 0) {
-          // Uncommitted changes
           diffResponse = await API.sessions.getCombinedDiff(sessionId, [0]);
         } else if (selectedExecutions.length === executions.length) {
-          // All diffs
           diffResponse = await API.sessions.getCombinedDiff(sessionId);
         } else {
-          // Selected range
           diffResponse = await API.sessions.getCombinedDiff(sessionId, selectedExecutions);
         }
-        
+
         if (diffResponse.success) {
           setCombinedDiff(diffResponse.data);
         }
@@ -537,21 +441,19 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
       const result = await window.electronAPI.invoke('git:restore', {
         sessionId
       });
-      
+
       if (!result.success) {
         throw new Error(result.error || 'Failed to restore changes');
       }
-      
-      // Clear modified files after successful restore
-      setModifiedFiles(new Set());
-      
+
       // Reload executions and diff
       const response = await API.sessions.getExecutions(sessionId);
       if (response.success) {
         setExecutions(response.data);
       }
-      
+
       // Reload the uncommitted changes diff if selected
+      diffCacheRef.current.clear();
       if (selectedExecutions.includes(0)) {
         const diffResponse = await API.sessions.getCombinedDiff(sessionId, [0]);
         if (diffResponse.success) {
@@ -563,6 +465,11 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
       alert(`Failed to restore changes: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   }, [sessionId, selectedExecutions]);
+
+  // Show file in system file explorer
+  const handleOpenInEditor = useCallback((filePath: string) => {
+    window.electronAPI.invoke('file:showInFolder', { sessionId, path: filePath });
+  }, [sessionId]);
 
   if (loading && executions.length === 0) {
     return (
@@ -636,19 +543,20 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
               style={{ width: sidebarWidth }}
             >
               {/* File list - show only when we have a diff */}
-              {filesFromDiff.length > 0 && (
+              {parsedFiles.length > 0 && (
                 <div className="h-1/3 border-b border-border-primary overflow-y-auto">
                   <FileList
-                    files={filesFromDiff}
+                    files={parsedFiles}
                     onFileClick={handleFileClick}
                     onFileDelete={handleFileDelete}
+                    onOpenInEditor={handleOpenInEditor}
                     selectedFile={selectedFile}
                   />
                 </div>
               )}
 
               {/* Execution list */}
-              <div className={filesFromDiff.length > 0 ? "flex-1 overflow-hidden" : "h-full"}>
+              <div className={parsedFiles.length > 0 ? "flex-1 overflow-hidden" : "h-full"}>
                 <ExecutionList
                   sessionId={sessionId}
                   executions={executions}
@@ -697,34 +605,12 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
               <p>{error}</p>
             </div>
           ) : combinedDiff ? (
-            <DiffViewer 
+            <DiffViewer
               ref={diffViewerRef}
-              diff={combinedDiff.diff} 
-              sessionId={sessionId} 
-              className="h-full" 
-              onFileSave={handleFileSave}
-              isAllCommitsSelected={(() => {
-                // Check if this is showing all commits
-                const commits = executions.filter(e => e.id !== 0);
-                if (commits.length === 0) return true; // No commits yet
-                
-                // If selectedExecutions is empty, it means "all"
-                if (selectedExecutions.length === 0) return true;
-                
-                // If it's a range selection [start, end], check if it covers all commits
-                if (selectedExecutions.length === 2) {
-                  const [start, end] = selectedExecutions;
-                  const minId = Math.min(start, end);
-                  const maxId = Math.max(start, end);
-                  const firstCommitId = commits[commits.length - 1].id;
-                  const lastCommitId = commits[0].id;
-                  return minId <= firstCommitId && maxId >= lastCommitId;
-                }
-                
-                // Otherwise, check if all commits are individually selected
-                return selectedExecutions.length === executions.length;
-              })()}
-              mainBranch={mainBranch}
+              files={parsedFiles}
+              sessionId={sessionId}
+              className="h-full"
+              onOpenInEditor={handleOpenInEditor}
             />
           ) : executions.length === 0 ? (
             <div className="flex items-center justify-center h-full text-text-secondary">
@@ -750,24 +636,21 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
           )}
         </div>
       </div>
-      
+
       {/* Commit Dialog */}
       <CommitDialog
         isOpen={showCommitDialog}
         onClose={() => setShowCommitDialog(false)}
         onCommit={handleCommit}
-        fileCount={modifiedFiles.size}
+        fileCount={combinedDiff?.stats.filesChanged || 0}
       />
     </div>
   );
-}, (prevProps, nextProps) => {
-  // Custom comparison function to prevent re-renders
+}), (prevProps, nextProps) => {
   return (
     prevProps.sessionId === nextProps.sessionId &&
     prevProps.isGitOperationRunning === nextProps.isGitOperationRunning &&
     prevProps.isMainRepo === nextProps.isMainRepo &&
-    prevProps.isVisible === nextProps.isVisible &&
-    // Deep comparison of selectedExecutions array
     prevProps.selectedExecutions.length === nextProps.selectedExecutions.length &&
     prevProps.selectedExecutions.every((val, idx) => val === nextProps.selectedExecutions[idx])
   );
