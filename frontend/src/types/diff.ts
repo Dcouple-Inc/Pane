@@ -67,4 +67,5 @@ export interface CombinedDiffViewProps {
   selectedExecutions: number[];
   isGitOperationRunning?: boolean;
   isMainRepo?: boolean;
+  isVisible?: boolean;
 }

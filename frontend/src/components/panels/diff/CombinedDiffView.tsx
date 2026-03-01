@@ -54,6 +54,7 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
   selectedExecutions: initialSelected,
   isGitOperationRunning = false,
   isMainRepo = false,
+  isVisible = true,
 }, ref) => {
   const addPanel = usePanelStore((state) => state.addPanel);
   const setActivePanelInStore = usePanelStore((state) => state.setActivePanel);
@@ -172,8 +173,9 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
     }
   }, [sessionId, lastSessionId, isMainRepo]);
 
-  // Load executions for the session
+  // Load executions for the session (skip when panel is not visible)
   useEffect(() => {
+    if (!isVisible) return;
     let cancelled = false;
 
     const timeoutId = setTimeout(() => {
@@ -240,7 +242,7 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
       cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [sessionId, isMainRepo, forceRefresh]);
+  }, [sessionId, isMainRepo, forceRefresh, isVisible]);
 
   // Keep a ref to executions.length so the diff effect doesn't re-trigger when executions load
   const executionsLengthRef = useRef(executions.length);

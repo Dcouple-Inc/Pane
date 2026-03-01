@@ -117,6 +117,7 @@ export const DiffPanel: React.FC<DiffPanelProps> = ({
           selectedExecutions={[]}
           isGitOperationRunning={false}
           isMainRepo={isMainRepo}
+          isVisible={isActive}
         />
       </div>
     </div>

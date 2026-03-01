@@ -184,7 +184,7 @@ const DiffViewer = memo(forwardRef<DiffViewerHandle, DiffViewerProps>(({ files, 
       }
       // Scroll after a tick so the DOM updates
       setTimeout(() => {
-        const el = document.getElementById(`file-${index}`);
+        const el = scrollContainerRef.current?.querySelector(`#file-${index}`);
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 3);
     }
