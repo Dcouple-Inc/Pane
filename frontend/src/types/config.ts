@@ -1,3 +1,5 @@
+import type { CloudVmConfig } from '../../../shared/types/cloud';
+
 export interface TerminalShortcut {
   id: string;
   label: string;
@@ -65,15 +67,5 @@ export interface AppConfig {
   // Preferred shell for terminal sessions on Windows
   preferredShell?: 'auto' | 'gitbash' | 'powershell' | 'pwsh' | 'cmd';
   // Cloud VM settings
-  cloud?: {
-    provider: 'gcp';
-    apiToken: string;
-    serverId?: string;
-    serverIp?: string;
-    vncPassword?: string;
-    region?: string;
-    projectId?: string;
-    zone?: string;
-    tunnelPort?: number;
-  };
+  cloud?: CloudVmConfig;
 }

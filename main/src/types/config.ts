@@ -11,6 +11,8 @@ export interface CustomCommand {
   command: string;
 }
 
+import type { CloudVmConfig } from '../../../shared/types/cloud';
+
 export interface AppConfig {
   verbose?: boolean;
   anthropicApiKey?: string;
@@ -85,19 +87,7 @@ export interface AppConfig {
   // Preferred shell for Windows terminals
   preferredShell?: 'auto' | 'gitbash' | 'powershell' | 'pwsh' | 'cmd';
   // Cloud VM settings
-  cloud?: {
-    provider: 'gcp';
-    apiToken: string;
-    serverId?: string;
-    serverIp?: string;
-    vncPassword?: string;
-    region?: string;
-    projectId?: string;
-    zone?: string;
-    tunnelPort?: number;
-    // Tunnel status set by external scripts (setup-cloud.sh)
-    tunnelStatus?: 'off' | 'starting' | 'running' | 'error';
-  };
+  cloud?: CloudVmConfig;
 }
 
 export interface UpdateConfigRequest {
@@ -159,17 +149,5 @@ export interface UpdateConfigRequest {
   // Preferred shell for Windows terminals
   preferredShell?: 'auto' | 'gitbash' | 'powershell' | 'pwsh' | 'cmd';
   // Cloud VM settings
-  cloud?: {
-    provider: 'gcp';
-    apiToken: string;
-    serverId?: string;
-    serverIp?: string;
-    vncPassword?: string;
-    region?: string;
-    projectId?: string;
-    zone?: string;
-    tunnelPort?: number;
-    // Tunnel status set by external scripts (setup-cloud.sh)
-    tunnelStatus?: 'off' | 'starting' | 'running' | 'error';
-  };
+  cloud?: CloudVmConfig;
 }

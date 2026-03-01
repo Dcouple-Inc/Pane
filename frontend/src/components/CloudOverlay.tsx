@@ -36,7 +36,16 @@ export function CloudOverlay() {
       className="fixed inset-0 z-sticky bg-black"
       style={{ display: showCloudView ? 'block' : 'none' }}
     >
+      {!iframeReady && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black">
+          <div className="text-center">
+            <div className="w-8 h-8 border-2 border-interactive border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+            <span className="text-sm text-text-secondary">Connecting to cloud desktop...</span>
+          </div>
+        </div>
+      )}
       <iframe
+        key={noVncUrl}
         src={noVncUrl}
         className="w-full h-full border-none"
         title="Pane Cloud Desktop"

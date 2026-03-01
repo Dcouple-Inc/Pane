@@ -18,6 +18,7 @@ export function registerCloudHandlers(ipcMain: IpcMain, services: AppServices): 
   // Lazy-initialize the CloudVmManager
   function getManager(): CloudVmManager {
     if (!cloudVmManager) {
+      logger?.info('[Cloud IPC] Initializing CloudVmManager');
       cloudVmManager = new CloudVmManager(configManager, logger);
 
       // Start watching config file for external changes (e.g., from setup scripts)
@@ -41,6 +42,7 @@ export function registerCloudHandlers(ipcMain: IpcMain, services: AppServices): 
       return { success: true, data: await manager.getState() };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      logger?.error('[Cloud IPC] cloud:get-state failed:', err instanceof Error ? err : new Error(message));
       return { success: false, error: message };
     }
   });
@@ -48,11 +50,13 @@ export function registerCloudHandlers(ipcMain: IpcMain, services: AppServices): 
   // Start (power on) the cloud VM
   ipcMain.handle('cloud:start-vm', async () => {
     try {
+      logger?.info('[Cloud IPC] cloud:start-vm requested');
       const manager = getManager();
       const state = await manager.startVm();
       return { success: true, data: state };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      logger?.error('[Cloud IPC] cloud:start-vm failed:', err instanceof Error ? err : new Error(message));
       return { success: false, error: message };
     }
   });
@@ -60,11 +64,13 @@ export function registerCloudHandlers(ipcMain: IpcMain, services: AppServices): 
   // Stop (power off) the cloud VM — disk persists
   ipcMain.handle('cloud:stop-vm', async () => {
     try {
+      logger?.info('[Cloud IPC] cloud:stop-vm requested');
       const manager = getManager();
       const state = await manager.stopVm();
       return { success: true, data: state };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      logger?.error('[Cloud IPC] cloud:stop-vm failed:', err instanceof Error ? err : new Error(message));
       return { success: false, error: message };
     }
   });
@@ -72,11 +78,13 @@ export function registerCloudHandlers(ipcMain: IpcMain, services: AppServices): 
   // Manually start the IAP tunnel (without starting the VM)
   ipcMain.handle('cloud:start-tunnel', async () => {
     try {
+      logger?.info('[Cloud IPC] cloud:start-tunnel requested');
       const manager = getManager();
       await manager.startTunnel();
       return { success: true };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      logger?.error('[Cloud IPC] cloud:start-tunnel failed:', err instanceof Error ? err : new Error(message));
       return { success: false, error: message };
     }
   });
@@ -84,11 +92,13 @@ export function registerCloudHandlers(ipcMain: IpcMain, services: AppServices): 
   // Manually stop the IAP tunnel
   ipcMain.handle('cloud:stop-tunnel', async () => {
     try {
+      logger?.info('[Cloud IPC] cloud:stop-tunnel requested');
       const manager = getManager();
       manager.stopTunnel();
       return { success: true };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      logger?.error('[Cloud IPC] cloud:stop-tunnel failed:', err instanceof Error ? err : new Error(message));
       return { success: false, error: message };
     }
   });
@@ -101,6 +111,7 @@ export function registerCloudHandlers(ipcMain: IpcMain, services: AppServices): 
       return { success: true };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      logger?.error('[Cloud IPC] cloud:start-polling failed:', err instanceof Error ? err : new Error(message));
       return { success: false, error: message };
     }
   });
@@ -113,6 +124,7 @@ export function registerCloudHandlers(ipcMain: IpcMain, services: AppServices): 
       return { success: true };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      logger?.error('[Cloud IPC] cloud:stop-polling failed:', err instanceof Error ? err : new Error(message));
       return { success: false, error: message };
     }
   });

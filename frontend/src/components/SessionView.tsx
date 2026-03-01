@@ -47,7 +47,10 @@ export const SessionView = memo(() => {
   // Config store for custom commands in terminal row pills
   const { config, fetchConfig } = useConfigStore();
   useEffect(() => { if (!config) { fetchConfig(); } }, [config, fetchConfig]);
-  const customCommands = (config?.customCommands ?? []).filter(cmd => cmd?.name && cmd?.command);
+  const customCommands = useMemo(
+    () => (config?.customCommands ?? []).filter(cmd => cmd?.name && cmd?.command),
+    [config?.customCommands]
+  );
 
   // Get active session by subscribing directly to store state
   // This ensures the component re-renders when git status or other session properties update

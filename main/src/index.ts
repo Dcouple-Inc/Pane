@@ -852,6 +852,13 @@ app.on('before-quit', async (event) => {
     archiveProgressManager.clearAll();
   }
 
+  // Safety net: force exit if graceful shutdown takes too long
+  // Placed after the dialog so user interaction time isn't counted
+  const shutdownSafetyTimeout = setTimeout(() => {
+    logToFile('FORCED EXIT: shutdown timed out after 10s');
+    app.exit(1);
+  }, 10_000);
+
   try {
     // Stop resource monitoring
     resourceMonitorService.stop();
@@ -1041,6 +1048,7 @@ app.on('before-quit', async (event) => {
     logToFile(`ERROR during shutdown: ${error}`);
     console.error('[Main] Error during graceful shutdown:', error);
   } finally {
+    clearTimeout(shutdownSafetyTimeout);
     logToFile('Calling app.exit(0)');
     // Exit the app
     app.exit(0);

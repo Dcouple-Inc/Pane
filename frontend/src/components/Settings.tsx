@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { NotificationSettings } from './NotificationSettings';
 import { useNotifications } from '../hooks/useNotifications';
 import { API } from '../utils/api';
 import { optIn, capture, captureAndOptOut } from '../services/posthog';
 import type { AppConfig, TerminalShortcut } from '../types/config';
 import { useConfigStore } from '../stores/configStore';
+import { useSessionStore } from '../stores/sessionStore';
+import { panelApi } from '../services/panelApi';
 import {
   Shield,
   ShieldOff,
@@ -26,7 +28,9 @@ import {
   Keyboard,
   Plus,
   Power,
-  PowerOff
+  PowerOff,
+  Loader2,
+  Play
 } from 'lucide-react';
 import { Input, Textarea, Checkbox } from './ui/Input';
 import { Button } from './ui/Button';
@@ -80,7 +84,6 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
   const [cloudProvider] = useState<'gcp'>('gcp');
   const [cloudApiToken, setCloudApiToken] = useState('');
   const [cloudServerId, setCloudServerId] = useState('');
-  const [cloudServerIp, setCloudServerIp] = useState('');
   const [cloudVncPassword, setCloudVncPassword] = useState('');
   const [vncPasswordCopied, setVncPasswordCopied] = useState(false);
   const [cloudRegion, setCloudRegion] = useState('');
@@ -88,9 +91,34 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
   const [cloudGcpZone, setCloudGcpZone] = useState('');
   const [cloudTunnelPort, setCloudTunnelPort] = useState('8080');
   const [terminalShortcuts, setTerminalShortcuts] = useState<TerminalShortcut[]>([]);
+  const [cloudSetupLoading, setCloudSetupLoading] = useState(false);
+  const activeSessionId = useSessionStore((state) => state.activeSessionId);
   const { updateSettings } = useNotifications();
   const { theme, setTheme } = useTheme();
   const { fetchConfig: refreshConfigStore } = useConfigStore();
+
+  const handleRunCloudSetup = useCallback(async () => {
+    if (!activeSessionId) return;
+    setCloudSetupLoading(true);
+    try {
+      const panel = await panelApi.createPanel({
+        sessionId: activeSessionId,
+        type: 'terminal',
+        title: 'Cloud Setup',
+        initialState: {
+          customState: {
+            initialCommand: 'bash cloud/scripts/setup-cloud.sh'
+          }
+        }
+      });
+      await panelApi.setActivePanel(activeSessionId, panel.id);
+      onClose();
+    } catch (err) {
+      console.error('[Settings] Failed to create cloud setup terminal:', err);
+    } finally {
+      setCloudSetupLoading(false);
+    }
+  }, [activeSessionId, onClose]);
 
   useEffect(() => {
     if (isOpen) {
@@ -172,7 +200,6 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
         // Provider is always GCP (IAP-secured)
         setCloudApiToken(data.cloud.apiToken || '');
         setCloudServerId(data.cloud.serverId || '');
-        setCloudServerIp(data.cloud.serverIp || '');
         setCloudVncPassword(data.cloud.vncPassword || '');
         setCloudRegion(data.cloud.region || '');
         setCloudGcpProjectId(data.cloud.projectId || '');
@@ -223,11 +250,10 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
         },
         preferredShell,
         terminalShortcuts,
-        cloud: cloudApiToken ? {
+        cloud: (cloudServerId || cloudGcpProjectId || cloudApiToken) ? {
           provider: cloudProvider,
           apiToken: cloudApiToken,
           serverId: cloudServerId || undefined,
-          serverIp: cloudServerIp || undefined,
           vncPassword: cloudVncPassword || undefined,
           region: cloudRegion || undefined,
           projectId: cloudGcpProjectId || undefined,
@@ -574,6 +600,37 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
               </SettingsSection>
 
               <SettingsSection
+                title="Setup"
+                description="Run the interactive setup script to provision or re-authenticate your cloud VM"
+                icon={<Play className="w-4 h-4" />}
+              >
+                <div className="p-3 rounded-lg bg-surface-secondary border border-border-secondary">
+                  <p className="text-sm text-text-secondary mb-3">
+                    Opens a terminal panel running the cloud setup script. Handles first-time provisioning, gcloud authentication, and reconnection.
+                  </p>
+                  {activeSessionId ? (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleRunCloudSetup}
+                      disabled={cloudSetupLoading}
+                    >
+                      {cloudSetupLoading ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Terminal className="w-4 h-4 mr-2" />
+                      )}
+                      Run Cloud Setup
+                    </Button>
+                  ) : (
+                    <p className="text-xs text-text-tertiary">
+                      Create or select a session first to run the setup script.
+                    </p>
+                  )}
+                </div>
+              </SettingsSection>
+
+              <SettingsSection
                 title="API Token"
                 description="Your GCP service account key or access token"
                 icon={<Shield className="w-4 h-4" />}
@@ -602,14 +659,6 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
                     placeholder="e.g. pane-user123"
                     fullWidth
                     helperText="GCP instance name from terraform output"
-                  />
-                  <Input
-                    label="Server IP"
-                    value={cloudServerIp}
-                    onChange={(e) => setCloudServerIp(e.target.value)}
-                    placeholder="e.g. 203.0.113.42"
-                    fullWidth
-                    helperText="Public IPv4 address (auto-detected when VM starts)"
                   />
                   <div className="relative">
                     <Input
@@ -689,15 +738,22 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => {
+                      onClick={async () => {
                         setCloudApiToken('');
                         setCloudServerId('');
-                        setCloudServerIp('');
                         setCloudVncPassword('');
                         setCloudRegion('');
                         setCloudGcpProjectId('');
                         setCloudGcpZone('');
                         setCloudTunnelPort('8080');
+                        // Auto-save the cleared config
+                        try {
+                          await API.config.update({
+                            cloud: undefined,
+                          });
+                        } catch (err) {
+                          console.error('Failed to clear cloud config:', err);
+                        }
                       }}
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
