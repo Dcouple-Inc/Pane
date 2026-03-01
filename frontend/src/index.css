@@ -395,10 +395,6 @@ body.light {
   --vscode-editor-foreground: #e6edf3 !important;
   --vscode-editorWidget-background: #0d1117 !important;
   --vscode-editorWidget-foreground: #e6edf3 !important;
-  --vscode-diffEditor-insertedTextBackground: #3fb95020 !important;
-  --vscode-diffEditor-removedTextBackground: #f8514920 !important;
-  --vscode-diffEditor-insertedLineBackground: #3fb95015 !important;
-  --vscode-diffEditor-removedLineBackground: #f8514915 !important;
 }
 
 /* Light theme overrides */
@@ -407,15 +403,10 @@ body.light {
   --vscode-editor-foreground: #1f2328 !important;
   --vscode-editorWidget-background: #ffffff !important;
   --vscode-editorWidget-foreground: #1f2328 !important;
-  --vscode-diffEditor-insertedTextBackground: #1a7f3715 !important;
-  --vscode-diffEditor-removedTextBackground: #cf222e15 !important;
-  --vscode-diffEditor-insertedLineBackground: #1a7f3710 !important;
-  --vscode-diffEditor-removedLineBackground: #cf222e10 !important;
 }
 
 /* Additional Monaco editor style overrides */
 .monaco-editor,
-.monaco-diff-editor,
 .monaco-editor-background,
 .monaco-editor .margin,
 .monaco-editor .monaco-editor-background {

@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { FileText, FileCode, FileImage, File, Trash2 } from 'lucide-react';
+import { FileText, FileCode, FileImage, File, Trash2, ExternalLink } from 'lucide-react';
 import { IconButton } from './ui/IconButton';
 import { cn } from '../utils/cn';
 
@@ -15,6 +15,7 @@ interface FileListProps {
   files: FileInfo[];
   onFileClick: (filePath: string, index: number) => void;
   onFileDelete?: (filePath: string) => void;
+  onOpenInEditor?: (filePath: string) => void;
   selectedFile?: string;
 }
 
@@ -72,7 +73,7 @@ const getTypeLabel = (type: FileInfo['type']) => {
   }
 };
 
-export const FileList: React.FC<FileListProps> = memo(({ files, onFileClick, onFileDelete, selectedFile }) => {
+export const FileList: React.FC<FileListProps> = memo(({ files, onFileClick, onFileDelete, onOpenInEditor, selectedFile }) => {
   if (files.length === 0) {
     return (
       <div className="p-4 text-center text-text-tertiary text-sm">
@@ -121,6 +122,20 @@ export const FileList: React.FC<FileListProps> = memo(({ files, onFileClick, onF
                 <span className="text-[10px] text-status-error font-semibold">
                   -{file.deletions}
                 </span>
+              )}
+              {onOpenInEditor && file.type !== 'deleted' && (
+                <IconButton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenInEditor(file.path);
+                  }}
+                  variant="ghost"
+                  size="sm"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity !p-0.5"
+                  aria-label="Open in Editor"
+                  title="Open in Editor"
+                  icon={<ExternalLink className="w-3 h-3" />}
+                />
               )}
               {onFileDelete && (
                 <IconButton
