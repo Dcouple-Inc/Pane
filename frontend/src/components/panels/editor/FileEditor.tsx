@@ -23,7 +23,7 @@ interface FileItem {
   modified?: Date;
 }
 
-const ROOT_ID = '__root__';
+const ROOT_ID = '\0root';
 
 interface HeadlessFileTreeProps {
   sessionId: string;
