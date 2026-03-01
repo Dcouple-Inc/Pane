@@ -55,28 +55,45 @@ export function optOut(): void {
 }
 
 /**
- * Capture an event then opt out after a short delay.
- * PostHog JS buffers events, so calling optOut() immediately after capture()
- * can drop the event. This helper temporarily opts in if needed, captures the
- * event, then opts out after a delay to ensure the event is flushed.
+ * Capture a single event and then opt out of capturing.
+ *
+ * Sends the event directly via HTTP instead of toggling the SDK's global
+ * opt-in state, so no other events (autocapture, pageviews, etc.) can leak
+ * during the flush window.
  */
 export function captureAndOptOut(eventName: string, properties?: Record<string, unknown>): void {
-  // If currently opted out (e.g., first-run decline), temporarily opt in
-  // so the event actually gets captured and sent
-  const wasOptedOut = posthog.has_opted_out_capturing();
-  if (wasOptedOut) {
-    posthog.opt_in_capturing();
-  }
+  const token = posthog.get_property?.('$token') as string | undefined
+    || posthog.config?.token
+    || DEFAULT_API_KEY;
+  const host = posthog.config?.api_host || DEFAULT_HOST;
+  const distinctId = posthog.get_distinct_id();
+
+  const payload = {
+    api_key: token,
+    event: eventName,
+    properties: {
+      ...properties,
+      distinct_id: distinctId,
+      token,
+      $lib: 'posthog-js',
+    },
+    timestamp: new Date().toISOString(),
+  };
 
   try {
-    posthog.capture(eventName, properties);
+    fetch(`${host}/capture/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    }).catch((err) => {
+      console.error('[PostHog] Failed to send opt-out event:', err);
+    });
   } catch (error) {
     console.error('[PostHog] Failed to capture event:', error);
   }
 
-  setTimeout(() => {
-    posthog.opt_out_capturing();
-  }, 500);
+  posthog.opt_out_capturing();
 }
 
 export function capture(eventName: string, properties?: Record<string, unknown>): void {
