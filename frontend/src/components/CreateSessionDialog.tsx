@@ -349,6 +349,9 @@ export function CreateSessionDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Block submission while branches are still loading
+    if (isLoadingBranches) return;
+
     // Session name is always required
     if (!sessionName.trim()) {
       showError({
