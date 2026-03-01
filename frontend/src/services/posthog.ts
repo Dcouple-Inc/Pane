@@ -5,6 +5,7 @@ const DEFAULT_HOST = 'https://us.i.posthog.com';
 
 let currentApiKey: string | undefined;
 let currentHost: string | undefined;
+let currentEnabled: boolean | undefined;
 
 export interface PostHogConfig {
   enabled: boolean;
@@ -16,37 +17,50 @@ export function initPostHog(config: PostHogConfig): void {
   const apiKey = config.posthogApiKey || DEFAULT_API_KEY;
   const host = config.posthogHost || DEFAULT_HOST;
 
-  // Skip if already initialized with the same key/host
-  if (currentApiKey === apiKey && currentHost === host) return;
+  const needsInit = currentApiKey !== apiKey || currentHost !== host;
 
-  posthog.init(apiKey, {
-    api_host: host,
-    // Restrict autocapture to interactive elements only — prevents capturing
-    // sensitive text content (code, prompts) from non-interactive UI areas
-    autocapture: {
-      css_selector_allowlist: [
-        'button',
-        'a',
-        '[role="button"]',
-        '[role="tab"]',
-        '[role="menuitem"]',
-        'input[type="checkbox"]',
-        'input[type="radio"]',
-        'select',
-      ],
-    },
-    capture_pageview: true,
-    persistence: 'localStorage',
-    opt_out_capturing_by_default: true,
-    loaded: (ph) => {
-      if (config.enabled) {
-        ph.opt_in_capturing();
-      }
-    },
-  });
+  if (needsInit) {
+    posthog.init(apiKey, {
+      api_host: host,
+      // Restrict autocapture to interactive elements only — prevents capturing
+      // sensitive text content (code, prompts) from non-interactive UI areas
+      autocapture: {
+        css_selector_allowlist: [
+          'button',
+          'a',
+          '[role="button"]',
+          '[role="tab"]',
+          '[role="menuitem"]',
+          'input[type="checkbox"]',
+          'input[type="radio"]',
+          'select',
+        ],
+      },
+      capture_pageview: true,
+      persistence: 'localStorage',
+      opt_out_capturing_by_default: true,
+      loaded: (ph) => {
+        if (config.enabled) {
+          ph.opt_in_capturing();
+        }
+      },
+    });
 
-  currentApiKey = apiKey;
-  currentHost = host;
+    currentApiKey = apiKey;
+    currentHost = host;
+    currentEnabled = config.enabled;
+    return;
+  }
+
+  // SDK already initialized with same key/host — just sync opt-in state
+  if (currentEnabled !== config.enabled) {
+    if (config.enabled) {
+      posthog.opt_in_capturing();
+    } else {
+      posthog.opt_out_capturing();
+    }
+    currentEnabled = config.enabled;
+  }
 }
 
 export function optIn(): void {

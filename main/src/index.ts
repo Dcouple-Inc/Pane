@@ -599,7 +599,11 @@ async function initializeServices() {
 
   // Receive the renderer's posthog-js distinct ID so shutdown analytics use the same identity
   ipcMain.on('analytics:sync-distinct-id', async (_event: Electron.IpcMainEvent, distinctId: string) => {
-    await configManager.setAnalyticsDistinctId(distinctId);
+    try {
+      await configManager.setAnalyticsDistinctId(distinctId);
+    } catch (error) {
+      console.error('[Analytics] Failed to persist distinct ID:', error);
+    }
   });
 
   // Set analytics manager on logsManager for script execution tracking
