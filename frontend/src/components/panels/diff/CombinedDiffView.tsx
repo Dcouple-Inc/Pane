@@ -670,6 +670,7 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
     prevProps.sessionId === nextProps.sessionId &&
     prevProps.isGitOperationRunning === nextProps.isGitOperationRunning &&
     prevProps.isMainRepo === nextProps.isMainRepo &&
+    prevProps.isVisible === nextProps.isVisible &&
     prevProps.selectedExecutions.length === nextProps.selectedExecutions.length &&
     prevProps.selectedExecutions.every((val, idx) => val === nextProps.selectedExecutions[idx])
   );
