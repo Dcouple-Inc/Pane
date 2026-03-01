@@ -245,7 +245,7 @@ resource "google_compute_resource_policy" "daily_backup" {
 
 resource "google_compute_disk_resource_policy_attachment" "backup" {
   name = google_compute_resource_policy.daily_backup.name
-  disk = google_compute_instance.pane.boot_disk[0].device_name
+  disk = google_compute_instance.pane.name
   zone = var.zone
 }
 

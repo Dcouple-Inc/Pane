@@ -849,7 +849,8 @@ app.on('before-quit', async (event) => {
         });
 
     if (choice === 0) {
-      // User chose to wait - reset guard and cancel quit
+      // User chose to wait - reset guard, clear safety timer, and cancel quit
+      clearTimeout(shutdownSafetyTimeout);
       shutdownInProgress = false;
       return;
     }

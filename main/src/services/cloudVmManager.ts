@@ -29,6 +29,7 @@ export class CloudVmManager extends EventEmitter {
   private operationInProgress = false;
   private isRefreshingToken = false;
   private consecutiveErrors = 0;
+  private pollingStopped = false;
 
   constructor(
     private configManager: ConfigManager,
@@ -197,7 +198,9 @@ export class CloudVmManager extends EventEmitter {
    */
   startPolling(intervalMs: number = 30_000): void {
     this.stopPolling();
+    this.pollingStopped = false;
     const poll = async () => {
+      if (this.pollingStopped) return;
       try {
         const state = await this.getState();
         this.emit('state-changed', state);
@@ -206,6 +209,7 @@ export class CloudVmManager extends EventEmitter {
         this.consecutiveErrors++;
         this.logger?.error(`[CloudVM] Polling error (${this.consecutiveErrors} consecutive):`, err instanceof Error ? err : new Error(String(err)));
       }
+      if (this.pollingStopped) return;
       const backoff = Math.min(intervalMs * Math.pow(2, this.consecutiveErrors), 300_000);
       this.pollInterval = setTimeout(poll, this.consecutiveErrors > 0 ? backoff : intervalMs);
     };
@@ -216,6 +220,7 @@ export class CloudVmManager extends EventEmitter {
    * Stop polling
    */
   stopPolling(): void {
+    this.pollingStopped = true;
     if (this.pollInterval) {
       clearTimeout(this.pollInterval);
       this.pollInterval = null;
