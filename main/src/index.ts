@@ -181,10 +181,19 @@ async function createWindow() {
   // Each panel can register multiple event listeners
   mainWindow.webContents.setMaxListeners(100);
 
-  // Prevent Ctrl+W from closing the Electron window so the renderer can use it to close tabs
+  // Prevent Ctrl+W / Cmd+W from closing the Electron window so the renderer
+  // can use it to close tabs. We intercept at before-input-event and re-emit
+  // the key as a DOM keydown via IPC so the renderer's hotkey system sees it.
   mainWindow.webContents.on('before-input-event', (event, input) => {
-    if ((input.control || input.meta) && input.key.toLowerCase() === 'w') {
+    if ((input.control || input.meta) && input.key.toLowerCase() === 'w' && input.type === 'keyDown') {
       event.preventDefault();
+      mainWindow?.webContents.send('synthetic-keydown', {
+        key: 'w',
+        ctrlKey: input.control,
+        metaKey: input.meta,
+        shiftKey: input.shift,
+        altKey: input.alt,
+      });
     }
   });
 

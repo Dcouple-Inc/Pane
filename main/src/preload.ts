@@ -128,6 +128,26 @@ try {
       console.error('Failed to dispatch resource-monitor:update to window:', e);
     }
   });
+
+  // Bridge synthetic keydown events from main process (used for Ctrl+W interception)
+  // Main process intercepts Ctrl+W via before-input-event to prevent window close,
+  // then re-emits the key as a DOM KeyboardEvent so the renderer's hotkey system sees it.
+  ipcRenderer.on('synthetic-keydown', (_event: Electron.IpcRendererEvent, data: { key: string; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean }) => {
+    try {
+      const target = document.activeElement || document.body;
+      target.dispatchEvent(new KeyboardEvent('keydown', {
+        key: data.key,
+        ctrlKey: data.ctrlKey,
+        metaKey: data.metaKey,
+        shiftKey: data.shiftKey,
+        altKey: data.altKey,
+        bubbles: true,
+        cancelable: true,
+      }));
+    } catch (e) {
+      console.error('Failed to dispatch synthetic-keydown to window:', e);
+    }
+  });
 } catch (e) {
   // Ignore if IPC is not available for some reason
 }
