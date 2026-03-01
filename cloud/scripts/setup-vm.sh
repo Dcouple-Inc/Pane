@@ -122,6 +122,7 @@ echo "  Done."
 # ============================================================
 echo "[4/8] Installing Claude Code CLI..."
 if ! command -v claude &> /dev/null; then
+  # Install latest Claude Code (intentionally unpinned — VM should have newest version)
   npm install -g @anthropic-ai/claude-code > /dev/null 2>&1 || true
 fi
 echo "  Done."
@@ -159,6 +160,12 @@ if [ ! -f /usr/bin/Pane ]; then
   fi
 fi
 echo "  Done."
+
+# Verify Pane was installed
+if [ ! -f /usr/bin/Pane ] && ! command -v Pane &>/dev/null; then
+  echo "FATAL: Pane installation failed. Cannot continue."
+  exit 1
+fi
 
 # ============================================================
 # 6. Create Pane user
@@ -240,6 +247,9 @@ echo "  VNC password saved to ${VNC_PASSWORD_FILE}"
 # ============================================================
 echo "[8/9] Configuring supervisord..."
 
+# Get Pane user's UID for XDG_RUNTIME_DIR
+PANE_UID=$(id -u "${PANE_USER}")
+
 cat > /etc/supervisor/conf.d/pane-stack.conf << SUPERVISOR_EOF
 ; =============================================================
 ; Pane Cloud Display Stack
@@ -265,7 +275,7 @@ stderr_logfile=/var/log/supervisor/fluxbox-error.log
 command=/usr/bin/Pane --no-sandbox --start-fullscreen
 priority=30
 autorestart=true
-environment=DISPLAY=":99",HOME="/home/Pane",XDG_RUNTIME_DIR="/run/user/1000"
+environment=DISPLAY=":99",HOME="/home/Pane",XDG_RUNTIME_DIR="/run/user/${PANE_UID}"
 user=Pane
 directory=/home/Pane
 stdout_logfile=/var/log/supervisor/Pane.log
@@ -276,7 +286,7 @@ startsecs=5
 startretries=5
 
 [program:x11vnc]
-command=/usr/bin/x11vnc -display :99 -passwd ${VNC_PASSWORD} -forever -shared -rfbport 5900 -localhost -noxdamage -cursor arrow -noxfixes
+command=/usr/bin/x11vnc -display :99 -passwd ${VNC_PASSWORD} -forever -rfbport 5900 -localhost -noxdamage -cursor arrow -noxfixes
 priority=40
 autorestart=true
 user=Pane
@@ -357,8 +367,8 @@ echo "  Done."
 # ============================================================
 
 # Create XDG runtime directory for Pane user
-mkdir -p /run/user/1000
-chown "${PANE_USER}:${PANE_USER}" /run/user/1000
+mkdir -p "/run/user/${PANE_UID}"
+chown "${PANE_USER}:${PANE_USER}" "/run/user/${PANE_UID}"
 
 # Enable and start services
 systemctl enable supervisor

@@ -128,15 +128,24 @@ export class ConfigManager extends EventEmitter {
           ...loadedConfig.analytics
         }
       };
-    } catch (error) {
-      // Config file doesn't exist, use defaults
-      await this.saveConfig();
+    } catch (error: unknown) {
+      const isNotFound = error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === 'ENOENT';
+      if (isNotFound) {
+        // Config file doesn't exist — create with defaults
+        await this.saveConfig();
+      } else {
+        // Config exists but is corrupted — log and keep defaults in memory
+        // Do NOT overwrite the file (user might want to recover it)
+        console.error('[ConfigManager] Failed to parse config file, using defaults:', error);
+      }
     }
   }
 
   private async saveConfig(): Promise<void> {
     await fs.mkdir(this.configDir, { recursive: true });
-    await fs.writeFile(this.configPath, JSON.stringify(this.config, null, 2));
+    const tmpPath = this.configPath + '.tmp';
+    await fs.writeFile(tmpPath, JSON.stringify(this.config, null, 2));
+    await fs.rename(tmpPath, this.configPath);
   }
 
   getConfig(): AppConfig {

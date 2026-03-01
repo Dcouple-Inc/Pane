@@ -4,20 +4,6 @@ import { useCloudStore } from '../stores/cloudStore';
 import { useSessionStore } from '../stores/sessionStore';
 import { panelApi } from '../services/panelApi';
 
-type VmStatus = 'off' | 'starting' | 'running' | 'stopping' | 'unknown' | 'initializing' | 'not_provisioned';
-type TunnelStatus = 'off' | 'starting' | 'running' | 'error';
-
-interface CloudVmState {
-  status: VmStatus;
-  ip: string | null;
-  noVncUrl: string | null;
-  provider: 'gcp' | null;
-  serverId: string | null;
-  lastChecked: string | null;
-  error: string | null;
-  tunnelStatus: TunnelStatus;
-}
-
 export function CloudWidget() {
   const { vmState, showCloudView, loading, setVmState, setLoading, setShowCloudView, toggleCloudView } = useCloudStore();
   const activeSessionId = useSessionStore((state) => state.activeSessionId);
@@ -31,13 +17,13 @@ export function CloudWidget() {
       try {
         const result = await window.electronAPI.cloud.getState();
         if (result.success && result.data) {
-          setVmState(result.data as CloudVmState);
+          setVmState(result.data);
         }
 
         await window.electronAPI.cloud.startPolling();
 
         cleanup = window.electronAPI.cloud.onStateChanged((newState) => {
-          setVmState(newState as CloudVmState);
+          setVmState(newState);
           setLoading(false);
         });
       } catch {
@@ -66,14 +52,18 @@ export function CloudWidget() {
     try {
       const result = await window.electronAPI.cloud.startVm();
       if (result.success && result.data) {
-        setVmState(result.data as CloudVmState);
+        setVmState(result.data);
       }
-    } catch {
-      // Error handled by state change event
+    } catch (err) {
+      setVmState({
+        ...(vmState ?? { status: 'unknown', ip: null, noVncUrl: null, provider: null, serverId: null, lastChecked: null, tunnelStatus: 'off' as const }),
+        error: err instanceof Error ? err.message : 'Failed to start VM',
+        status: 'unknown',
+      });
     } finally {
       setLoading(false);
     }
-  }, [setLoading, setVmState]);
+  }, [setLoading, setVmState, vmState]);
 
   const handleStop = useCallback(async () => {
     setLoading(true);
@@ -81,18 +71,25 @@ export function CloudWidget() {
     try {
       const result = await window.electronAPI.cloud.stopVm();
       if (result.success && result.data) {
-        setVmState(result.data as CloudVmState);
+        setVmState(result.data);
       }
-    } catch {
-      // Error handled by state change event
+    } catch (err) {
+      setVmState({
+        ...(vmState ?? { status: 'unknown', ip: null, noVncUrl: null, provider: null, serverId: null, lastChecked: null, tunnelStatus: 'off' as const }),
+        error: err instanceof Error ? err.message : 'Failed to stop VM',
+        status: 'unknown',
+      });
     } finally {
       setLoading(false);
     }
-  }, [setLoading, setShowCloudView, setVmState]);
+  }, [setLoading, setShowCloudView, setVmState, vmState]);
 
   const handleOpenSetupTerminal = useCallback(async () => {
     if (!activeSessionId) {
-      console.warn('[CloudWidget] No active session to create setup terminal');
+      setVmState({
+        ...(vmState ?? { status: 'unknown', ip: null, noVncUrl: null, provider: null, serverId: null, lastChecked: null, tunnelStatus: 'off' as const }),
+        error: 'Select a session first to open the setup terminal',
+      });
       return;
     }
 
@@ -150,8 +147,11 @@ export function CloudWidget() {
     <div className="fixed bottom-4 right-4 flex items-center gap-1.5" style={{ zIndex: 1300 }}>
       {/* Error tooltip */}
       {vmState.error && (
-        <div className="px-2 py-1 bg-red-500/10 border border-red-500/30 rounded-lg text-xs text-red-400 max-w-48 truncate">
-          {vmState.error}
+        <div
+          className="px-2 py-1 bg-red-500/10 border border-red-500/30 rounded-lg text-xs text-red-400 max-w-72"
+          title={vmState.error}
+        >
+          <span className="line-clamp-2">{vmState.error}</span>
         </div>
       )}
 

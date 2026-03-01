@@ -4,40 +4,16 @@ import https from 'https';
 import http from 'http';
 import type { ConfigManager } from './configManager';
 import type { Logger } from '../utils/logger';
+import type { CloudProvider, VmStatus, TunnelStatus, CloudVmConfig, CloudVmState } from '../../../shared/types/cloud';
 
-export type CloudProvider = 'gcp';
-export type VmStatus = 'off' | 'starting' | 'running' | 'stopping' | 'unknown' | 'initializing' | 'not_provisioned';
-export type TunnelStatus = 'off' | 'starting' | 'running' | 'error';
-
-export interface CloudVmConfig {
-  provider: CloudProvider;
-  apiToken: string;
-  serverId?: string;      // GCP instance name
-  serverIp?: string;      // Legacy — not used with IAP (no public IP)
-  vncPassword?: string;
-  region?: string;
-  projectId?: string;     // GCP project ID
-  zone?: string;          // GCP zone
-  tunnelPort?: number;    // Local port for IAP tunnel (default 8080)
-}
-
-export interface CloudVmState {
-  status: VmStatus;
-  ip: string | null;
-  noVncUrl: string | null;
-  provider: CloudProvider | null;
-  serverId: string | null;
-  lastChecked: string | null;
-  error: string | null;
-  tunnelStatus: TunnelStatus;
-}
+export type { CloudProvider, VmStatus, TunnelStatus, CloudVmConfig, CloudVmState };
 
 /**
  * Manages cloud VM lifecycle (start/stop/status) for Pane Cloud.
  * Uses GCP Compute Engine with IAP-only access (no public IP).
  */
 export class CloudVmManager extends EventEmitter {
-  private pollInterval: ReturnType<typeof setInterval> | null = null;
+  private pollInterval: ReturnType<typeof setTimeout> | null = null;
   private tunnelProcess: ChildProcess | null = null;
   private tunnelStatus: TunnelStatus = 'off';
   private cachedState: CloudVmState = {
@@ -50,6 +26,9 @@ export class CloudVmManager extends EventEmitter {
     error: null,
     tunnelStatus: 'off',
   };
+  private operationInProgress = false;
+  private isRefreshingToken = false;
+  private consecutiveErrors = 0;
 
   constructor(
     private configManager: ConfigManager,
@@ -59,6 +38,7 @@ export class CloudVmManager extends EventEmitter {
 
     // Listen for config changes and immediately refresh state
     this.configManager.on('config-updated', async () => {
+      if (this.isRefreshingToken) return;
       this.logger?.info('[CloudVM] Config updated, refreshing state...');
       try {
         const state = await this.getState();
@@ -88,16 +68,14 @@ export class CloudVmManager extends EventEmitter {
 
       // Determine effective tunnel status:
       // - If we have a managed tunnel process, use this.tunnelStatus
-      // - Otherwise, check config for external tunnel (e.g., started by setup script)
+      // - Otherwise, perform actual health check if VM is running
       let effectiveTunnelStatus = this.tunnelStatus;
-      if (!this.tunnelProcess) {
-        // No managed tunnel — reload config from disk to check if external tunnel is running
-        // (setup script may have updated the config file)
-        const freshConfig = await this.configManager.reloadFromDisk();
-        const configTunnelStatus = freshConfig.cloud?.tunnelStatus as TunnelStatus | undefined;
-        if (configTunnelStatus === 'running') {
-          effectiveTunnelStatus = 'running';
-          this.logger?.info('[CloudVM] Detected external tunnel running via config.');
+      if (!this.tunnelProcess && status === 'running') {
+        try {
+          const isLive = await this.checkTunnelHealth(tunnelPort);
+          effectiveTunnelStatus = isLive ? 'running' : 'off';
+        } catch {
+          effectiveTunnelStatus = 'off';
         }
       }
 
@@ -125,44 +103,52 @@ export class CloudVmManager extends EventEmitter {
    * Start the cloud VM (spin up)
    */
   async startVm(): Promise<CloudVmState> {
-    const config = this.getCloudConfig();
-    if (!config) {
-      throw new Error('Cloud VM not configured. Set cloud settings in Pane Settings.');
+    if (this.operationInProgress) {
+      return { ...this.cachedState };
     }
-    if (!config.serverId) {
-      throw new Error('No server ID configured. Provision a VM first using Terraform.');
-    }
-
-    this.logger?.info(`[CloudVM] Starting VM ${config.serverId} on ${config.provider}`);
-    this.cachedState.status = 'starting';
-    this.emit('state-changed', { ...this.cachedState });
-
+    this.operationInProgress = true;
     try {
-      await this.gcpAction(config, 'start');
-
-      // Poll until running (max 60 seconds)
-      const state = await this.waitForStatus(config, 'running', 60_000);
-      this.emit('state-changed', state);
-
-      // Auto-start IAP tunnel once VM is running
-      try {
-        await this.startTunnel(config);
-      } catch (tunnelErr) {
-        const tunnelMsg = tunnelErr instanceof Error ? tunnelErr.message : String(tunnelErr);
-        this.logger?.error(`[CloudVM] Tunnel failed after VM start: ${tunnelMsg}`);
-        state.tunnelStatus = 'error';
-        state.error = `VM running but tunnel failed: ${tunnelMsg}`;
-        this.cachedState = { ...state };
-        this.emit('state-changed', { ...this.cachedState });
+      const config = this.getCloudConfig();
+      if (!config) {
+        throw new Error('Cloud VM not configured. Set cloud settings in Pane Settings.');
+      }
+      if (!config.serverId) {
+        throw new Error('No server ID configured. Provision a VM first using Terraform.');
       }
 
-      return { ...this.cachedState };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      this.cachedState.error = message;
-      this.cachedState.status = 'unknown';
+      this.logger?.info(`[CloudVM] Starting VM ${config.serverId} on ${config.provider}`);
+      this.cachedState.status = 'starting';
       this.emit('state-changed', { ...this.cachedState });
-      throw err;
+
+      try {
+        await this.gcpAction(config, 'start');
+
+        // Poll until running (max 60 seconds)
+        const state = await this.waitForStatus(config, 'running', 60_000);
+        this.emit('state-changed', state);
+
+        // Auto-start IAP tunnel once VM is running
+        try {
+          await this.startTunnel(config);
+        } catch (tunnelErr) {
+          const tunnelMsg = tunnelErr instanceof Error ? tunnelErr.message : String(tunnelErr);
+          this.logger?.error(`[CloudVM] Tunnel failed after VM start: ${tunnelMsg}`);
+          state.tunnelStatus = 'error';
+          state.error = `VM running but tunnel failed: ${tunnelMsg}`;
+          this.cachedState = { ...state };
+          this.emit('state-changed', { ...this.cachedState });
+        }
+
+        return { ...this.cachedState };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        this.cachedState.error = message;
+        this.cachedState.status = 'unknown';
+        this.emit('state-changed', { ...this.cachedState });
+        throw err;
+      }
+    } finally {
+      this.operationInProgress = false;
     }
   }
 
@@ -170,31 +156,39 @@ export class CloudVmManager extends EventEmitter {
    * Stop the cloud VM (spin down — disk persists)
    */
   async stopVm(): Promise<CloudVmState> {
-    const config = this.getCloudConfig();
-    if (!config || !config.serverId) {
-      throw new Error('Cloud VM not configured or no server ID.');
+    if (this.operationInProgress) {
+      return { ...this.cachedState };
     }
-
-    this.logger?.info(`[CloudVM] Stopping VM ${config.serverId} on ${config.provider}`);
-
-    // Stop tunnel before stopping VM
-    this.stopTunnel();
-
-    this.cachedState.status = 'stopping';
-    this.emit('state-changed', { ...this.cachedState });
-
+    this.operationInProgress = true;
     try {
-      await this.gcpAction(config, 'stop');
+      const config = this.getCloudConfig();
+      if (!config || !config.serverId) {
+        throw new Error('Cloud VM not configured or no server ID.');
+      }
 
-      const state = await this.waitForStatus(config, 'off', 60_000);
-      this.emit('state-changed', state);
-      return state;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      this.cachedState.error = message;
-      this.cachedState.status = 'unknown';
+      this.logger?.info(`[CloudVM] Stopping VM ${config.serverId} on ${config.provider}`);
+
+      // Stop tunnel before stopping VM
+      this.stopTunnel();
+
+      this.cachedState.status = 'stopping';
       this.emit('state-changed', { ...this.cachedState });
-      throw err;
+
+      try {
+        await this.gcpAction(config, 'stop');
+
+        const state = await this.waitForStatus(config, 'off', 60_000);
+        this.emit('state-changed', state);
+        return state;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        this.cachedState.error = message;
+        this.cachedState.status = 'unknown';
+        this.emit('state-changed', { ...this.cachedState });
+        throw err;
+      }
+    } finally {
+      this.operationInProgress = false;
     }
   }
 
@@ -203,10 +197,19 @@ export class CloudVmManager extends EventEmitter {
    */
   startPolling(intervalMs: number = 30_000): void {
     this.stopPolling();
-    this.pollInterval = setInterval(async () => {
-      const state = await this.getState();
-      this.emit('state-changed', state);
-    }, intervalMs);
+    const poll = async () => {
+      try {
+        const state = await this.getState();
+        this.emit('state-changed', state);
+        this.consecutiveErrors = 0;
+      } catch (err) {
+        this.consecutiveErrors++;
+        this.logger?.error(`[CloudVM] Polling error (${this.consecutiveErrors} consecutive):`, err instanceof Error ? err : new Error(String(err)));
+      }
+      const backoff = Math.min(intervalMs * Math.pow(2, this.consecutiveErrors), 300_000);
+      this.pollInterval = setTimeout(poll, this.consecutiveErrors > 0 ? backoff : intervalMs);
+    };
+    this.pollInterval = setTimeout(poll, intervalMs);
   }
 
   /**
@@ -214,7 +217,7 @@ export class CloudVmManager extends EventEmitter {
    */
   stopPolling(): void {
     if (this.pollInterval) {
-      clearInterval(this.pollInterval);
+      clearTimeout(this.pollInterval);
       this.pollInterval = null;
     }
   }
@@ -331,7 +334,14 @@ export class CloudVmManager extends EventEmitter {
           resolved = true;
           reject(new Error(`Tunnel exited with code ${code} before becoming ready`));
         } else if (wasRunning) {
-          this.logger?.warn('[CloudVM] Tunnel process died unexpectedly.');
+          this.logger?.warn('[CloudVM] Tunnel process died unexpectedly. Attempting auto-reconnect...');
+          setTimeout(async () => {
+            try {
+              await this.startTunnel();
+            } catch (err) {
+              this.logger?.error('[CloudVM] Auto-reconnect failed:', err instanceof Error ? err : new Error(String(err)));
+            }
+          }, 3000);
         }
       });
 
@@ -405,7 +415,7 @@ export class CloudVmManager extends EventEmitter {
         (res) => {
           // Any response means the tunnel is forwarding
           res.resume(); // Drain response
-          resolve(res.statusCode !== undefined && res.statusCode < 500);
+          resolve(res.statusCode !== undefined && res.statusCode >= 200 && res.statusCode < 400);
         }
       );
       req.on('error', () => resolve(false));
@@ -435,9 +445,14 @@ export class CloudVmManager extends EventEmitter {
           // Update config if token changed
           const appConfig = this.configManager.getConfig();
           if (appConfig.cloud && appConfig.cloud.apiToken !== newToken) {
-            appConfig.cloud.apiToken = newToken;
-            this.configManager.updateConfig({ cloud: appConfig.cloud });
-            this.logger?.info('[CloudVM] GCP token refreshed and saved to config.');
+            this.isRefreshingToken = true;
+            try {
+              appConfig.cloud.apiToken = newToken;
+              this.configManager.updateConfig({ cloud: appConfig.cloud });
+              this.logger?.info('[CloudVM] GCP token refreshed and saved to config.');
+            } finally {
+              this.isRefreshingToken = false;
+            }
           }
           resolve(newToken);
         } else {
@@ -457,7 +472,13 @@ export class CloudVmManager extends EventEmitter {
       throw new Error('Cloud config incomplete: projectId, zone, and serverId are all required.');
     }
     // Refresh token before API call
-    const token = await this.refreshGcpToken().catch(() => config.apiToken);
+    let token: string;
+    try {
+      token = await this.refreshGcpToken();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`GCP authentication failed (re-run cloud setup to re-authenticate): ${msg}`);
+    }
     const url = `https://compute.googleapis.com/compute/v1/projects/${config.projectId}/zones/${config.zone}/instances/${config.serverId}/${action}`;
     await this.httpRequest('POST', url, token);
   }
@@ -467,25 +488,17 @@ export class CloudVmManager extends EventEmitter {
       throw new Error('Cloud config incomplete: projectId, zone, and serverId are all required.');
     }
     // Refresh token before API call
-    const token = await this.refreshGcpToken().catch(() => config.apiToken);
+    let token: string;
+    try {
+      token = await this.refreshGcpToken();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`GCP authentication failed (re-run cloud setup to re-authenticate): ${msg}`);
+    }
     const url = `https://compute.googleapis.com/compute/v1/projects/${config.projectId}/zones/${config.zone}/instances/${config.serverId}`;
     const data = await this.httpRequest('GET', url, token);
     const parsed = JSON.parse(data);
     const gcpStatus = parsed?.status;
-
-    // Update IP from API response
-    const accessConfigs = parsed?.networkInterfaces?.[0]?.accessConfigs;
-    if (accessConfigs?.length > 0) {
-      const publicIp = accessConfigs[0].natIP;
-      if (publicIp && publicIp !== config.serverIp) {
-        const appConfig = this.configManager.getConfig();
-        if (appConfig.cloud) {
-          appConfig.cloud.serverIp = publicIp;
-          this.configManager.updateConfig({ cloud: appConfig.cloud });
-        }
-        config.serverIp = publicIp;
-      }
-    }
 
     switch (gcpStatus) {
       case 'RUNNING': return 'running';
@@ -571,6 +584,7 @@ export class CloudVmManager extends EventEmitter {
         port: parsedUrl.port || (isHttps ? 443 : 80),
         path: parsedUrl.pathname + parsedUrl.search,
         method,
+        timeout: 15_000,
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -590,6 +604,10 @@ export class CloudVmManager extends EventEmitter {
       });
 
       req.on('error', reject);
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('GCP API request timed out after 15s'));
+      });
       req.end();
     });
   }

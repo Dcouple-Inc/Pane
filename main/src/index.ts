@@ -818,6 +818,12 @@ app.on('before-quit', async (event) => {
   shutdownInProgress = true;
   logToFile('shutdown started');
 
+  // Safety net: force exit if graceful shutdown takes too long
+  const shutdownSafetyTimeout = setTimeout(() => {
+    logToFile('FORCED EXIT: shutdown timed out after 10s');
+    app.exit(1);
+  }, 10_000);
+
   // Check if there are active archive tasks (before try/finally so "Wait" can cancel quit)
   if (archiveProgressManager && archiveProgressManager.hasActiveTasks()) {
     console.log('[Main] Archive tasks in progress, showing warning dialog...');
@@ -1041,6 +1047,7 @@ app.on('before-quit', async (event) => {
     logToFile(`ERROR during shutdown: ${error}`);
     console.error('[Main] Error during graceful shutdown:', error);
   } finally {
+    clearTimeout(shutdownSafetyTimeout);
     logToFile('Calling app.exit(0)');
     // Exit the app
     app.exit(0);

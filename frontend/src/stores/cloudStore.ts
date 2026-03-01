@@ -1,18 +1,5 @@
 import { create } from 'zustand';
-
-type VmStatus = 'off' | 'starting' | 'running' | 'stopping' | 'unknown' | 'initializing' | 'not_provisioned';
-type TunnelStatus = 'off' | 'starting' | 'running' | 'error';
-
-interface CloudVmState {
-  status: VmStatus;
-  ip: string | null;
-  noVncUrl: string | null;
-  provider: 'gcp' | null;
-  serverId: string | null;
-  lastChecked: string | null;
-  error: string | null;
-  tunnelStatus: TunnelStatus;
-}
+import type { CloudVmState } from '../../../shared/types/cloud';
 
 interface CloudStore {
   vmState: CloudVmState | null;

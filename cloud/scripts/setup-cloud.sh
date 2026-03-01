@@ -41,12 +41,13 @@ header()  { echo -e "\n${BOLD}${CYAN}=== $* ===${NC}\n"; }
 
 prompt_input() {
   local varname="$1" prompt="$2" default="$3"
+  local value
   if [ -n "$default" ]; then
     read -rp "$(echo -e "${BOLD}$prompt${NC} [${default}]: ")" value
-    eval "$varname=\"${value:-$default}\""
+    printf -v "$varname" '%s' "${value:-$default}"
   else
     read -rp "$(echo -e "${BOLD}$prompt${NC}: ")" value
-    eval "$varname=\"$value\""
+    printf -v "$varname" '%s' "$value"
   fi
 }
 
@@ -561,7 +562,7 @@ if [ -f "${TERRAFORM_DIR}/terraform.tfstate" ]; then
           --zone="$GCP_ZONE" \
           --project="$PROJECT_ID" \
           --tunnel-through-iap \
-          --command="cat /home/Pane/.vnc_password 2>/dev/null || cat /home/foozol/.vnc_password 2>/dev/null" \
+          --command="cat /home/Pane/.vnc_password 2>/dev/null" \
           2>/dev/null || echo "")
 
         if [ -n "$VNC_PASSWORD" ]; then
@@ -579,7 +580,7 @@ if [ -f "${TERRAFORM_DIR}/terraform.tfstate" ]; then
     else
       warn "Could not retrieve VNC password."
       warn "You can get it later with:"
-      echo "  gcloud compute ssh ${INSTANCE_NAME} --zone=${GCP_ZONE} --project=${PROJECT_ID} --tunnel-through-iap --command='cat /home/Pane/.vnc_password 2>/dev/null || cat /home/foozol/.vnc_password'"
+      echo "  gcloud compute ssh ${INSTANCE_NAME} --zone=${GCP_ZONE} --project=${PROJECT_ID} --tunnel-through-iap --command='cat /home/Pane/.vnc_password 2>/dev/null'"
     fi
     echo ""
 
@@ -634,7 +635,7 @@ if [ -f "${TERRAFORM_DIR}/terraform.tfstate" ]; then
 
     # Update config to indicate tunnel is starting
     if [ -f "$PANE_CONFIG" ] && command -v jq &>/dev/null; then
-      jq '.cloud.tunnelStatus = "running"' "$PANE_CONFIG" > "${PANE_CONFIG}.tmp" \
+      jq '.cloud.tunnelStatus = "starting"' "$PANE_CONFIG" > "${PANE_CONFIG}.tmp" \
         && mv "${PANE_CONFIG}.tmp" "$PANE_CONFIG"
     fi
 
@@ -749,20 +750,23 @@ else
   echo ""
 
   # Wait for user to link billing
-  while true; do
-    read -rp "$(echo -e "${BOLD}Press Enter once billing is linked...${NC}")" _
+  BILLING_ATTEMPTS=0
+  MAX_BILLING_ATTEMPTS=10
+  while [ $BILLING_ATTEMPTS -lt $MAX_BILLING_ATTEMPTS ]; do
+    read -rp "$(echo -e "${BOLD}Press Enter once billing is linked (attempt $((BILLING_ATTEMPTS+1))/${MAX_BILLING_ATTEMPTS})...${NC}")" _
     BILLING_ENABLED=$(gcloud billing projects describe "$PROJECT_ID" --format="value(billingEnabled)" 2>/dev/null || echo "false")
     if [ "$BILLING_ENABLED" = "True" ] || [ "$BILLING_ENABLED" = "true" ]; then
       success "Billing verified — linked to ${PROJECT_ID}."
       break
-    else
-      warn "Billing not detected yet. Make sure you completed the steps above."
-      if ! prompt_yes_no "Try again?"; then
-        error "Billing must be linked to proceed. Exiting."
-        exit 1
-      fi
     fi
+    warn "Billing not detected yet."
+    BILLING_ATTEMPTS=$((BILLING_ATTEMPTS + 1))
   done
+
+  if [ "$BILLING_ENABLED" != "True" ] && [ "$BILLING_ENABLED" != "true" ]; then
+    error "Billing must be linked to proceed. Re-run this script after linking billing."
+    exit 1
+  fi
 fi
 
 # ============================================================
@@ -797,11 +801,21 @@ fi
 # ============================================================
 # Step 5: Generate VNC password
 # ============================================================
-header "Step 5: Generating VNC Password"
+header "Step 5: VNC Password"
 
-# Generate password now so we have it immediately (no need to retrieve from VM later)
-VNC_PASSWORD=$(openssl rand -base64 12)
-success "VNC password generated."
+# Check for existing password in config
+EXISTING_VNC_PW=""
+if [ -f "$PANE_CONFIG" ] && command -v jq &>/dev/null; then
+  EXISTING_VNC_PW=$(jq -r '.cloud.vncPassword // ""' "$PANE_CONFIG" 2>/dev/null || echo "")
+fi
+
+if [ -n "$EXISTING_VNC_PW" ]; then
+  VNC_PASSWORD="$EXISTING_VNC_PW"
+  success "Reusing existing VNC password from config."
+else
+  VNC_PASSWORD=$(openssl rand -base64 12)
+  success "VNC password generated."
+fi
 echo -e "\n  ${BOLD}VNC Password: ${YELLOW}${VNC_PASSWORD}${NC}\n"
 echo -e "  ${CYAN}Save this password — you'll need it to connect to the noVNC display.${NC}\n"
 

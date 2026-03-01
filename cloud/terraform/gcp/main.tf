@@ -1,5 +1,5 @@
-# foozol Cloud - GCP Terraform Configuration
-# Fully self-contained: provisions a complete foozol cloud VM from scratch.
+# Pane Cloud - GCP Terraform Configuration
+# Fully self-contained: provisions a complete Pane cloud VM from scratch.
 # No external dependencies — everything is inlined.
 #
 # Usage:
@@ -30,6 +30,10 @@ variable "project_id" {
 variable "user_id" {
   description = "Unique user identifier"
   type        = string
+  validation {
+    condition     = can(regex("^[a-z0-9-]+$", var.user_id)) && length(var.user_id) >= 2 && length(var.user_id) <= 30
+    error_message = "user_id must be 2-30 characters, lowercase alphanumeric and hyphens only."
+  }
 }
 
 variable "machine_type" {
@@ -54,12 +58,22 @@ variable "disk_size_gb" {
   description = "Boot disk size in GB"
   type        = number
   default     = 64
+  validation {
+    condition     = var.disk_size_gb >= 32 && var.disk_size_gb <= 2048
+    error_message = "disk_size_gb must be between 32 and 2048."
+  }
 }
 
 variable "vnc_password" {
   description = "Pre-generated VNC password (passed to VM startup script)"
   type        = string
   sensitive   = true
+}
+
+variable "snapshot_start_time" {
+  description = "Daily snapshot start time (HH:MM format, UTC)"
+  type        = string
+  default     = "04:00"
 }
 
 # ============================================================
@@ -91,8 +105,8 @@ resource "google_project_service" "iap" {
 
 # Allow SSH and noVNC ONLY from GCP IAP tunnel IP range (35.235.240.0/20)
 # This means: no one can reach the VM unless authenticated via gcloud IAP
-resource "google_compute_firewall" "foozol_iap" {
-  name     = "foozol-iap-${var.user_id}"
+resource "google_compute_firewall" "pane_iap" {
+  name     = "pane-iap-${var.user_id}"
   network  = "default"
   priority = 900
 
@@ -103,14 +117,14 @@ resource "google_compute_firewall" "foozol_iap" {
 
   # GCP Identity-Aware Proxy source range — NOT the public internet
   source_ranges = ["35.235.240.0/20"]
-  target_tags   = ["foozol-cloud"]
+  target_tags   = ["pane-cloud"]
 
   depends_on = [google_project_service.compute]
 }
 
-# Explicitly deny all other inbound traffic to foozol VMs
-resource "google_compute_firewall" "foozol_deny_all" {
-  name     = "foozol-deny-all-${var.user_id}"
+# Explicitly deny all other inbound traffic to Pane VMs
+resource "google_compute_firewall" "pane_deny_all" {
+  name     = "pane-deny-all-${var.user_id}"
   network  = "default"
   priority = 1000
 
@@ -123,27 +137,27 @@ resource "google_compute_firewall" "foozol_deny_all" {
   }
 
   source_ranges = ["0.0.0.0/0"]
-  target_tags   = ["foozol-cloud"]
+  target_tags   = ["pane-cloud"]
 
   depends_on = [google_project_service.compute]
 }
 
 # ============================================================
 # Cloud NAT — outbound internet for VM without a public IP
-# Required for apt-get, npm install, downloading foozol, etc.
+# Required for apt-get, npm install, downloading Pane, etc.
 # ============================================================
 
-resource "google_compute_router" "foozol" {
-  name    = "foozol-router-${var.user_id}"
+resource "google_compute_router" "pane" {
+  name    = "pane-router-${var.user_id}"
   network = "default"
   region  = var.region
 
   depends_on = [google_project_service.compute]
 }
 
-resource "google_compute_router_nat" "foozol" {
-  name                               = "foozol-nat-${var.user_id}"
-  router                             = google_compute_router.foozol.name
+resource "google_compute_router_nat" "pane" {
+  name                               = "pane-nat-${var.user_id}"
+  router                             = google_compute_router.pane.name
   region                             = var.region
   nat_ip_allocate_option             = "AUTO_ONLY"
   source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
@@ -152,18 +166,22 @@ resource "google_compute_router_nat" "foozol" {
     enable = false
     filter = "ALL"
   }
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # ============================================================
 # Compute Instance — NO public IP
 # ============================================================
 
-resource "google_compute_instance" "foozol" {
-  name         = "foozol-${var.user_id}"
+resource "google_compute_instance" "pane" {
+  name         = "pane-${var.user_id}"
   machine_type = var.machine_type
   zone         = var.zone
 
-  tags = ["foozol-cloud"]
+  tags = ["pane-cloud"]
 
   boot_disk {
     initialize_params {
@@ -187,7 +205,7 @@ resource "google_compute_instance" "foozol" {
   metadata_startup_script = file("${path.module}/../../scripts/setup-vm.sh")
 
   labels = {
-    purpose = "foozol-cloud"
+    purpose = "pane-cloud"
     user_id = var.user_id
   }
 
@@ -198,7 +216,7 @@ resource "google_compute_instance" "foozol" {
     ignore_changes = [desired_status]
   }
 
-  depends_on = [google_project_service.compute, google_project_service.iap, google_compute_router_nat.foozol]
+  depends_on = [google_project_service.compute, google_project_service.iap, google_compute_router_nat.pane]
 }
 
 # ============================================================
@@ -206,14 +224,14 @@ resource "google_compute_instance" "foozol" {
 # ============================================================
 
 resource "google_compute_resource_policy" "daily_backup" {
-  name   = "foozol-backup-${var.user_id}"
+  name   = "pane-backup-${var.user_id}"
   region = var.region
 
   snapshot_schedule_policy {
     schedule {
       daily_schedule {
         days_in_cycle = 1
-        start_time    = "04:00"
+        start_time    = var.snapshot_start_time
       }
     }
     retention_policy {
@@ -227,7 +245,7 @@ resource "google_compute_resource_policy" "daily_backup" {
 
 resource "google_compute_disk_resource_policy_attachment" "backup" {
   name = google_compute_resource_policy.daily_backup.name
-  disk = google_compute_instance.foozol.name
+  disk = google_compute_instance.pane.boot_disk[0].device_name
   zone = var.zone
 }
 
@@ -236,11 +254,11 @@ resource "google_compute_disk_resource_policy_attachment" "backup" {
 # ============================================================
 
 output "instance_id" {
-  value = google_compute_instance.foozol.instance_id
+  value = google_compute_instance.pane.instance_id
 }
 
 output "instance_name" {
-  value = google_compute_instance.foozol.name
+  value = google_compute_instance.pane.name
 }
 
 output "project_id" {
@@ -258,12 +276,12 @@ output "vnc_password" {
 
 output "ssh_command" {
   description = "SSH into the VM via IAP tunnel (requires gcloud auth)"
-  value       = "gcloud compute ssh foozol-${var.user_id} --zone=${var.zone} --project=${var.project_id} --tunnel-through-iap"
+  value       = "gcloud compute ssh pane-${var.user_id} --zone=${var.zone} --project=${var.project_id} --tunnel-through-iap"
 }
 
 output "novnc_tunnel_command" {
   description = "Start IAP tunnel to access noVNC on localhost:8080"
-  value       = "gcloud compute start-iap-tunnel foozol-${var.user_id} 80 --local-host-port=localhost:8080 --zone=${var.zone} --project=${var.project_id}"
+  value       = "gcloud compute start-iap-tunnel pane-${var.user_id} 80 --local-host-port=localhost:8080 --zone=${var.zone} --project=${var.project_id}"
 }
 
 output "novnc_url" {
@@ -272,5 +290,5 @@ output "novnc_url" {
 }
 
 output "setup_log_command" {
-  value = "gcloud compute ssh foozol-${var.user_id} --zone=${var.zone} --project=${var.project_id} --tunnel-through-iap --command='tail -f /var/log/foozol-setup.log'"
+  value = "gcloud compute ssh pane-${var.user_id} --zone=${var.zone} --project=${var.project_id} --tunnel-through-iap --command='tail -f /var/log/pane-setup.log'"
 }

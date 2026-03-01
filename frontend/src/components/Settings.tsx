@@ -80,7 +80,6 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
   const [cloudProvider] = useState<'gcp'>('gcp');
   const [cloudApiToken, setCloudApiToken] = useState('');
   const [cloudServerId, setCloudServerId] = useState('');
-  const [cloudServerIp, setCloudServerIp] = useState('');
   const [cloudVncPassword, setCloudVncPassword] = useState('');
   const [vncPasswordCopied, setVncPasswordCopied] = useState(false);
   const [cloudRegion, setCloudRegion] = useState('');
@@ -172,7 +171,6 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
         // Provider is always GCP (IAP-secured)
         setCloudApiToken(data.cloud.apiToken || '');
         setCloudServerId(data.cloud.serverId || '');
-        setCloudServerIp(data.cloud.serverIp || '');
         setCloudVncPassword(data.cloud.vncPassword || '');
         setCloudRegion(data.cloud.region || '');
         setCloudGcpProjectId(data.cloud.projectId || '');
@@ -223,11 +221,10 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
         },
         preferredShell,
         terminalShortcuts,
-        cloud: cloudApiToken ? {
+        cloud: (cloudServerId || cloudGcpProjectId) ? {
           provider: cloudProvider,
           apiToken: cloudApiToken,
           serverId: cloudServerId || undefined,
-          serverIp: cloudServerIp || undefined,
           vncPassword: cloudVncPassword || undefined,
           region: cloudRegion || undefined,
           projectId: cloudGcpProjectId || undefined,
@@ -603,14 +600,6 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
                     fullWidth
                     helperText="GCP instance name from terraform output"
                   />
-                  <Input
-                    label="Server IP"
-                    value={cloudServerIp}
-                    onChange={(e) => setCloudServerIp(e.target.value)}
-                    placeholder="e.g. 203.0.113.42"
-                    fullWidth
-                    helperText="Public IPv4 address (auto-detected when VM starts)"
-                  />
                   <div className="relative">
                     <Input
                       label="VNC Password"
@@ -689,15 +678,22 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => {
+                      onClick={async () => {
                         setCloudApiToken('');
                         setCloudServerId('');
-                        setCloudServerIp('');
                         setCloudVncPassword('');
                         setCloudRegion('');
                         setCloudGcpProjectId('');
                         setCloudGcpZone('');
                         setCloudTunnelPort('8080');
+                        // Auto-save the cleared config
+                        try {
+                          await API.config.update({
+                            cloud: undefined,
+                          });
+                        } catch (err) {
+                          console.error('Failed to clear cloud config:', err);
+                        }
                       }}
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
