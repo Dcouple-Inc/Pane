@@ -10,6 +10,7 @@ import { DetailPanel } from './DetailPanel';
 import { GitErrorDialog } from './session/GitErrorDialog';
 import { CommitMessageDialog } from './session/CommitMessageDialog';
 import { FolderArchiveDialog } from './session/FolderArchiveDialog';
+import { ConfirmDialog } from './ConfirmDialog';
 import { ProjectView } from './ProjectView';
 import { API } from '../utils/api';
 import { useResizable } from '../hooks/useResizable';
@@ -328,13 +329,12 @@ export const SessionView = memo(() => {
   });
 
   useHotkey({
-    id: 'close-active-tab-alt',
-    label: 'Close active tab',
-    keys: 'mod+q',
-    category: 'tabs',
-    enabled: closeTabEnabled,
-    action: closeTabAction,
-    showInPalette: false,
+    id: 'archive-active-session',
+    label: 'Archive Pane',
+    keys: 'mod+shift+w',
+    category: 'session',
+    enabled: () => !!activeSession && !activeSession.archived,
+    action: () => hook.setShowArchiveConfirm(true),
   });
 
   const handlePanelClose = useCallback(
@@ -959,6 +959,17 @@ export const SessionView = memo(() => {
         errorDetails={hook.gitErrorDetails}
         getGitErrorTips={hook.getGitErrorTips}
         onAbortAndUseClaude={hook.handleAbortRebaseAndUseClaude}
+      />
+
+      <ConfirmDialog
+        isOpen={hook.showArchiveConfirm}
+        onClose={() => hook.setShowArchiveConfirm(false)}
+        onConfirm={hook.handleConfirmArchive}
+        title="Archive Pane"
+        message={`Archive pane "${activeSession?.name}"? This will:\n\n• Move the pane to the archived panes list\n• Preserve all pane history and outputs\n${activeSession?.isMainRepo ? '• Close the active Claude Code connection' : `• Remove the git worktree locally (${activeSession?.worktreePath?.split('/').pop() || 'worktree'})`}`}
+        confirmText="Archive"
+        variant="warning"
+        icon={<Archive className="w-6 h-6 text-amber-500 flex-shrink-0" />}
       />
 
       <FolderArchiveDialog
