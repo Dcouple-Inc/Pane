@@ -138,7 +138,7 @@ export function CreateSessionDialog({
               if (defaultBranch) {
                 setFormData(prev => ({ ...prev, baseBranch: defaultBranch.name }));
                 // Auto-populate session name from default branch if user hasn't edited
-                if (!initialSessionName) {
+                if (!initialSessionName && !userEditedName) {
                   const baseName = defaultBranch.name.replace(/^[^/]+\//, '');
                   const existingNames = new Set(existingSessions.map(s => s.name));
                   let autoName = baseName;
