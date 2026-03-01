@@ -42,21 +42,6 @@ export class PromptEnhancer {
   }
 }
 
-// Singleton instance for convenience
-let defaultEnhancer: PromptEnhancer | null = null;
-
-/**
- * Get the default prompt enhancer instance
- * @param logger Optional logger to use
- * @returns The default PromptEnhancer instance
- */
-export function getPromptEnhancer(logger?: Logger): PromptEnhancer {
-  if (!defaultEnhancer) {
-    defaultEnhancer = new PromptEnhancer(logger);
-  }
-  return defaultEnhancer;
-}
-
 /**
  * Convenience function to enhance a prompt for structured commit
  * @param prompt The original prompt
@@ -65,6 +50,6 @@ export function getPromptEnhancer(logger?: Logger): PromptEnhancer {
  * @returns The enhanced prompt
  */
 export function enhancePromptForStructuredCommit(prompt: string, dbSession: { id: string; commit_mode?: string; commit_mode_settings?: string }, logger?: Logger): string {
-  const enhancer = getPromptEnhancer(logger);
+  const enhancer = new PromptEnhancer(logger);
   return enhancer.enhancePromptForStructuredCommit(prompt, dbSession);
 }

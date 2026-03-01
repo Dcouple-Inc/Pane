@@ -441,13 +441,8 @@ export const createCliPanelConfig = (toolId: string, overrides?: Partial<CliPane
 };
 
 /**
- * Pre-configured CLI panel configurations for supported tools
- */
-export const CLI_PANEL_CONFIGS: Record<string, CliPanelConfig> = {};
-
-/**
  * Utility to get CLI panel config for a tool
  */
 export const getCliPanelConfig = (toolId: string): CliPanelConfig => {
-  return CLI_PANEL_CONFIGS[toolId] || createCliPanelConfig(toolId);
+  return createCliPanelConfig(toolId);
 };

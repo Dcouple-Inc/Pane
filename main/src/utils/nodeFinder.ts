@@ -121,18 +121,6 @@ export async function findNodeExecutable(): Promise<string> {
 }
 
 /**
- * Test if a Node.js executable actually works
- */
-export async function testNodeExecutable(nodePath: string): Promise<boolean> {
-  try {
-    execSync(`"${nodePath}" --version`, { encoding: 'utf8', timeout: 2000 });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Parse a shell bin stub to extract the JavaScript file path it references
  * @param content The content of the shell script
  * @param binDir The directory containing the bin stub
