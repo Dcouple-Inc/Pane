@@ -396,6 +396,11 @@ export const SessionView = memo(() => {
   // Dynamic shortcuts for custom commands (mod+shift+5, 6, 7, ...)
   const registerHotkey = useHotkeyStore((s) => s.register);
   const unregisterHotkey = useHotkeyStore((s) => s.unregister);
+  const hotkeys = useHotkeyStore((s) => s.hotkeys);
+  const hotkeyDisplay = useCallback((id: string) => {
+    const keys = hotkeys.get(id)?.keys;
+    return keys ? formatKeyDisplay(keys) : null;
+  }, [hotkeys]);
   const handlePanelCreateRef = useRef(handlePanelCreate);
   handlePanelCreateRef.current = handlePanelCreate;
   const isInSessionViewRef = useRef(isInSessionView);
@@ -916,7 +921,7 @@ export const SessionView = memo(() => {
                   {/* Middle: scrollable pill shortcuts */}
                   <div className="flex-1 flex items-center gap-2 overflow-x-auto ml-3 scrollbar-none">
                     {/* Claude pill */}
-                    <Tooltip content={<Kbd>{formatKeyDisplay('mod+shift+3')}</Kbd>} side="top">
+                    <Tooltip content={hotkeyDisplay('add-tool-terminal-claude') ? <Kbd>{hotkeyDisplay('add-tool-terminal-claude')}</Kbd> : undefined} side="top">
                       <button
                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-text-tertiary border border-border-primary hover:bg-surface-hover hover:text-text-secondary transition-colors whitespace-nowrap flex-shrink-0"
                         onClick={() => handlePanelCreate('terminal', {
@@ -930,7 +935,7 @@ export const SessionView = memo(() => {
                     </Tooltip>
 
                     {/* Codex pill */}
-                    <Tooltip content={<Kbd>{formatKeyDisplay('mod+shift+4')}</Kbd>} side="top">
+                    <Tooltip content={hotkeyDisplay('add-tool-terminal-codex') ? <Kbd>{hotkeyDisplay('add-tool-terminal-codex')}</Kbd> : undefined} side="top">
                       <button
                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-text-tertiary border border-border-primary hover:bg-surface-hover hover:text-text-secondary transition-colors whitespace-nowrap flex-shrink-0"
                         onClick={() => handlePanelCreate('terminal', {
@@ -945,7 +950,7 @@ export const SessionView = memo(() => {
 
                     {/* Custom command pills */}
                     {customCommands.map((cmd, index) => {
-                      const shortcutNum = 5 + index;
+                      const shortcutDisplay = hotkeyDisplay(`add-tool-custom-${index}`);
                       const pill = (
                         <button
                           key={`shortcut-${index}`}
@@ -960,8 +965,8 @@ export const SessionView = memo(() => {
                           {cmd.name.length > 18 ? cmd.name.slice(0, 18) + '...' : cmd.name}
                         </button>
                       );
-                      return shortcutNum <= 9 ? (
-                        <Tooltip key={`shortcut-${index}`} content={<Kbd>{formatKeyDisplay(`mod+shift+${shortcutNum}`)}</Kbd>} side="top">
+                      return shortcutDisplay ? (
+                        <Tooltip key={`shortcut-${index}`} content={<Kbd>{shortcutDisplay}</Kbd>} side="top">
                           {pill}
                         </Tooltip>
                       ) : pill;

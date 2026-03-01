@@ -9,6 +9,7 @@ import { useSession } from '../../contexts/SessionContext';
 import { StatusIndicator } from '../StatusIndicator';
 import { useConfigStore } from '../../stores/configStore';
 import { formatKeyDisplay } from '../../utils/hotkeyUtils';
+import { useHotkeyStore } from '../../stores/hotkeyStore';
 import { Tooltip } from '../ui/Tooltip';
 import { Kbd } from '../ui/Kbd';
 import { useResourceMonitor } from '../../hooks/useResourceMonitor';
@@ -75,6 +76,11 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
   const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({});
 
   const customCommands = config?.customCommands ?? [];
+  const hotkeys = useHotkeyStore((s) => s.hotkeys);
+  const hotkeyDisplay = useCallback((id: string) => {
+    const keys = hotkeys.get(id)?.keys;
+    return keys ? formatKeyDisplay(keys) : null;
+  }, [hotkeys]);
 
   // Load config on mount if not already loaded
   useEffect(() => {
@@ -483,7 +489,7 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
 
         {/* Add Panel dropdown button - outside overflow container so dropdown isn't clipped */}
         <div className="relative h-9 flex items-center ml-1 flex-shrink-0" ref={dropdownRef}>
-          <Tooltip content={<Kbd>{formatKeyDisplay('mod+t')}</Kbd>} side="bottom">
+          <Tooltip content={hotkeyDisplay('open-add-tool') ? <Kbd>{hotkeyDisplay('open-add-tool')}</Kbd> : undefined} side="bottom">
             <button
               className="inline-flex items-center h-9 px-3 text-sm text-text-tertiary hover:text-text-primary hover:bg-surface-hover rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring-subtle"
               onClick={() => setShowDropdown(!showDropdown)}
@@ -523,7 +529,7 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
                 >
                   <Terminal className="w-4 h-4 flex-shrink-0" />
                   <span className="ml-2">Terminal</span>
-                  <Kbd size="xs" variant="muted" className="ml-auto">{formatKeyDisplay('mod+shift+1')}</Kbd>
+                  {hotkeyDisplay('add-tool-terminal') && <Kbd size="xs" variant="muted" className="ml-auto">{hotkeyDisplay('add-tool-terminal')}</Kbd>}
                 </button>
               )}
               {/* Explorer */}
@@ -536,7 +542,7 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
                 >
                   <FolderTree className="w-4 h-4 flex-shrink-0" />
                   <span className="ml-2">Explorer</span>
-                  <Kbd size="xs" variant="muted" className="ml-auto">{formatKeyDisplay('mod+shift+2')}</Kbd>
+                  {hotkeyDisplay('add-tool-explorer') && <Kbd size="xs" variant="muted" className="ml-auto">{hotkeyDisplay('add-tool-explorer')}</Kbd>}
                 </button>
               )}
               {/* Terminal with Claude CLI */}
@@ -552,7 +558,7 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
                 >
                   <Terminal className="w-4 h-4 flex-shrink-0" />
                   <span className="ml-2">Terminal (Claude)</span>
-                  <Kbd size="xs" variant="muted" className="ml-auto">{formatKeyDisplay('mod+shift+3')}</Kbd>
+                  {hotkeyDisplay('add-tool-terminal-claude') && <Kbd size="xs" variant="muted" className="ml-auto">{hotkeyDisplay('add-tool-terminal-claude')}</Kbd>}
                 </button>
               )}
               {/* Terminal with Codex CLI */}
@@ -568,13 +574,13 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
                 >
                   <Terminal className="w-4 h-4 flex-shrink-0" />
                   <span className="ml-2">Terminal (Codex)</span>
-                  <Kbd size="xs" variant="muted" className="ml-auto">{formatKeyDisplay('mod+shift+4')}</Kbd>
+                  {hotkeyDisplay('add-tool-terminal-codex') && <Kbd size="xs" variant="muted" className="ml-auto">{hotkeyDisplay('add-tool-terminal-codex')}</Kbd>}
                 </button>
               )}
               {/* Saved custom commands */}
               {availablePanelTypes.includes('terminal') && customCommands.map((cmd, index) => {
                 const currentRefIndex = refIndex++;
-                const shortcutNum = 5 + index; // mod+shift+5, 6, 7, ...
+                const shortcutDisplay = hotkeyDisplay(`add-tool-custom-${index}`);
                 return (
                 <button
                   key={`custom-${index}`}
@@ -597,7 +603,7 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
                 >
                   <TerminalSquare className="w-4 h-4 flex-shrink-0" />
                   <span className="ml-2 truncate">{cmd.name}</span>
-                  {shortcutNum <= 9 && <Kbd size="xs" variant="muted" className="ml-auto">{formatKeyDisplay(`mod+shift+${shortcutNum}`)}</Kbd>}
+                  {shortcutDisplay && <Kbd size="xs" variant="muted" className="ml-auto">{shortcutDisplay}</Kbd>}
                 </button>
               );})}
               {/* Add Custom Command input */}
@@ -720,7 +726,7 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
 
           {/* Detail panel toggle */}
           {onToggleDetailPanel && (
-            <Tooltip content={<Kbd>{formatKeyDisplay('mod+shift+b')}</Kbd>} side="bottom">
+            <Tooltip content={hotkeyDisplay('toggle-detail-panel') ? <Kbd>{hotkeyDisplay('toggle-detail-panel')}</Kbd> : undefined} side="bottom">
               <button
                 onClick={onToggleDetailPanel}
                 className={cn(
