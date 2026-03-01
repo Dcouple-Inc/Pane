@@ -235,7 +235,8 @@ function App() {
     checkAnalyticsConsent();
   }, [hasCheckedAnalyticsConsent]);
 
-  // Initialize PostHog after config loads
+  // Initialize PostHog after config loads, then start forwarding main-process events.
+  // Both must live in the same effect so buffered events aren't replayed before init.
   useEffect(() => {
     if (!appConfig) return;
     initPostHog({
@@ -248,16 +249,14 @@ function App() {
     if (distinctId) {
       window.electronAPI?.analytics?.syncDistinctId(distinctId);
     }
-  }, [appConfig]);
-
-  // Listen for main-process analytics events and forward to PostHog
-  useEffect(() => {
+    // Now that PostHog is initialized, register the IPC listener.
+    // The preload buffers any events that arrived before this point and replays them.
     if (!window.electronAPI?.analytics?.onMainEvent) return;
     const cleanup = window.electronAPI.analytics.onMainEvent((event) => {
       capture(event.eventName, event.properties);
     });
     return cleanup;
-  }, []);
+  }, [appConfig]);
 
   // CRITICAL PERFORMANCE FIX: Cleanup to prevent V8 array iteration issues
   // Uses visibility-aware interval: 60s when active, 600s when hidden
