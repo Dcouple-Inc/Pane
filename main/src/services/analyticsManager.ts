@@ -42,7 +42,12 @@ export class AnalyticsManager extends EventEmitter {
       Object.entries(enhanced).filter(([_, v]) => v !== undefined)
     );
 
-    this.mainWindow.webContents.send('analytics:main-event', { eventName, properties: cleaned });
+    try {
+      this.mainWindow.webContents.send('analytics:main-event', { eventName, properties: cleaned });
+    } catch {
+      // Renderer may be crashed/reloading — swallow so callers aren't affected
+      return;
+    }
 
     if (this.configManager.isVerbose()) {
       console.log(`[Analytics] Forwarded to renderer: ${eventName}`, cleaned);

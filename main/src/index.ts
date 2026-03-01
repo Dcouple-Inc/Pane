@@ -1002,7 +1002,7 @@ app.on('before-quit', async (event) => {
         const settings = configManager.getAnalyticsSettings();
         const apiKey = settings.posthogApiKey || 'phc_uwOqT2KUa4C9Qx5WbEPwQSN9mUCoSGFg1aY0b670ft5';
         const host = settings.posthogHost || 'https://us.i.posthog.com';
-        const distinctId = configManager.getAnalyticsDistinctId() || 'anonymous';
+        const distinctId = configManager.getAnalyticsDistinctId() || `anon-${Date.now().toString(36)}`;
         const sessionDurationSeconds = Math.floor((Date.now() - appStartTime) / 1000);
 
         const { net } = await import('electron');
