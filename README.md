@@ -9,29 +9,27 @@
 </p>
 
 <p align="center">
-  Keyboard-first desktop app for running AI coding agents in parallel with built-in git workflow. Windows, Mac, Linux.
+  Keyboard-first desktop app for running AI coding agents in parallel with built-in git workflow.
 </p>
 
-<p align="center">
-  <a href="https://discord.gg/BdMyubeAZn">
-    <img src="https://img.shields.io/badge/discord-join-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord">
-  </a>
-  <a href="https://github.com/Dcouple-Inc/Pane/releases/latest">
-    <img src="https://img.shields.io/github/v/release/Dcouple-Inc/Pane?style=flat-square&color=blue" alt="Latest Release">
-  </a>
-  <a href="https://github.com/Dcouple-Inc/Pane/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/Dcouple-Inc/Pane?style=flat-square" alt="License">
-  </a>
-  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=flat-square" alt="Platform">
-</p>
+<div align="center">
 
-<p align="center">
-  <a href="https://discord.gg/BdMyubeAZn">Discord</a> •
-  <a href="#installation">Install</a> •
-  <a href="#features">Features</a> •
-  <a href="#keyboard-shortcuts">Shortcuts</a> •
-  <a href="#building-from-source">Build</a>
-</p>
+<br />
+
+[![AGPL-3.0 License](https://img.shields.io/badge/License-AGPL--3.0-555555.svg?labelColor=333333&color=666666)](./LICENSE)
+[![Downloads](https://img.shields.io/github/downloads/Dcouple-Inc/Pane/total?labelColor=333333&color=666666)](https://github.com/Dcouple-Inc/Pane/releases)
+[![GitHub Stars](https://img.shields.io/github/stars/Dcouple-Inc/Pane?labelColor=333333&color=666666)](https://github.com/Dcouple-Inc/Pane)
+[![Latest Release](https://img.shields.io/github/v/release/Dcouple-Inc/Pane?labelColor=333333&color=666666)](https://github.com/Dcouple-Inc/Pane/releases/latest)
+[![Last Commit](https://img.shields.io/github/last-commit/Dcouple-Inc/Pane?labelColor=333333&color=666666)](https://github.com/Dcouple-Inc/Pane/commits/main)
+<br>
+[![Discord](https://img.shields.io/badge/Discord-join-%235462eb?labelColor=%235462eb&logo=discord&logoColor=%23f5f5f5)](https://discord.gg/BdMyubeAZn)
+[![Platform](https://img.shields.io/badge/Windows%20%7C%20macOS%20%7C%20Linux-333333?labelColor=333333)](https://github.com/Dcouple-Inc/Pane/releases/latest)
+
+<br />
+
+[Installation](#installation) · [Features](#features) · [Keyboard Shortcuts](#keyboard-shortcuts) · [Building from Source](#building-from-source)
+
+</div>
 
 ---
 
