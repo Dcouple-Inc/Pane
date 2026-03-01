@@ -95,6 +95,9 @@ let archiveProgressManager: ArchiveProgressManager;
 let analyticsManager: AnalyticsManager;
 let spotlightManager: SpotlightManager;
 
+// Store app start time for session duration tracking
+let appStartTime: number;
+
 // Store original console methods before overriding
 // These must be captured immediately when the module loads
 const originalLog: typeof console.log = console.log;
@@ -730,18 +733,34 @@ async function initializeServices() {
 }
 
 app.whenReady().then(async () => {
+  appStartTime = Date.now();
+
   console.log('[Main] App is ready, initializing services...');
   await initializeServices();
   console.log('[Main] Services initialized, creating window...');
   await createWindow();
   console.log('[Main] Window created successfully');
 
-  // Record app open in database with version
+  // Track app lifecycle events
   try {
     const currentVersion = app.getVersion();
+    const lastVersion = databaseService.getLastAppVersion();
+    const isFirstLaunch = lastVersion === null;
+
+    if (lastVersion && lastVersion !== currentVersion) {
+      analyticsManager.track('app_updated', {
+        previous_version: lastVersion,
+        new_version: currentVersion,
+      });
+    }
+
+    analyticsManager.track('app_opened', {
+      is_first_launch: isFirstLaunch,
+    });
+
     databaseService.recordAppOpen(false, false, currentVersion);
   } catch (error) {
-    console.error('[Main] Failed to record app open:', error);
+    console.error('[Main] Failed to track app lifecycle events:', error);
   }
 
   // Configure auto-updater
@@ -963,6 +982,18 @@ app.on('before-quit', async (event) => {
     // Stop version checker
     if (versionChecker) {
       versionChecker.stopPeriodicCheck();
+    }
+
+    // Track app closed event with session duration
+    if (analyticsManager && appStartTime) {
+      try {
+        const sessionDurationSeconds = Math.floor((Date.now() - appStartTime) / 1000);
+        analyticsManager.track('app_closed', {
+          session_duration_seconds: sessionDurationSeconds,
+        });
+      } catch (error) {
+        console.error('[Analytics] Failed to track app_closed event:', error);
+      }
     }
 
     // Close logger to ensure all logs are flushed
