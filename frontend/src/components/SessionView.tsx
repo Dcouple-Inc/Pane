@@ -23,7 +23,7 @@ import { PanelContainer } from './panels/PanelContainer';
 import { SessionProvider } from '../contexts/SessionContext';
 import { ToolPanel, ToolPanelType, PANEL_CAPABILITIES } from '../../../shared/types/panels';
 import { PanelCreateOptions } from '../types/panelComponents';
-import { Download, Upload, GitMerge, Code2, Terminal, GripHorizontal, ChevronDown, ChevronUp, RefreshCw, Archive, ArchiveRestore, GitCommitHorizontal, MessageSquare, TerminalSquare } from 'lucide-react';
+import { Download, Upload, GitMerge, GitPullRequestArrow, Code2, Terminal, GripHorizontal, ChevronDown, ChevronUp, RefreshCw, Archive, ArchiveRestore, GitCommitHorizontal, MessageSquare, TerminalSquare } from 'lucide-react';
 import type { Project } from '../types/project';
 import { devLog, renderLog } from '../utils/console';
 import { useConfigStore } from '../stores/configStore';
@@ -710,7 +710,38 @@ export const SessionView = memo(() => {
         description: hook.gitCommands?.getPushCommand ? `git ${hook.gitCommands.getPushCommand()}` : 'git push'
       }
     ] : [
-      // Commit action
+      // --- Sync ---
+      {
+        id: 'fetch',
+        label: 'Fetch',
+        icon: RefreshCw,
+        onClick: hook.handleGitFetch,
+        disabled: hook.isMerging || activeSession.status === 'running' || activeSession.status === 'initializing',
+        variant: 'default' as const,
+        description: `Fetch from remote into ${hook.gitCommands?.currentBranch || 'current branch'} without merging`
+      },
+      // --- Update working tree ---
+      {
+        id: 'stash',
+        label: 'Stash',
+        icon: Archive,
+        onClick: hook.handleGitStash,
+        disabled: hook.isMerging || activeSession.status === 'running' || activeSession.status === 'initializing' || !activeSession.gitStatus?.hasUncommittedChanges,
+        variant: 'default' as const,
+        description: activeSession.gitStatus?.hasUncommittedChanges
+          ? `Stash uncommitted changes on ${hook.gitCommands?.currentBranch || 'current branch'}`
+          : 'No changes to stash'
+      },
+      {
+        id: 'stash-pop',
+        label: 'Pop',
+        icon: ArchiveRestore,
+        onClick: hook.handleGitStashPop,
+        disabled: hook.isMerging || activeSession.status === 'running' || activeSession.status === 'initializing' || !hook.hasStash,
+        variant: 'default' as const,
+        description: hook.hasStash ? 'Apply and remove most recent stash' : 'No stash to pop'
+      },
+      // --- Commit & push ---
       {
         id: 'commit',
         label: 'Commit',
@@ -726,7 +757,16 @@ export const SessionView = memo(() => {
           ? `Stage all changes and commit on ${hook.gitCommands?.currentBranch || 'current branch'}`
           : 'No changes to commit'
       },
-      // Push action
+      {
+        id: 'pull',
+        label: 'Pull',
+        icon: Download,
+        shortcut: 'mod+shift+l',
+        onClick: hook.handleGitPull,
+        disabled: hook.isMerging || activeSession.status === 'running' || activeSession.status === 'initializing',
+        variant: 'default' as const,
+        description: `Pull latest changes into ${hook.gitCommands?.currentBranch || 'current branch'}`
+      },
       {
         id: 'push',
         label: 'Push',
@@ -739,54 +779,11 @@ export const SessionView = memo(() => {
           ? `Push ${activeSession.gitStatus.ahead} commit(s)${hook.gitCommands?.currentBranch ? ` from ${hook.gitCommands.currentBranch}` : ''} to remote`
           : 'No commits to push'
       },
-      // Pull action
-      {
-        id: 'pull',
-        label: 'Pull',
-        icon: Download,
-        shortcut: 'mod+shift+l',
-        onClick: hook.handleGitPull,
-        disabled: hook.isMerging || activeSession.status === 'running' || activeSession.status === 'initializing',
-        variant: 'default' as const,
-        description: `Pull latest changes into ${hook.gitCommands?.currentBranch || 'current branch'}`
-      },
-      // Fetch action
-      {
-        id: 'fetch',
-        label: 'Fetch',
-        icon: RefreshCw,
-        onClick: hook.handleGitFetch,
-        disabled: hook.isMerging || activeSession.status === 'running' || activeSession.status === 'initializing',
-        variant: 'default' as const,
-        description: `Fetch from remote into ${hook.gitCommands?.currentBranch || 'current branch'} without merging`
-      },
-      // Stash action
-      {
-        id: 'stash',
-        label: 'Stash',
-        icon: Archive,
-        onClick: hook.handleGitStash,
-        disabled: hook.isMerging || activeSession.status === 'running' || activeSession.status === 'initializing' || !activeSession.gitStatus?.hasUncommittedChanges,
-        variant: 'default' as const,
-        description: activeSession.gitStatus?.hasUncommittedChanges
-          ? `Stash uncommitted changes on ${hook.gitCommands?.currentBranch || 'current branch'}`
-          : 'No changes to stash'
-      },
-      // Pop Stash action
-      {
-        id: 'stash-pop',
-        label: 'Pop Stash',
-        icon: ArchiveRestore,
-        onClick: hook.handleGitStashPop,
-        disabled: hook.isMerging || activeSession.status === 'running' || activeSession.status === 'initializing' || !hook.hasStash,
-        variant: 'default' as const,
-        description: hook.hasStash ? 'Apply and remove most recent stash' : 'No stash to pop'
-      },
-      // Separator - Rebase/Merge operations
+      // --- Main branch operations (last) ---
       {
         id: 'rebase-from-main',
         label: `Rebase from ${hook.gitCommands?.mainBranch || 'main'}`,
-        icon: GitMerge,
+        icon: GitPullRequestArrow,
         shortcut: 'mod+shift+r',
         onClick: hook.handleRebaseMainIntoWorktree,
         disabled: hook.isMerging || activeSession.status === 'running' || activeSession.status === 'initializing' || !hook.hasChangesToRebase,
