@@ -13,8 +13,9 @@ import type { CreateSessionRequest } from '../types/session';
 import { getAppSubdirectory } from '../utils/appDirectory';
 import { convertDbFolderToFolder } from './folders';
 import { panelManager } from '../services/panelManager';
-import { 
-  validateSessionExists, 
+import { terminalPanelManager } from '../services/terminalPanelManager';
+import {
+  validateSessionExists,
   validatePanelSessionOwnership, 
   validatePanelExists,
   validateSessionIsActive,
@@ -256,6 +257,19 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
         data: archiveMessage,
         timestamp: new Date()
       });
+
+      // Kill all panel processes for this session before worktree cleanup
+      // This prevents leaked node-pty processes and ensures worktree removal succeeds
+      const panels = panelManager.getPanelsForSession(sessionId);
+      for (const panel of panels) {
+        try {
+          if (panel.type === 'terminal') {
+            terminalPanelManager.destroyTerminal(panel.id);
+          }
+        } catch (panelError) {
+          console.error(`[Session IPC] Failed to cleanup panel ${panel.id} (${panel.type}):`, panelError);
+        }
+      }
 
       // Create cleanup callback for background operations
       const cleanupCallback = async () => {
