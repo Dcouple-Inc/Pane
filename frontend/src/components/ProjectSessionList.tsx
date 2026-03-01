@@ -223,27 +223,23 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
     return () => ids.forEach(id => unregister(id));
   }, [register, unregister, cycleSession]);
 
-  // Auto-expand projects with active session or that have sessions
+  // Track known project IDs so we only auto-expand newly added ones
+  const knownProjectIds = useRef<Set<number>>(new Set());
+  const projectIds = useMemo(() => projects.map(p => p.id).join(','), [projects]);
+
+  // Auto-expand newly added projects (preserves user-collapsed state for existing ones)
   useEffect(() => {
-    const toExpand = new Set<number>();
-    if (activeSessionId) {
-      const s = sessions.find(s => s.id === activeSessionId);
-      if (s?.projectId != null) toExpand.add(s.projectId);
-    }
-    projects.forEach(p => {
-      if ((sessionsByProject.get(p.id)?.length ?? 0) > 0) {
-        toExpand.add(p.id);
-      }
-    });
-    if (toExpand.size > 0) {
+    const newIds = projects.filter(p => !knownProjectIds.current.has(p.id)).map(p => p.id);
+    knownProjectIds.current = new Set(projects.map(p => p.id));
+    if (newIds.length > 0) {
       setExpandedProjects(prev => {
         const next = new Set(prev);
-        toExpand.forEach(id => next.add(id));
+        newIds.forEach(id => next.add(id));
         return next;
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projects.length]);
+  }, [projectIds]);
 
   const toggleProject = (id: number) => {
     setExpandedProjects(prev => {
