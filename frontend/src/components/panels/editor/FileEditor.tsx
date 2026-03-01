@@ -252,6 +252,18 @@ function HeadlessFileTree({
           ? file.path.substring(0, file.path.lastIndexOf('/'))
           : '';
         filesCacheRef.current.delete(parentPath);
+
+        // Purge deleted directory's subtree from cache so stale entries
+        // don't appear in search results
+        if (file.isDirectory) {
+          const prefix = file.path + '/';
+          for (const key of filesCacheRef.current.keys()) {
+            if (key === file.path || key.startsWith(prefix)) {
+              filesCacheRef.current.delete(key);
+            }
+          }
+        }
+
         const parentItemId = parentPath || ROOT_ID;
         tree.getItemInstance(parentItemId)?.invalidateChildrenIds();
 
