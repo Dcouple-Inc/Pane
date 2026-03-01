@@ -2,7 +2,7 @@ import { IpcMain, shell } from 'electron';
 import * as fs from 'fs/promises';
 import * as fsSync from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { glob } from 'glob';
 import type { AppServices } from './types';
 import type { Session } from '../types/session';
@@ -900,8 +900,9 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
       if (isRunningInWSL()) {
         // Inside WSL, shell.showItemInFolder has no file manager.
         // Convert to a Windows path and open with explorer.exe.
-        const winPath = execSync(`wslpath -w "${targetPath}"`, { encoding: 'utf-8' }).trim();
-        execSync(`explorer.exe /select,"${winPath}"`);
+        // Use execFileSync with argument arrays to avoid shell injection.
+        const winPath = execFileSync('wslpath', ['-w', targetPath], { encoding: 'utf-8' }).trim();
+        execFileSync('explorer.exe', [`/select,${winPath}`]);
       } else {
         shell.showItemInFolder(targetPath);
       }
