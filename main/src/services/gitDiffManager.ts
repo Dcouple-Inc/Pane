@@ -32,6 +32,9 @@ export interface GitGraphCommit {
   committerDate: string;
   author: string;
   authorEmail?: string;
+  filesChanged?: number;
+  additions?: number;
+  deletions?: number;
 }
 
 export class GitDiffManager {
@@ -217,9 +220,9 @@ export class GitDiffManager {
   ): GitGraphCommit[] {
     try {
       // Use %x00 (NUL) as field delimiter since commit messages can contain pipes
-      // The literal string "%x00" is interpreted by git to output NUL bytes
-      const logFormat = '%h%x00%p%x00%s%x00%ai%x00%an%x00%ae';
-      const gitCommand = `git log --format="${logFormat}" -n ${limit} --cherry-pick --left-only HEAD...${mainBranch} --`;
+      // Use %x01 as record delimiter to separate commits (--shortstat adds extra lines)
+      const logFormat = '%x01%h%x00%p%x00%s%x00%ai%x00%an%x00%ae';
+      const gitCommand = `git log --format="${logFormat}" --shortstat -n ${limit} --cherry-pick --left-only HEAD...${mainBranch} --`;
 
       const logOutput = commandRunner.exec(gitCommand, worktreePath);
 
@@ -227,9 +230,12 @@ export class GitDiffManager {
         return [];
       }
 
-      return logOutput.trim().split('\n').filter(Boolean).map(line => {
-        const [hash, parentStr, message, date, author, email] = line.split('\x00');
-        return {
+      // Split by record delimiter, each record has the commit line + optional shortstat line
+      return logOutput.split('\x01').filter(Boolean).map(record => {
+        const lines = record.trim().split('\n').filter(Boolean);
+        const [hash, parentStr, message, date, author, email] = lines[0].split('\x00');
+
+        const commit: GitGraphCommit = {
           hash,
           parents: parentStr ? parentStr.split(' ').filter(Boolean) : [],
           branch,
@@ -238,6 +244,20 @@ export class GitDiffManager {
           author,
           authorEmail: email
         };
+
+        // Parse shortstat line if present (e.g. " 3 files changed, 10 insertions(+), 2 deletions(-)")
+        if (lines.length > 1) {
+          const statsMatch = lines[lines.length - 1].match(
+            /(\d+) files? changed(?:, (\d+) insertions?\(\+\))?(?:, (\d+) deletions?\(-\))?/
+          );
+          if (statsMatch) {
+            commit.filesChanged = parseInt(statsMatch[1]) || 0;
+            commit.additions = parseInt(statsMatch[2]) || 0;
+            commit.deletions = parseInt(statsMatch[3]) || 0;
+          }
+        }
+
+        return commit;
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

@@ -7,6 +7,8 @@ export interface TooltipProps {
   children: React.ReactNode;
   side?: 'top' | 'bottom' | 'left' | 'right';
   className?: string;
+  /** When true, the tooltip stays open when hovered and allows interaction (clicks, selection) */
+  interactive?: boolean;
 }
 
 const GAP = 6;
@@ -16,11 +18,13 @@ export const Tooltip: React.FC<TooltipProps> = ({
   children,
   side = 'top',
   className,
+  interactive = false,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [style, setStyle] = useState<React.CSSProperties>({ visibility: 'hidden' });
   const triggerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Compute position after the tooltip DOM element mounts so we can measure it
   useLayoutEffect(() => {
@@ -51,14 +55,35 @@ export const Tooltip: React.FC<TooltipProps> = ({
         break;
     }
 
+    // Clamp to viewport bounds
+    const margin = 8;
+    left = Math.max(margin, Math.min(left, window.innerWidth - tipRect.width - margin));
+    top = Math.max(margin, Math.min(top, window.innerHeight - tipRect.height - margin));
+
     setStyle({ top, left, visibility: 'visible', opacity: 1 });
   }, [isHovered, side]);
 
+  const cancelHide = useCallback(() => {
+    if (hideTimeout.current) {
+      clearTimeout(hideTimeout.current);
+      hideTimeout.current = null;
+    }
+  }, []);
+
   const show = useCallback(() => {
+    cancelHide();
     setStyle({ visibility: 'hidden' });
     setIsHovered(true);
-  }, []);
-  const hide = useCallback(() => setIsHovered(false), []);
+  }, [cancelHide]);
+
+  const hide = useCallback(() => {
+    if (interactive) {
+      // Small delay so user can move mouse from trigger to tooltip
+      hideTimeout.current = setTimeout(() => setIsHovered(false), 100);
+    } else {
+      setIsHovered(false);
+    }
+  }, [interactive]);
 
   const arrowBorder: Record<string, string> = {
     top: 'border-l-transparent border-r-transparent border-b-transparent border-t-bg-tertiary',
@@ -86,9 +111,14 @@ export const Tooltip: React.FC<TooltipProps> = ({
       {isHovered && createPortal(
         <div
           ref={tooltipRef}
-          className="fixed z-[9999] px-3 py-1.5 text-sm text-text-primary bg-bg-tertiary border border-border-primary rounded-lg shadow-lg whitespace-nowrap pointer-events-none transition-opacity duration-150"
+          className={cn(
+            'fixed z-[9999] px-3 py-1.5 text-sm text-text-primary bg-bg-tertiary border border-border-primary rounded-lg shadow-lg transition-opacity duration-150',
+            interactive ? 'whitespace-normal' : 'whitespace-nowrap pointer-events-none'
+          )}
           style={style}
           role="tooltip"
+          onMouseEnter={interactive ? cancelHide : undefined}
+          onMouseLeave={interactive ? hide : undefined}
         >
           {content}
           <div
