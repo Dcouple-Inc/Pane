@@ -50,6 +50,15 @@ export const DiffPanel: React.FC<DiffPanelProps> = ({
     };
   }, [panel.id, sessionId]);
 
+  // Mark stale when panel was inactive and becomes active (may have missed changes)
+  const wasActiveRef = useRef(isActive);
+  useEffect(() => {
+    if (isActive && !wasActiveRef.current) {
+      setIsStale(true);
+    }
+    wasActiveRef.current = isActive;
+  }, [isActive]);
+
   // Auto-refresh when becoming active and stale
   useEffect(() => {
     if (isActive && isStale) {
