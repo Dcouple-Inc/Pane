@@ -500,15 +500,20 @@ export class CloudVmManager extends EventEmitter {
       this.logger?.error(`[CloudVM] gcpAction(${action}): ${error}`);
       throw new Error(error);
     }
-    // Refresh token before API call
+    // Refresh token before API call, fall back to stored token if gcloud fails
     let token: string;
     try {
       token = await this.refreshGcpToken();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const error = `GCP authentication failed (re-run cloud setup to re-authenticate): ${msg}`;
-      this.logger?.error(`[CloudVM] gcpAction(${action}): ${error}`);
-      throw new Error(error);
+      if (config.apiToken) {
+        this.logger?.warn(`[CloudVM] gcpAction(${action}): gcloud token refresh failed, using stored token`);
+        token = config.apiToken;
+      } else {
+        const msg = err instanceof Error ? err.message : String(err);
+        const error = `GCP authentication failed (re-run cloud setup to re-authenticate): ${msg}`;
+        this.logger?.error(`[CloudVM] gcpAction(${action}): ${error}`);
+        throw new Error(error);
+      }
     }
     this.logger?.info(`[CloudVM] GCP API: POST ${action} for ${config.serverId}`);
     const url = `https://compute.googleapis.com/compute/v1/projects/${config.projectId}/zones/${config.zone}/instances/${config.serverId}/${action}`;
@@ -521,15 +526,20 @@ export class CloudVmManager extends EventEmitter {
       this.logger?.error(`[CloudVM] gcpGetStatus: ${error}`);
       throw new Error(error);
     }
-    // Refresh token before API call
+    // Refresh token before API call, fall back to stored token if gcloud fails
     let token: string;
     try {
       token = await this.refreshGcpToken();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const error = `GCP authentication failed (re-run cloud setup to re-authenticate): ${msg}`;
-      this.logger?.error(`[CloudVM] gcpGetStatus: ${error}`);
-      throw new Error(error);
+      if (config.apiToken) {
+        this.logger?.warn('[CloudVM] gcpGetStatus: gcloud token refresh failed, using stored token');
+        token = config.apiToken;
+      } else {
+        const msg = err instanceof Error ? err.message : String(err);
+        const error = `GCP authentication failed (re-run cloud setup to re-authenticate): ${msg}`;
+        this.logger?.error(`[CloudVM] gcpGetStatus: ${error}`);
+        throw new Error(error);
+      }
     }
     const url = `https://compute.googleapis.com/compute/v1/projects/${config.projectId}/zones/${config.zone}/instances/${config.serverId}`;
     const data = await this.httpRequest('GET', url, token);
