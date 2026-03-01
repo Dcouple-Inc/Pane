@@ -347,7 +347,9 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
       throw new Error(result.error || 'Failed to commit changes');
     }
 
-    // Reload executions to reflect the new commit
+    // Invalidate cache and reload to reflect the new commit
+    diffCacheRef.current.clear();
+    setCombinedDiff(null);
     const response = await API.sessions.getExecutions(sessionId);
     if (response.success) {
       setExecutions(response.data);
