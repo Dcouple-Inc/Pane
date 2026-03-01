@@ -221,7 +221,7 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
         },
         preferredShell,
         terminalShortcuts,
-        cloud: (cloudServerId || cloudGcpProjectId) ? {
+        cloud: (cloudServerId || cloudGcpProjectId || cloudApiToken) ? {
           provider: cloudProvider,
           apiToken: cloudApiToken,
           serverId: cloudServerId || undefined,
