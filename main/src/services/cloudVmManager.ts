@@ -105,6 +105,7 @@ export class CloudVmManager extends EventEmitter {
    */
   async startVm(): Promise<CloudVmState> {
     if (this.operationInProgress) {
+      this.logger?.warn('[CloudVM] startVm skipped — another operation is already in progress');
       return { ...this.cachedState };
     }
     this.operationInProgress = true;
@@ -158,6 +159,7 @@ export class CloudVmManager extends EventEmitter {
    */
   async stopVm(): Promise<CloudVmState> {
     if (this.operationInProgress) {
+      this.logger?.warn('[CloudVM] stopVm skipped — another operation is already in progress');
       return { ...this.cachedState };
     }
     this.operationInProgress = true;
@@ -197,6 +199,7 @@ export class CloudVmManager extends EventEmitter {
    * Start polling VM status at an interval
    */
   startPolling(intervalMs: number = 30_000): void {
+    this.logger?.info(`[CloudVM] Starting status polling (interval: ${intervalMs}ms)`);
     this.stopPolling();
     this.pollingStopped = false;
     const poll = async () => {
@@ -220,6 +223,7 @@ export class CloudVmManager extends EventEmitter {
    * Stop polling
    */
   stopPolling(): void {
+    this.logger?.info('[CloudVM] Stopping status polling');
     this.pollingStopped = true;
     if (this.pollInterval) {
       clearTimeout(this.pollInterval);
@@ -238,7 +242,9 @@ export class CloudVmManager extends EventEmitter {
   async startTunnel(config?: CloudVmConfig): Promise<void> {
     const cfg = config || this.getCloudConfig();
     if (!cfg || !cfg.serverId || !cfg.zone || !cfg.projectId) {
-      throw new Error('Cloud config missing required fields for tunnel (serverId, zone, projectId).');
+      const error = 'Cloud config missing required fields for tunnel (serverId, zone, projectId).';
+      this.logger?.error(`[CloudVM] ${error}`);
+      throw new Error(error);
     }
 
     // Don't start if already running
@@ -339,10 +345,11 @@ export class CloudVmManager extends EventEmitter {
           resolved = true;
           reject(new Error(`Tunnel exited with code ${code} before becoming ready`));
         } else if (wasRunning) {
-          this.logger?.warn('[CloudVM] Tunnel process died unexpectedly. Attempting auto-reconnect...');
+          this.logger?.warn('[CloudVM] Tunnel process died unexpectedly. Attempting auto-reconnect in 3s...');
           setTimeout(async () => {
             try {
               await this.startTunnel();
+              this.logger?.info('[CloudVM] Auto-reconnect succeeded.');
             } catch (err) {
               this.logger?.error('[CloudVM] Auto-reconnect failed:', err instanceof Error ? err : new Error(String(err)));
             }
@@ -354,6 +361,7 @@ export class CloudVmManager extends EventEmitter {
       setTimeout(() => {
         if (!resolved) {
           resolved = true;
+          this.logger?.error('[CloudVM] Tunnel start timed out after 30s');
           this.tunnelStatus = 'error';
           this.cachedState.tunnelStatus = 'error';
           this.emit('state-changed', { ...this.cachedState });
@@ -461,10 +469,16 @@ export class CloudVmManager extends EventEmitter {
           }
           resolve(newToken);
         } else {
-          reject(new Error(`Failed to refresh GCP token (code ${code}): ${stderr.trim()}`));
+          const error = new Error(`Failed to refresh GCP token (code ${code}): ${stderr.trim()}`);
+          this.logger?.error(`[CloudVM] ${error.message}`);
+          reject(error);
         }
       });
-      proc.on('error', (err) => reject(new Error(`gcloud not found: ${err.message}`)));
+      proc.on('error', (err) => {
+        const error = new Error(`gcloud not found: ${err.message}`);
+        this.logger?.error(`[CloudVM] ${error.message}`);
+        reject(error);
+      });
     });
   }
 
@@ -474,7 +488,9 @@ export class CloudVmManager extends EventEmitter {
 
   private async gcpAction(config: CloudVmConfig, action: 'start' | 'stop'): Promise<void> {
     if (!config.projectId || !config.zone || !config.serverId) {
-      throw new Error('Cloud config incomplete: projectId, zone, and serverId are all required.');
+      const error = 'Cloud config incomplete: projectId, zone, and serverId are all required.';
+      this.logger?.error(`[CloudVM] gcpAction(${action}): ${error}`);
+      throw new Error(error);
     }
     // Refresh token before API call
     let token: string;
@@ -482,15 +498,20 @@ export class CloudVmManager extends EventEmitter {
       token = await this.refreshGcpToken();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      throw new Error(`GCP authentication failed (re-run cloud setup to re-authenticate): ${msg}`);
+      const error = `GCP authentication failed (re-run cloud setup to re-authenticate): ${msg}`;
+      this.logger?.error(`[CloudVM] gcpAction(${action}): ${error}`);
+      throw new Error(error);
     }
+    this.logger?.info(`[CloudVM] GCP API: POST ${action} for ${config.serverId}`);
     const url = `https://compute.googleapis.com/compute/v1/projects/${config.projectId}/zones/${config.zone}/instances/${config.serverId}/${action}`;
     await this.httpRequest('POST', url, token);
   }
 
   private async gcpGetStatus(config: CloudVmConfig): Promise<VmStatus> {
     if (!config.projectId || !config.zone || !config.serverId) {
-      throw new Error('Cloud config incomplete: projectId, zone, and serverId are all required.');
+      const error = 'Cloud config incomplete: projectId, zone, and serverId are all required.';
+      this.logger?.error(`[CloudVM] gcpGetStatus: ${error}`);
+      throw new Error(error);
     }
     // Refresh token before API call
     let token: string;
@@ -498,7 +519,9 @@ export class CloudVmManager extends EventEmitter {
       token = await this.refreshGcpToken();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      throw new Error(`GCP authentication failed (re-run cloud setup to re-authenticate): ${msg}`);
+      const error = `GCP authentication failed (re-run cloud setup to re-authenticate): ${msg}`;
+      this.logger?.error(`[CloudVM] gcpGetStatus: ${error}`);
+      throw new Error(error);
     }
     const url = `https://compute.googleapis.com/compute/v1/projects/${config.projectId}/zones/${config.zone}/instances/${config.serverId}`;
     const data = await this.httpRequest('GET', url, token);
@@ -575,7 +598,9 @@ export class CloudVmManager extends EventEmitter {
       }
     }
 
-    throw new Error(`VM did not reach '${targetStatus}' within ${timeoutMs / 1000}s (current: ${this.cachedState.status})`);
+    const error = `VM did not reach '${targetStatus}' within ${timeoutMs / 1000}s (current: ${this.cachedState.status})`;
+    this.logger?.error(`[CloudVM] ${error}`);
+    throw new Error(error);
   }
 
   private httpRequest(method: string, url: string, token: string): Promise<string> {
@@ -603,7 +628,9 @@ export class CloudVmManager extends EventEmitter {
           if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
             resolve(data);
           } else {
-            reject(new Error(`HTTP ${res.statusCode}: ${data.substring(0, 500)}`));
+            const error = `HTTP ${res.statusCode}: ${data.substring(0, 500)}`;
+            this.logger?.error(`[CloudVM] GCP API error: ${error}`);
+            reject(new Error(error));
           }
         });
       });
@@ -611,6 +638,7 @@ export class CloudVmManager extends EventEmitter {
       req.on('error', reject);
       req.on('timeout', () => {
         req.destroy();
+        this.logger?.error('[CloudVM] GCP API request timed out after 15s');
         reject(new Error('GCP API request timed out after 15s'));
       });
       req.end();
