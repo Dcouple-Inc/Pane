@@ -845,8 +845,16 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
       const ctx = sessionManager.getProjectContext(request.sessionId);
       if (!ctx) throw new Error('Project not found for session');
 
+      const relativePath = request.path || '';
+      if (relativePath) {
+        const normalizedPath = path.normalize(relativePath);
+        if (normalizedPath.startsWith('..') || path.isAbsolute(normalizedPath)) {
+          throw new Error('Invalid path');
+        }
+      }
+
       const basePath = ctx.pathResolver.toFileSystem(session.worktreePath);
-      const absolutePath = request.path ? path.join(basePath, request.path) : basePath;
+      const absolutePath = relativePath ? path.join(basePath, relativePath) : basePath;
 
       return { success: true, path: absolutePath };
     } catch (error) {
@@ -863,8 +871,16 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
       const ctx = sessionManager.getProjectContext(request.sessionId);
       if (!ctx) throw new Error('Project not found for session');
 
+      const relativePath = request.path || '';
+      if (relativePath) {
+        const normalizedPath = path.normalize(relativePath);
+        if (normalizedPath.startsWith('..') || path.isAbsolute(normalizedPath)) {
+          throw new Error('Invalid path');
+        }
+      }
+
       const basePath = ctx.pathResolver.toFileSystem(session.worktreePath);
-      const targetPath = request.path ? path.join(basePath, request.path) : basePath;
+      const targetPath = relativePath ? path.join(basePath, relativePath) : basePath;
 
       shell.showItemInFolder(targetPath);
       return { success: true };
