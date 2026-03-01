@@ -1061,7 +1061,6 @@ export function FileEditor({
                       fontSize: 14,
                       wordWrap: 'on',
                       automaticLayout: true,
-                      scrollBeyondLastLine: false,
                     }}
                     language={getLanguageFromPath(selectedFile.path)}
                   />
