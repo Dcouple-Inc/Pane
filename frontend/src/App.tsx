@@ -31,7 +31,7 @@ import { CloudWidget } from './components/CloudWidget';
 import { CreateSessionDialog } from './components/CreateSessionDialog';
 import { AddProjectDialog } from './components/AddProjectDialog';
 import { useNavigationStore } from './stores/navigationStore';
-import { initPostHog, capture } from './services/posthog';
+import { initPostHog, capture, posthog } from './services/posthog';
 import type { VersionUpdateInfo, PermissionInput } from './types/session';
 import type { TerminalShortcut } from './types/config';
 import type { ResumableSession } from '../../shared/types/panels';
@@ -243,6 +243,11 @@ function App() {
       posthogApiKey: appConfig.analytics?.posthogApiKey,
       posthogHost: appConfig.analytics?.posthogHost,
     });
+    // Sync distinct ID to main process so shutdown analytics use the same identity
+    const distinctId = posthog.get_distinct_id();
+    if (distinctId) {
+      window.electronAPI?.analytics?.syncDistinctId(distinctId);
+    }
   }, [appConfig]);
 
   // Listen for main-process analytics events and forward to PostHog

@@ -343,6 +343,7 @@ interface ElectronAPI {
   // Analytics tracking
   analytics: {
     onMainEvent: (callback: (event: { eventName: string; properties: Record<string, unknown> }) => void) => () => void;
+    syncDistinctId: (distinctId: string) => void;
   };
 
   // Spotlight

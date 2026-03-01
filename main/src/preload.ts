@@ -672,6 +672,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
         analyticsForwardCallback = null;
       };
     },
+    syncDistinctId: (distinctId: string): void => {
+      ipcRenderer.send('analytics:sync-distinct-id', distinctId);
+    },
   },
 
   // Spotlight

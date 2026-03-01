@@ -597,6 +597,11 @@ async function initializeServices() {
   // Initialize analytics manager early so it can be used by SessionManager
   analyticsManager = new AnalyticsManager(configManager);
 
+  // Receive the renderer's posthog-js distinct ID so shutdown analytics use the same identity
+  ipcMain.on('analytics:sync-distinct-id', async (_event: Electron.IpcMainEvent, distinctId: string) => {
+    await configManager.setAnalyticsDistinctId(distinctId);
+  });
+
   // Set analytics manager on logsManager for script execution tracking
   const { logsManager } = await import('./services/panels/logPanel/logsManager');
   logsManager.setAnalyticsManager(analyticsManager);
