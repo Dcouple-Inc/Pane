@@ -83,7 +83,7 @@ const FileAccordion = memo<FileAccordionProps>(({
           {file.deletions > 0 && (
             <span className="text-xs text-status-error font-semibold">-{file.deletions}</span>
           )}
-          {file.type !== 'deleted' && onOpenInEditor && (
+          {file.type !== 'deleted' && onOpenInEditor ? (
             <button
               onClick={(e) => { e.stopPropagation(); onOpenInEditor(file.path); }}
               title="Open in Editor"
@@ -91,7 +91,9 @@ const FileAccordion = memo<FileAccordionProps>(({
             >
               <ExternalLink className="w-3.5 h-3.5 text-text-tertiary" />
             </button>
-          )}
+          ) : onOpenInEditor ? (
+            <div className="p-1"><div className="w-3.5 h-3.5" /></div>
+          ) : null}
         </div>
       </div>
 
