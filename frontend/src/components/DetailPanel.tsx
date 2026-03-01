@@ -87,8 +87,8 @@ export function DetailPanel({ isVisible, width, onResize, mergeError, projectGit
         <div className="absolute inset-0 group-hover:bg-interactive transition-colors" />
       </div>
 
-      {/* Top sections — fixed, never scroll */}
-      <div className="flex-shrink-0">
+      {/* All sections in a single scrollable container */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {/* Changes — worktree sessions only */}
         {!isProject && gitStatus && (
           <DetailSection title="Changes">
@@ -254,21 +254,17 @@ export function DetailPanel({ isVisible, width, onResize, mergeError, projectGit
           </div>
         </DetailSection>
 
-      </div>
-
-      {/* History — fills remaining space with own scroll */}
-      {session.worktreePath && (
-        <div className="flex-1 min-h-0 flex flex-col border-t border-border-primary">
-          <h3 className="text-xs uppercase text-text-tertiary font-medium px-3 py-2 flex-shrink-0">History</h3>
-          <div className="flex-1 overflow-y-auto px-3 pb-2">
+        {/* Git History Graph */}
+        {session.worktreePath && (
+          <DetailSection title="History">
             <GitHistoryGraph
               sessionId={session.id}
               baseBranch={session.baseBranch || 'main'}
               onSelectCommit={handleSelectCommit}
             />
-          </div>
-        </div>
-      )}
+          </DetailSection>
+        )}
+      </div>
     </div>
   );
 }
