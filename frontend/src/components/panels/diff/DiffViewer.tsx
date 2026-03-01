@@ -149,7 +149,7 @@ const FileAccordion = memo<FileAccordionProps>(({
         <div className="border-t border-border-primary">
           {file.isBinary ? (
             <div className="p-4 text-text-secondary text-sm">Binary file</div>
-          ) : diffData ? (
+          ) : diffData && diffData.hunks.length > 0 ? (
             <DiffView
               data={diffData}
               diffViewMode={viewType}
@@ -159,7 +159,11 @@ const FileAccordion = memo<FileAccordionProps>(({
               diffViewWrap={true}
               diffViewFontSize={13}
             />
-          ) : null}
+          ) : (
+            <div className="p-4 text-text-tertiary text-sm">
+              {file.type === 'renamed' ? 'File renamed (no content changes)' : 'No content changes'}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -202,6 +206,7 @@ const DiffViewer = memo(forwardRef<DiffViewerHandle, DiffViewerProps>(({ files, 
       const next = new Set(prev);
       if (next.has(index)) next.delete(index);
       else next.add(index);
+      console.error('[DiffViewer] toggleFile', index, 'expanded:', next.has(index), 'set size:', next.size);
       return next;
     });
   }, []);

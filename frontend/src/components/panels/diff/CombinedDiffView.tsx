@@ -7,6 +7,8 @@ import { API } from '../../../utils/api';
 import type { CombinedDiffViewProps, FileDiff } from '../../../types/diff';
 import type { ExecutionDiff, GitDiffResult } from '../../../types/diff';
 import { Maximize2, Minimize2, RefreshCw } from 'lucide-react';
+import { panelApi } from '../../../services/panelApi';
+import { usePanelStore } from '../../../stores/panelStore';
 
 const HISTORY_LIMIT = 50;
 
@@ -53,6 +55,8 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
   isGitOperationRunning = false,
   isMainRepo = false,
 }, ref) => {
+  const addPanel = usePanelStore((state) => state.addPanel);
+  const setActivePanelInStore = usePanelStore((state) => state.setActivePanel);
   const [executions, setExecutions] = useState<ExecutionDiff[]>([]);
   const [selectedExecutions, setSelectedExecutions] = useState<number[]>(initialSelected);
   const [lastSessionId, setLastSessionId] = useState<string>(sessionId);
@@ -466,10 +470,21 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
     }
   }, [sessionId, selectedExecutions]);
 
-  // Show file in system file explorer
-  const handleOpenInEditor = useCallback((filePath: string) => {
-    window.electronAPI.invoke('file:showInFolder', { sessionId, path: filePath });
-  }, [sessionId]);
+  // Open file in an Explorer (editor) panel
+  const handleOpenInEditor = useCallback(async (filePath: string) => {
+    const filename = filePath.split(/[/\\]/).pop() || 'Editor';
+    const newPanel = await panelApi.createPanel({
+      sessionId,
+      type: 'explorer',
+      title: filename,
+      initialState: {
+        customState: { filePath },
+      },
+    });
+    addPanel(newPanel);
+    setActivePanelInStore(sessionId, newPanel.id);
+    await panelApi.setActivePanel(sessionId, newPanel.id);
+  }, [sessionId, addPanel, setActivePanelInStore]);
 
   if (loading && executions.length === 0) {
     return (
