@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { flushSync } from 'react-dom';
 import Editor from '@monaco-editor/react';
 import type * as monaco from 'monaco-editor';
-import { ChevronRight, ChevronDown, File, Folder, RefreshCw, Plus, Trash2, FolderPlus, Search, X, Eye, Code } from 'lucide-react';
+import { ChevronRight, ChevronDown, File, Folder, RefreshCw, Plus, Trash2, FolderPlus, Search, X, Eye, Code, Copy, FolderOpen } from 'lucide-react';
 import { MonacoErrorBoundary } from '../../MonacoErrorBoundary';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { debounce } from '../../../utils/debounce';
@@ -10,6 +10,8 @@ import { MarkdownPreview } from '../../MarkdownPreview';
 import { NotebookPreview } from './NotebookPreview';
 import { useResizablePanel } from '../../../hooks/useResizablePanel';
 import { ExplorerPanelState } from '../../../../../shared/types/panels';
+import { isMac, isWindows } from '../../../utils/platformUtils';
+import { TerminalPopover, PopoverButton } from '../../terminal/TerminalPopover';
 
 interface FileItem {
   name: string;
@@ -25,13 +27,14 @@ interface FileTreeNodeProps {
   onFileClick: (file: FileItem) => void;
   onRefresh: (path: string) => void;
   onDelete: (file: FileItem) => void;
+  onContextMenu: (e: React.MouseEvent, file: FileItem) => void;
   selectedPath: string | null;
   expandedDirs: Set<string>;
   onToggleDir: (path: string) => void;
   searchQuery?: string;
 }
 
-function FileTreeNode({ file, level, onFileClick, onRefresh, onDelete, selectedPath, expandedDirs, onToggleDir, searchQuery }: FileTreeNodeProps) {
+function FileTreeNode({ file, level, onFileClick, onRefresh, onDelete, onContextMenu, selectedPath, expandedDirs, onToggleDir, searchQuery }: FileTreeNodeProps) {
   const isExpanded = expandedDirs.has(file.path);
   const isSelected = selectedPath === file.path;
 
@@ -86,6 +89,7 @@ function FileTreeNode({ file, level, onFileClick, onRefresh, onDelete, selectedP
         style={{ paddingLeft: `${level * 16 + 8}px` }}
         onClick={handleClick}
         onDoubleClick={(e) => e.preventDefault()}
+        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, file); }}
       >
         {file.isDirectory ? (
           <>
@@ -156,6 +160,51 @@ function FileTree({
   const [newItemName, setNewItemName] = useState('');
   const newItemInputRef = useRef<HTMLInputElement>(null);
   const pendingToggleRef = useRef<string | null>(null);
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    file: FileItem;
+  } | null>(null);
+
+  // Platform-adaptive label
+  const revealLabel = isMac() ? 'Reveal in Finder' : isWindows() ? 'Show in Explorer' : 'Show in File Manager';
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, file: FileItem) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, file });
+  }, []);
+
+  const handleCopyPath = useCallback(async () => {
+    if (!contextMenu) return;
+    try {
+      const result = await window.electronAPI.invoke('file:resolveAbsolutePath', {
+        sessionId,
+        path: contextMenu.file.path,
+      });
+      if (result.success && result.path) {
+        await navigator.clipboard.writeText(result.path);
+      }
+    } catch (error) {
+      console.error('Failed to copy path:', error);
+    }
+    setContextMenu(null);
+  }, [contextMenu, sessionId]);
+
+  const handleRevealInFileManager = useCallback(async () => {
+    if (!contextMenu) return;
+    try {
+      await window.electronAPI.invoke('file:showInFolder', {
+        sessionId,
+        path: contextMenu.file.path,
+      });
+    } catch (error) {
+      console.error('Failed to reveal in file manager:', error);
+    }
+    setContextMenu(null);
+  }, [contextMenu, sessionId]);
 
   const loadFiles = useCallback(async (path: string = '') => {
     setLoading(true);
@@ -347,6 +396,7 @@ function FileTree({
             onFileClick={onFileSelect}
             onRefresh={loadFiles}
             onDelete={handleDelete}
+            onContextMenu={handleContextMenu}
             selectedPath={selectedPath}
             expandedDirs={expandedDirs}
             onToggleDir={toggleDir}
@@ -426,6 +476,11 @@ function FileTree({
       
       // ESC key handling
       if (e.key === 'Escape') {
+        // Dismiss context menu first
+        if (contextMenu) {
+          setContextMenu(null);
+          return;
+        }
         // Close new item dialog if open
         if (showNewItemDialog) {
           setShowNewItemDialog(null);
@@ -443,7 +498,7 @@ function FileTree({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showSearch, searchQuery, showNewItemDialog]);
+  }, [showSearch, searchQuery, showNewItemDialog, contextMenu]);
 
   if (loading && files.size === 0) {
     return <div className="p-4 text-text-secondary">Loading files...</div>;
@@ -554,6 +609,25 @@ function FileTree({
       <div className="flex-1 overflow-auto" onClick={(e) => e.stopPropagation()}>
         {renderTree('')}
       </div>
+      <TerminalPopover
+        visible={!!contextMenu}
+        x={contextMenu?.x ?? 0}
+        y={contextMenu?.y ?? 0}
+        onClose={() => setContextMenu(null)}
+      >
+        <PopoverButton onClick={handleCopyPath}>
+          <span className="flex items-center gap-2">
+            <Copy className="w-4 h-4" />
+            Copy Path
+          </span>
+        </PopoverButton>
+        <PopoverButton onClick={handleRevealInFileManager}>
+          <span className="flex items-center gap-2">
+            <FolderOpen className="w-4 h-4" />
+            {revealLabel}
+          </span>
+        </PopoverButton>
+      </TerminalPopover>
     </div>
   );
 }

@@ -1,12 +1,27 @@
-import { IpcMain } from 'electron';
+import { IpcMain, shell } from 'electron';
 import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
 import * as path from 'path';
+import { execFileSync } from 'child_process';
 import { glob } from 'glob';
 import type { AppServices } from './types';
 import type { Session } from '../types/session';
 import { GIT_ATTRIBUTION_ENV } from '../utils/attribution';
 import { commandExecutor } from '../utils/commandExecutor';
 import { buildGitCommitCommand } from '../utils/shellEscape';
+
+/** Detect if the Electron process is running inside WSL (e.g. via WSLg). */
+let _isWSL: boolean | null = null;
+function isRunningInWSL(): boolean {
+  if (_isWSL !== null) return _isWSL;
+  try {
+    const version = fsSync.readFileSync('/proc/version', 'utf-8');
+    _isWSL = /microsoft/i.test(version);
+  } catch {
+    _isWSL = false;
+  }
+  return _isWSL;
+}
 
 interface FileReadRequest {
   sessionId: string;
@@ -833,6 +848,67 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
         success: false,
         error: errorMessage
       };
+    }
+  });
+
+  // Resolve an absolute filesystem path for a file in a session's worktree
+  ipcMain.handle('file:resolveAbsolutePath', async (_, request: { sessionId: string; path?: string }) => {
+    try {
+      const session = sessionManager.getSession(request.sessionId);
+      if (!session) throw new Error(`Session not found: ${request.sessionId}`);
+
+      const ctx = sessionManager.getProjectContext(request.sessionId);
+      if (!ctx) throw new Error('Project not found for session');
+
+      const relativePath = request.path || '';
+      if (relativePath) {
+        const normalizedPath = path.normalize(relativePath);
+        if (normalizedPath.startsWith('..') || path.isAbsolute(normalizedPath)) {
+          throw new Error('Invalid path');
+        }
+      }
+
+      const basePath = ctx.pathResolver.toFileSystem(session.worktreePath);
+      const absolutePath = relativePath ? path.join(basePath, relativePath) : basePath;
+
+      return { success: true, path: absolutePath };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to resolve path' };
+    }
+  });
+
+  // Show a file/folder from a session's worktree in the native file manager
+  ipcMain.handle('file:showInFolder', async (_, request: { sessionId: string; path?: string }) => {
+    try {
+      const session = sessionManager.getSession(request.sessionId);
+      if (!session) throw new Error(`Session not found: ${request.sessionId}`);
+
+      const ctx = sessionManager.getProjectContext(request.sessionId);
+      if (!ctx) throw new Error('Project not found for session');
+
+      const relativePath = request.path || '';
+      if (relativePath) {
+        const normalizedPath = path.normalize(relativePath);
+        if (normalizedPath.startsWith('..') || path.isAbsolute(normalizedPath)) {
+          throw new Error('Invalid path');
+        }
+      }
+
+      const basePath = ctx.pathResolver.toFileSystem(session.worktreePath);
+      const targetPath = relativePath ? path.join(basePath, relativePath) : basePath;
+
+      if (isRunningInWSL()) {
+        // Inside WSL, shell.showItemInFolder has no file manager.
+        // Convert to a Windows path and open with explorer.exe.
+        // Use execFileSync with argument arrays to avoid shell injection.
+        const winPath = execFileSync('wslpath', ['-w', targetPath], { encoding: 'utf-8' }).trim();
+        execFileSync('explorer.exe', [`/select,${winPath}`]);
+      } else {
+        shell.showItemInFolder(targetPath);
+      }
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to show in folder' };
     }
   });
 }
