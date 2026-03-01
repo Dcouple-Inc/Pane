@@ -1,4 +1,4 @@
-import { IpcMain } from 'electron';
+import { IpcMain, shell } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { glob } from 'glob';
@@ -833,6 +833,43 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
         success: false,
         error: errorMessage
       };
+    }
+  });
+
+  // Resolve an absolute filesystem path for a file in a session's worktree
+  ipcMain.handle('file:resolveAbsolutePath', async (_, request: { sessionId: string; path?: string }) => {
+    try {
+      const session = sessionManager.getSession(request.sessionId);
+      if (!session) throw new Error(`Session not found: ${request.sessionId}`);
+
+      const ctx = sessionManager.getProjectContext(request.sessionId);
+      if (!ctx) throw new Error('Project not found for session');
+
+      const basePath = ctx.pathResolver.toFileSystem(session.worktreePath);
+      const absolutePath = request.path ? path.join(basePath, request.path) : basePath;
+
+      return { success: true, path: absolutePath };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to resolve path' };
+    }
+  });
+
+  // Show a file/folder from a session's worktree in the native file manager
+  ipcMain.handle('file:showInFolder', async (_, request: { sessionId: string; path?: string }) => {
+    try {
+      const session = sessionManager.getSession(request.sessionId);
+      if (!session) throw new Error(`Session not found: ${request.sessionId}`);
+
+      const ctx = sessionManager.getProjectContext(request.sessionId);
+      if (!ctx) throw new Error('Project not found for session');
+
+      const basePath = ctx.pathResolver.toFileSystem(session.worktreePath);
+      const targetPath = request.path ? path.join(basePath, request.path) : basePath;
+
+      shell.showItemInFolder(targetPath);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to show in folder' };
     }
   });
 }

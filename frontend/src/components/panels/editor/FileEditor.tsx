@@ -11,7 +11,6 @@ import { NotebookPreview } from './NotebookPreview';
 import { useResizablePanel } from '../../../hooks/useResizablePanel';
 import { ExplorerPanelState } from '../../../../../shared/types/panels';
 import { isMac, isWindows } from '../../../utils/platformUtils';
-import { useSessionStore } from '../../../stores/sessionStore';
 import { TerminalPopover, PopoverButton } from '../../terminal/TerminalPopover';
 
 interface FileItem {
@@ -169,21 +168,8 @@ function FileTree({
     file: FileItem;
   } | null>(null);
 
-  // Get worktreePath from the session store
-  const session = useSessionStore(s =>
-    s.sessions.find(sess => sess.id === sessionId)
-    || (s.activeMainRepoSession?.id === sessionId ? s.activeMainRepoSession : null)
-  );
-  const worktreePath = session?.worktreePath ?? '';
-
   // Platform-adaptive label
   const revealLabel = isMac() ? 'Reveal in Finder' : isWindows() ? 'Show in Explorer' : 'Show in File Manager';
-
-  function getAbsolutePath(relativePath: string): string {
-    if (!relativePath) return worktreePath;
-    const separator = isWindows() ? '\\' : '/';
-    return `${worktreePath}${separator}${relativePath}`;
-  }
 
   const handleContextMenu = useCallback((e: React.MouseEvent, file: FileItem) => {
     e.preventDefault();
@@ -194,22 +180,31 @@ function FileTree({
   const handleCopyPath = useCallback(async () => {
     if (!contextMenu) return;
     try {
-      await navigator.clipboard.writeText(getAbsolutePath(contextMenu.file.path));
+      const result = await window.electronAPI.invoke('file:resolveAbsolutePath', {
+        sessionId,
+        path: contextMenu.file.path,
+      });
+      if (result.success && result.path) {
+        await navigator.clipboard.writeText(result.path);
+      }
     } catch (error) {
       console.error('Failed to copy path:', error);
     }
     setContextMenu(null);
-  }, [contextMenu, worktreePath]);
+  }, [contextMenu, sessionId]);
 
   const handleRevealInFileManager = useCallback(async () => {
     if (!contextMenu) return;
     try {
-      await window.electronAPI.invoke('app:showItemInFolder', getAbsolutePath(contextMenu.file.path));
+      await window.electronAPI.invoke('file:showInFolder', {
+        sessionId,
+        path: contextMenu.file.path,
+      });
     } catch (error) {
       console.error('Failed to reveal in file manager:', error);
     }
     setContextMenu(null);
-  }, [contextMenu, worktreePath]);
+  }, [contextMenu, sessionId]);
 
   const loadFiles = useCallback(async (path: string = '') => {
     setLoading(true);
