@@ -449,26 +449,26 @@ function HeadlessFileTree({
       {showNewItemDialog && (
         <div className="p-2 border-b border-border-primary bg-surface-secondary">
           <form onSubmit={(e) => { e.preventDefault(); handleCreateNewItem(); }}>
-            <div className="flex items-center gap-2">
-              <input
-                ref={newItemInputRef}
-                type="text"
-                value={newItemName}
-                onChange={(e) => setNewItemName(e.target.value)}
-                placeholder={`Enter ${showNewItemDialog} name${newItemParentPath ? ` in ${newItemParentPath}` : ''}...`}
-                className="flex-1 px-2 py-1 bg-surface-primary border border-border-primary rounded text-sm text-text-primary placeholder-text-tertiary focus:outline-none focus:border-interactive focus:ring-1 focus:ring-interactive"
-              />
+            <input
+              ref={newItemInputRef}
+              type="text"
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              placeholder={`Enter ${showNewItemDialog} name${newItemParentPath ? ` in ${newItemParentPath}` : ''}...`}
+              className="w-full px-2 py-1 mb-2 bg-surface-primary border border-border-primary rounded text-sm text-text-primary placeholder-text-tertiary focus:outline-none focus:border-interactive focus:ring-1 focus:ring-interactive"
+            />
+            <div className="flex gap-2">
               <button
                 type="submit"
                 disabled={!newItemName.trim()}
-                className="px-3 py-1 bg-interactive hover:bg-interactive-hover disabled:bg-surface-tertiary disabled:text-text-tertiary text-white rounded text-sm transition-colors"
+                className="flex-1 px-3 py-1 bg-interactive hover:bg-interactive-hover disabled:bg-surface-tertiary disabled:text-text-tertiary text-white rounded text-sm transition-colors"
               >
                 Create
               </button>
               <button
                 type="button"
                 onClick={() => { setShowNewItemDialog(null); setNewItemName(''); setNewItemParentPath(''); }}
-                className="px-3 py-1 bg-surface-tertiary hover:bg-surface-hover text-text-secondary rounded text-sm transition-colors"
+                className="flex-1 px-3 py-1 bg-surface-tertiary hover:bg-surface-hover text-text-secondary rounded text-sm transition-colors"
               >
                 Cancel
               </button>
