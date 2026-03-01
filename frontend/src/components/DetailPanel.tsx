@@ -1,6 +1,6 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useSession } from '../contexts/SessionContext';
-import { GitBranch, AlertTriangle, Code2, Settings, Link } from 'lucide-react';
+import { GitBranch, AlertTriangle, Code2, Settings, Link, TerminalSquare } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Tooltip } from './ui/Tooltip';
 import { Dropdown, DropdownMenuItem } from './ui/Dropdown';
@@ -42,6 +42,31 @@ export function DetailPanel({ isVisible, width, onResize, mergeError, projectGit
       setActivePanel(sessionContext.session.id, diffPanel.id);
     }
   }, [sessionContext, setActivePanel, getSessionPanels]);
+
+  // Build IDE dropdown items, showing configured command first if it differs from defaults
+  const ideItems = useMemo(() => {
+    if (!sessionContext?.onOpenIDEWithCommand) return [];
+    const handler = sessionContext.onOpenIDEWithCommand;
+    const configured = sessionContext.configuredIDECommand?.trim();
+    const defaults = [
+      { id: 'vscode', label: 'VS Code', command: 'code .' },
+      { id: 'cursor', label: 'Cursor', command: 'cursor .' },
+    ];
+    const isCustom = configured && !defaults.some(d => d.command === configured);
+    const items = isCustom
+      ? [{ id: 'configured', label: configured, description: 'Project default', icon: TerminalSquare, onClick: () => handler(configured) }]
+      : [];
+    return [
+      ...items,
+      ...defaults.map(d => ({
+        id: d.id,
+        label: d.label,
+        description: d.command,
+        icon: Code2,
+        onClick: () => handler(d.command),
+      })),
+    ];
+  }, [sessionContext?.onOpenIDEWithCommand, sessionContext?.configuredIDECommand]);
 
   if (!isVisible || !sessionContext) return null;
 
@@ -146,22 +171,7 @@ export function DetailPanel({ isVisible, width, onResize, mergeError, projectGit
                         Open in IDE
                       </Button>
                     }
-                    items={[
-                      {
-                        id: 'vscode',
-                        label: 'VS Code',
-                        description: 'code .',
-                        icon: Code2,
-                        onClick: () => onOpenIDEWithCommand('code .'),
-                      },
-                      {
-                        id: 'cursor',
-                        label: 'Cursor',
-                        description: 'cursor .',
-                        icon: Code2,
-                        onClick: () => onOpenIDEWithCommand('cursor .'),
-                      },
-                    ]}
+                    items={ideItems}
                     footer={
                       <DropdownMenuItem
                         icon={Settings}

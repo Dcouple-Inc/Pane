@@ -522,6 +522,8 @@ export const SessionView = memo(() => {
     if (!activeSession) return;
     setShowSetTrackingDialog(false);
     await hook.handleSetUpstream(branch);
+    // Refresh displayed tracking branch immediately after setting
+    setCurrentUpstream(branch);
   };
 
   // IDE dropdown handlers
@@ -795,7 +797,7 @@ export const SessionView = memo(() => {
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-bg-primary">
       {/* SINGLE SessionProvider wraps everything */}
-      <SessionProvider session={activeSession} gitBranchActions={branchActions} isMerging={hook.isMerging} gitCommands={hook.gitCommands} onOpenIDEWithCommand={handleOpenIDEWithCommand} onConfigureIDE={() => setShowProjectSettings(true)} onSetTracking={handleOpenSetTracking} trackingBranch={currentUpstream}>
+      <SessionProvider session={activeSession} gitBranchActions={branchActions} isMerging={hook.isMerging} gitCommands={hook.gitCommands} onOpenIDEWithCommand={handleOpenIDEWithCommand} onConfigureIDE={() => setShowProjectSettings(true)} onSetTracking={handleOpenSetTracking} trackingBranch={currentUpstream} configuredIDECommand={sessionProject?.open_ide_command}>
 
         {/* Tab bar at top */}
         <PanelTabBar
