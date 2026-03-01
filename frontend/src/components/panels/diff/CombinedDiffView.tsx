@@ -262,6 +262,7 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
         const cached = diffCacheRef.current.get(cacheKey);
         if (cached) {
           setCombinedDiff(cached.diff);
+          setLoading(false);
           return;
         }
 
