@@ -17,54 +17,6 @@ function getShikiHighlighter(): Promise<DiffHighlighter> {
   return shikiPromise;
 }
 
-// --- Helpers ---
-
-/** Extract hunk strings from a raw "diff --git" file chunk. */
-function extractHunks(rawDiff: string): string[] {
-  const lines = rawDiff.split('\n');
-  const hunks: string[] = [];
-  let current: string[] | null = null;
-
-  for (const line of lines) {
-    if (line.startsWith('@@')) {
-      if (current) hunks.push(current.join('\n'));
-      current = [line];
-    } else if (current !== null) {
-      current.push(line);
-    }
-  }
-  if (current) hunks.push(current.join('\n'));
-  return hunks;
-}
-
-/** Reconstruct partial old/new content from unified diff hunk lines. */
-function extractContentsFromDiff(
-  rawDiff: string,
-  type: FileDiff['type']
-): { oldContent: string; newContent: string } {
-  const lines = rawDiff.split('\n');
-  const diffStart = lines.findIndex(l => l.startsWith('@@'));
-  if (diffStart === -1) return { oldContent: '', newContent: '' };
-
-  const oldLines: string[] = [];
-  const newLines: string[] = [];
-
-  for (let i = diffStart; i < lines.length; i++) {
-    const line = lines[i];
-    if (line.startsWith('@@')) continue;
-    else if (line.startsWith('-')) oldLines.push(line.substring(1));
-    else if (line.startsWith('+')) newLines.push(line.substring(1));
-    else if (line.startsWith(' ')) {
-      oldLines.push(line.substring(1));
-      newLines.push(line.substring(1));
-    } else if (line.startsWith('\\')) continue; // "No newline at end of file"
-  }
-
-  if (type === 'added') return { oldContent: '', newContent: newLines.join('\n') };
-  if (type === 'deleted') return { oldContent: oldLines.join('\n'), newContent: '' };
-  return { oldContent: oldLines.join('\n'), newContent: newLines.join('\n') };
-}
-
 // --- FileAccordion ---
 
 interface FileAccordionProps {
@@ -88,16 +40,15 @@ const FileAccordion = memo<FileAccordionProps>(({
   highlighter,
   onOpenInEditor,
 }) => {
+  const hasHunks = file.rawDiff.includes('@@');
   const diffData = useMemo(() => {
-    if (!isExpanded || file.isBinary) return null;
-    const { oldContent, newContent } = extractContentsFromDiff(file.rawDiff, file.type);
-    const hunks = extractHunks(file.rawDiff);
+    if (!isExpanded || file.isBinary || !hasHunks) return null;
     return {
-      oldFile: { fileName: file.oldPath || file.path, content: oldContent },
-      newFile: { fileName: file.path, content: newContent },
-      hunks,
+      oldFile: { fileName: file.oldPath || file.path },
+      newFile: { fileName: file.path },
+      hunks: [file.rawDiff],
     };
-  }, [isExpanded, file]);
+  }, [isExpanded, file, hasHunks]);
 
   return (
     <div id={`file-${index}`} className="border-b border-border-primary">
@@ -206,19 +157,18 @@ const DiffViewer = memo(forwardRef<DiffViewerHandle, DiffViewerProps>(({ files, 
       const next = new Set(prev);
       if (next.has(index)) next.delete(index);
       else next.add(index);
-      console.error('[DiffViewer] toggleFile', index, 'expanded:', next.has(index), 'set size:', next.size);
       return next;
     });
   }, []);
 
   // Reset expanded files only when the actual file list changes (not just the array reference).
-  // Expand first 10 files by default.
+  // Expand all files by default.
   const fingerprint = useMemo(() => files.map(f => f.path).join('\0'), [files]);
   useEffect(() => {
     if (fingerprint !== prevFingerprintRef.current) {
       prevFingerprintRef.current = fingerprint;
       const initial = new Set<number>();
-      for (let i = 0; i < Math.min(files.length, 10); i++) {
+      for (let i = 0; i < files.length; i++) {
         initial.add(i);
       }
       setExpandedFiles(initial);
