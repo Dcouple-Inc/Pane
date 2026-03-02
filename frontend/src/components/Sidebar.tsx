@@ -67,9 +67,9 @@ function CollapsedSessionTooltip({ session }: { session: Session }) {
   } else if (gs) {
     if (gs.state === 'conflict') { statusText = 'Merge conflicts'; statusColor = 'text-status-error'; }
     else if (gs.isReadyToMerge) { statusText = 'Ready to merge'; statusColor = 'text-status-success'; }
-    else if (gs.hasUncommittedChanges) { statusText = 'Uncommitted changes'; statusColor = 'text-status-warning'; }
+    else if (gs.hasUncommittedChanges) { statusText = 'Uncommitted'; statusColor = 'text-status-warning'; }
     else if (gs.state === 'diverged') { statusText = 'Diverged'; statusColor = 'text-status-warning'; }
-    else if (gs.state === 'ahead' && gs.ahead) { statusText = `${gs.ahead} ahead`; }
+    else if (gs.state === 'ahead' && gs.ahead) { statusText = `${gs.ahead} ahead`; statusColor = 'text-status-warning'; }
     else if (gs.state === 'behind' && gs.behind) { statusText = `${gs.behind} behind`; }
     else if (gs.state === 'clean') { statusText = 'Up to date'; }
   }
