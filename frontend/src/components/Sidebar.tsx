@@ -22,11 +22,25 @@ import type { Session } from '../types/session';
 
 // --- Collapsed sidebar tooltip content ---
 
-function CollapsedProjectTooltip({ project }: { project: Project }) {
+function formatTimeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
+function CollapsedProjectTooltip({ project, sessionCount }: { project: Project; sessionCount: number }) {
   return (
     <div className="max-w-xs space-y-1">
       <p className="text-[11px] text-text-primary font-medium">{project.name}</p>
       <p className="text-[10px] text-text-tertiary font-mono break-all">{project.path}</p>
+      <p className="text-[10px] text-text-tertiary">
+        {sessionCount} {sessionCount === 1 ? 'workspace' : 'workspaces'}
+      </p>
     </div>
   );
 }
@@ -37,6 +51,7 @@ function CollapsedSessionTooltip({ session }: { session: Session }) {
   const createdDate = new Date(session.createdAt).toLocaleDateString(undefined, {
     weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
   });
+  const lastActiveAgo = session.lastActivity ? formatTimeAgo(session.lastActivity) : null;
 
   let statusText = '';
   let statusColor = 'text-text-tertiary';
@@ -89,51 +104,63 @@ function CollapsedSessionTooltip({ session }: { session: Session }) {
         )}
         <div className="flex items-center gap-1.5">
           <Clock className="w-3 h-3 text-text-tertiary flex-shrink-0" />
-          <span className="text-text-secondary">{createdDate}</span>
+          <span className="text-text-secondary">
+            {createdDate}
+            {lastActiveAgo && <span className="text-text-tertiary"> · active {lastActiveAgo}</span>}
+          </span>
         </div>
       </div>
 
-      {(hasDiff || gs?.prNumber) && (
+      {hasDiff && (
         <>
           <div className="border-t border-border-primary" />
-          <div className="space-y-0.5 text-[10px]">
-            {hasDiff && (
-              <div className="flex items-center gap-3">
-                <span className="flex items-center gap-1 text-text-secondary">
-                  <FileText className="w-3 h-3 text-text-tertiary" />
-                  {filesChanged} {filesChanged === 1 ? 'file' : 'files'}
-                </span>
-                {adds > 0 && (
-                  <span className="flex items-center gap-0.5 text-status-success">
-                    <Plus className="w-3 h-3" />{adds}
-                  </span>
-                )}
-                {dels > 0 && (
-                  <span className="flex items-center gap-0.5 text-status-error">
-                    <Minus className="w-3 h-3" />{dels}
-                  </span>
-                )}
-              </div>
+          <div className="flex items-center gap-3 text-[10px]">
+            <span className="flex items-center gap-1 text-text-secondary">
+              <FileText className="w-3 h-3 text-text-tertiary" />
+              {filesChanged} {filesChanged === 1 ? 'file' : 'files'}
+            </span>
+            {adds > 0 && (
+              <span className="flex items-center gap-0.5 text-status-success">
+                <Plus className="w-3 h-3" />{adds}
+              </span>
             )}
-            {gs?.prNumber && (
-              <div className="flex items-center gap-1.5">
-                <GitPullRequest className="w-3 h-3 text-text-tertiary flex-shrink-0" />
-                <span className="text-text-secondary">
-                  #{gs.prNumber}
-                  {gs.prState && (
-                    <span className={`ml-1 ${
-                      gs.prState === 'MERGED' ? 'text-purple-400' :
-                      gs.prState === 'CLOSED' ? 'text-red-400' :
-                      'text-green-400'
-                    }`}>
-                      {gs.prState.charAt(0) + gs.prState.slice(1).toLowerCase()}
-                    </span>
-                  )}
-                </span>
-                {gs.prTitle && (
-                  <span className="text-text-tertiary truncate">{gs.prTitle}</span>
+            {dels > 0 && (
+              <span className="flex items-center gap-0.5 text-status-error">
+                <Minus className="w-3 h-3" />{dels}
+              </span>
+            )}
+          </div>
+        </>
+      )}
+
+      {gs?.prNumber && (
+        <>
+          <div className="border-t border-border-primary" />
+          <div className="space-y-1 text-[10px]">
+            <div className="flex items-center gap-1.5">
+              <GitPullRequest className="w-3 h-3 text-text-tertiary flex-shrink-0" />
+              <span className="text-text-secondary font-medium">
+                #{gs.prNumber}
+                {gs.prState && (
+                  <span className={`ml-1 ${
+                    gs.prState === 'MERGED' ? 'text-purple-400' :
+                    gs.prState === 'CLOSED' ? 'text-red-400' :
+                    'text-green-400'
+                  }`}>
+                    {gs.prState.charAt(0) + gs.prState.slice(1).toLowerCase()}
+                  </span>
                 )}
-              </div>
+              </span>
+            </div>
+            {gs.prTitle && (
+              <p className="text-[11px] text-text-primary font-medium whitespace-pre-wrap break-words leading-snug pl-[18px]">
+                {gs.prTitle}
+              </p>
+            )}
+            {gs.prBody && (
+              <p className="text-[10px] text-text-tertiary whitespace-pre-wrap break-words leading-snug pl-[18px] line-clamp-4">
+                {gs.prBody}
+              </p>
             )}
           </div>
         </>
@@ -288,8 +315,9 @@ export function Sidebar({ onHelpClick, onAboutClick, onSettingsClick, isSettings
             {projects.map((project) => {
               const isActive = project.id === activeProject?.id;
               const initial = project.name.charAt(0).toUpperCase();
+              const projectSessionCount = sessions.filter(s => s.projectId === project.id && !s.archived).length;
               return (
-                <Tooltip key={project.id} content={<CollapsedProjectTooltip project={project} />} side="right">
+                <Tooltip key={project.id} content={<CollapsedProjectTooltip project={project} sessionCount={projectSessionCount} />} side="right">
                   <button
                     onClick={() => navigateToProject(project.id)}
                     className={`w-8 h-8 rounded flex items-center justify-center text-xs font-semibold transition-colors ${
