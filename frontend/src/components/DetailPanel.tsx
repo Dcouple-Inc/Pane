@@ -250,7 +250,8 @@ export function DetailPanel({ isVisible, width, onResize, mergeError, projectGit
                     ? <span className="text-[10px] text-status-success font-medium ml-1">&uarr;{aheadCount}</span> : null;
 
                   const isRebaseMerge = left.id === 'rebase-from-main';
-                  const mainBranch = gitCommands?.mainBranch || 'main';
+                  const mainBranchRaw = gitCommands?.mainBranch || 'main';
+                  const mainBranch = mainBranchRaw.length > 6 ? mainBranchRaw.slice(0, 6) + '…' : mainBranchRaw;
 
                   const pairBtnClass = isRebaseMerge
                     ? 'flex-1 justify-start text-xs !px-2'
@@ -260,7 +261,7 @@ export function DetailPanel({ isVisible, width, onResize, mergeError, projectGit
                     : 'w-4 h-4 mr-2 flex-shrink-0';
 
                   return (
-                    <div key={`${left.id}-${right.id}`} className="flex gap-0.5">
+                    <div key={`${left.id}-${right.id}`} className="flex gap-0.5 [&>*]:min-w-[90px]">
                       <Tooltip content={left.description} side="left">
                         <Button variant="ghost" size="sm" className={pairBtnClass} onClick={left.onClick} disabled={left.disabled || isMerging}>
                           <left.icon className={pairIconClass} />
@@ -296,7 +297,7 @@ export function DetailPanel({ isVisible, width, onResize, mergeError, projectGit
                               <span className="text-[10px] text-text-tertiary truncate max-w-full">
                                 {gitStatus?.filesChanged && gitStatus.filesChanged > 0
                                   ? `${gitStatus.filesChanged} ${gitStatus.filesChanged === 1 ? 'file' : 'files'}`
-                                  : `to ${gitCommands?.currentBranch?.trim() || 'branch'}`}
+                                  : `to ${(() => { const b = gitCommands?.currentBranch?.trim() || 'branch'; return b.length > 6 ? b.slice(0, 6) + '…' : b; })()}`}
                               </span>
                             </span>
                           ) : (
