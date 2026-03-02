@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { ChevronDown, ChevronRight, Plus, GitBranch, GitFork, MoreHorizontal, Home, Archive, ArchiveRestore, Pencil, Play, Trash2, Settings as SettingsIcon, FolderPlus, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, Minus, GitBranch, GitFork, MoreHorizontal, Home, Archive, ArchiveRestore, Pencil, Play, Trash2, Settings as SettingsIcon, FolderPlus, Loader2, Clock, FileText, GitPullRequest } from 'lucide-react';
 import { useSessionStore } from '../stores/sessionStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import { useHotkeyStore } from '../stores/hotkeyStore';
 import { CreateSessionDialog } from './CreateSessionDialog';
 import { AddProjectDialog } from './AddProjectDialog';
 import { Dropdown } from './ui/Dropdown';
+import { Tooltip } from './ui/Tooltip';
 import type { DropdownItem } from './ui/Dropdown';
 import { API } from '../utils/api';
 import { cycleIndex } from '../utils/arrayUtils';
@@ -360,23 +361,25 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
           return (
             <div key={project.id} className="mt-3 first:mt-2">
               {/* Project header */}
-              <button
-                onClick={() => toggleProject(project.id)}
-                className="w-full flex items-center justify-between px-4 py-1.5 hover:bg-surface-hover transition-colors"
-              >
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <GitFork className="w-3.5 h-3.5 text-text-tertiary flex-shrink-0" />
-                  {parentFolder && (
-                    <span className="text-[10px] text-text-tertiary truncate">{parentFolder} /</span>
+              <Tooltip content={<ProjectTooltipContent name={project.name} path={project.path} />} side="right">
+                <button
+                  onClick={() => toggleProject(project.id)}
+                  className="w-full flex items-center justify-between px-4 py-1.5 hover:bg-surface-hover transition-colors"
+                >
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <GitFork className="w-3.5 h-3.5 text-text-tertiary flex-shrink-0" />
+                    {parentFolder && (
+                      <span className="text-[10px] text-text-tertiary truncate">{parentFolder} /</span>
+                    )}
+                    <span className="text-xs font-semibold text-text-primary truncate">{repoName}</span>
+                  </div>
+                  {isExpanded ? (
+                    <ChevronDown className="w-3.5 h-3.5 text-text-tertiary flex-shrink-0" />
+                  ) : (
+                    <ChevronRight className="w-3.5 h-3.5 text-text-tertiary flex-shrink-0" />
                   )}
-                  <span className="text-xs font-semibold text-text-primary truncate">{repoName}</span>
-                </div>
-                {isExpanded ? (
-                  <ChevronDown className="w-3.5 h-3.5 text-text-tertiary flex-shrink-0" />
-                ) : (
-                  <ChevronRight className="w-3.5 h-3.5 text-text-tertiary flex-shrink-0" />
-                )}
-              </button>
+                </button>
+              </Tooltip>
 
               {isExpanded && (
                 <div className="mt-0.5">
@@ -473,6 +476,110 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
         onClose={() => setShowAddProjectDialog(false)}
       />
     </>
+  );
+}
+
+// --- Tooltip content components ---
+
+function ProjectTooltipContent({ name, path }: { name: string; path: string }) {
+  return (
+    <div className="max-w-xs space-y-1">
+      <p className="text-[11px] text-text-primary font-medium">{name}</p>
+      <p className="text-[10px] text-text-tertiary font-mono break-all">{path}</p>
+    </div>
+  );
+}
+
+function SessionTooltipContent({ session, branch, statusText, statusColor, gs }: {
+  session: Session;
+  branch: string;
+  statusText: string;
+  statusColor: string;
+  gs: GitStatus | undefined;
+}) {
+  const createdDate = new Date(session.createdAt).toLocaleDateString(undefined, {
+    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
+  });
+  const adds = (gs?.commitAdditions ?? 0) + (gs?.additions ?? 0);
+  const dels = (gs?.commitDeletions ?? 0) + (gs?.deletions ?? 0);
+  const hasDiff = adds > 0 || dels > 0;
+  const filesChanged = (gs?.commitFilesChanged ?? 0) + (gs?.filesChanged ?? 0);
+
+  return (
+    <div className="max-w-xs space-y-1.5">
+      <p className="text-[11px] text-text-primary font-medium whitespace-pre-wrap break-words leading-snug">
+        {session.name || 'Untitled'}
+      </p>
+
+      <div className="border-t border-border-primary" />
+
+      <div className="space-y-0.5 text-[10px]">
+        {branch && (
+          <div className="flex items-center gap-1.5">
+            <GitBranch className="w-3 h-3 text-text-tertiary flex-shrink-0" />
+            <span className="text-text-secondary font-mono break-all">{branch}</span>
+          </div>
+        )}
+        {statusText && (
+          <div className="flex items-center gap-1.5">
+            <span className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ml-[3px] ${
+              statusColor.replace('text-', 'bg-')
+            }`} />
+            <span className={`${statusColor} ml-[3px]`}>{statusText}</span>
+          </div>
+        )}
+        <div className="flex items-center gap-1.5">
+          <Clock className="w-3 h-3 text-text-tertiary flex-shrink-0" />
+          <span className="text-text-secondary">{createdDate}</span>
+        </div>
+      </div>
+
+      {(hasDiff || gs?.prNumber) && (
+        <>
+          <div className="border-t border-border-primary" />
+          <div className="space-y-0.5 text-[10px]">
+            {hasDiff && (
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1 text-text-secondary">
+                  <FileText className="w-3 h-3 text-text-tertiary" />
+                  {filesChanged} {filesChanged === 1 ? 'file' : 'files'}
+                </span>
+                {adds > 0 && (
+                  <span className="flex items-center gap-0.5 text-status-success">
+                    <Plus className="w-3 h-3" />{adds}
+                  </span>
+                )}
+                {dels > 0 && (
+                  <span className="flex items-center gap-0.5 text-status-error">
+                    <Minus className="w-3 h-3" />{dels}
+                  </span>
+                )}
+              </div>
+            )}
+            {gs?.prNumber && (
+              <div className="flex items-center gap-1.5">
+                <GitPullRequest className="w-3 h-3 text-text-tertiary flex-shrink-0" />
+                <span className="text-text-secondary">
+                  #{gs.prNumber}
+                  {gs.prState && (
+                    <span className={`ml-1 ${
+                      gs.prState === 'MERGED' ? 'text-purple-400' :
+                      gs.prState === 'CLOSED' ? 'text-red-400' :
+                      'text-green-400'
+                    }`}>
+                      {gs.prState.charAt(0) + gs.prState.slice(1).toLowerCase()}
+                    </span>
+                  )}
+                </span>
+                {gs.prTitle && (
+                  <span className="text-text-tertiary truncate">{gs.prTitle}</span>
+                )}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -634,63 +741,68 @@ function SessionRow({
       }`}
     >
       {/* Clickable session content */}
-      <button onClick={onClick} className="flex-1 text-left min-w-0">
-        {/* Row 1: icon + name + diff stats */}
-        <div className="flex items-center gap-2 min-w-0">
-          <GitBranch className={`w-3.5 h-3.5 flex-shrink-0 ${iconColor}`} />
-          {isEditing ? (
-            <input
-              ref={editInputRef}
-              value={editingName}
-              onChange={(e) => onEditingNameChange(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') onRenameSubmit();
-                if (e.key === 'Escape') onRenameCancel();
-              }}
-              onBlur={onRenameSubmit}
-              onClick={(e) => e.stopPropagation()}
-              className="text-sm font-medium text-text-primary bg-surface-secondary border border-border-primary rounded px-1.5 py-0.5 min-w-0 w-full outline-none focus:border-interactive"
-            />
-          ) : (
-            <span className="text-sm font-medium text-text-primary truncate">
-              {session.name || 'Untitled'}
-            </span>
-          )}
-          {!isEditing && hasDiff && (
-            <span className="flex items-center gap-1 text-xs flex-shrink-0 ml-auto">
-              <span className="text-status-success font-semibold">+{adds}</span>
-              <span className="text-status-error font-semibold">-{dels}</span>
-            </span>
-          )}
-        </div>
-        {/* Row 2: branch · PR# · status + shortcut */}
-        <div className="flex items-center gap-1 mt-0.5 pl-[22px] text-[11px] text-text-tertiary min-w-0">
-          {branch && <span className="truncate max-w-[120px]">{branch}</span>}
-          {branch && (gs?.prNumber || statusText) && <span className="flex-shrink-0">·</span>}
-          {gs?.prNumber && (
-            <span className="text-text-secondary flex-shrink-0 flex items-center gap-1">
-              {gs.prState && (
-                <span
-                  className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                    gs.prState === 'MERGED' ? 'bg-purple-400' :
-                    gs.prState === 'CLOSED' ? 'bg-red-400' :
-                    'bg-green-400'
-                  }`}
-                  title={`PR ${gs.prState?.toLowerCase()}`}
-                />
-              )}
-              #{gs.prNumber}
-            </span>
-          )}
-          {gs?.prNumber && statusText && <span className="flex-shrink-0">·</span>}
-          {statusText && (
-            <span className={`truncate ${statusColor}`}>{statusText}</span>
-          )}
-          {globalIndex >= 0 && globalIndex < 9 && (
-            <span className="ml-auto flex-shrink-0 text-text-muted text-[10px]">⌘{globalIndex + 1}</span>
-          )}
-        </div>
-      </button>
+      <Tooltip
+        content={!isEditing ? <SessionTooltipContent session={session} branch={branch} statusText={statusText} statusColor={statusColor} gs={gs} /> : ''}
+        side="right"
+      >
+        <button onClick={onClick} className="flex-1 text-left min-w-0">
+          {/* Row 1: icon + name + diff stats */}
+          <div className="flex items-center gap-2 min-w-0">
+            <GitBranch className={`w-3.5 h-3.5 flex-shrink-0 ${iconColor}`} />
+            {isEditing ? (
+              <input
+                ref={editInputRef}
+                value={editingName}
+                onChange={(e) => onEditingNameChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') onRenameSubmit();
+                  if (e.key === 'Escape') onRenameCancel();
+                }}
+                onBlur={onRenameSubmit}
+                onClick={(e) => e.stopPropagation()}
+                className="text-sm font-medium text-text-primary bg-surface-secondary border border-border-primary rounded px-1.5 py-0.5 min-w-0 w-full outline-none focus:border-interactive"
+              />
+            ) : (
+              <span className="text-sm font-medium text-text-primary truncate">
+                {session.name || 'Untitled'}
+              </span>
+            )}
+            {!isEditing && hasDiff && (
+              <span className="flex items-center gap-1 text-xs flex-shrink-0 ml-auto">
+                <span className="text-status-success font-semibold">+{adds}</span>
+                <span className="text-status-error font-semibold">-{dels}</span>
+              </span>
+            )}
+          </div>
+          {/* Row 2: branch · PR# · status + shortcut */}
+          <div className="flex items-center gap-1 mt-0.5 pl-[22px] text-[11px] text-text-tertiary min-w-0">
+            {branch && <span className="truncate max-w-[120px]">{branch}</span>}
+            {branch && (gs?.prNumber || statusText) && <span className="flex-shrink-0">·</span>}
+            {gs?.prNumber && (
+              <span className="text-text-secondary flex-shrink-0 flex items-center gap-1">
+                {gs.prState && (
+                  <span
+                    className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                      gs.prState === 'MERGED' ? 'bg-purple-400' :
+                      gs.prState === 'CLOSED' ? 'bg-red-400' :
+                      'bg-green-400'
+                    }`}
+                    title={`PR ${gs.prState?.toLowerCase()}`}
+                  />
+                )}
+                #{gs.prNumber}
+              </span>
+            )}
+            {gs?.prNumber && statusText && <span className="flex-shrink-0">·</span>}
+            {statusText && (
+              <span className={`truncate ${statusColor}`}>{statusText}</span>
+            )}
+            {globalIndex >= 0 && globalIndex < 9 && (
+              <span className="ml-auto flex-shrink-0 text-text-muted text-[10px]">⌘{globalIndex + 1}</span>
+            )}
+          </div>
+        </button>
+      </Tooltip>
 
       {/* Session menu */}
       <div className="flex-shrink-0 opacity-0 group-hover/session:opacity-100 transition-opacity">
