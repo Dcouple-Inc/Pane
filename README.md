@@ -9,7 +9,8 @@
 </p>
 
 <p align="center">
-  Keyboard-first desktop app for running AI coding agents in parallel with built-in git workflow.
+  <em>just terminals. no abstractions.</em><br>
+  the only agent manager for every CLI agent, every OS.
 </p>
 
 <div align="center">
@@ -33,9 +34,9 @@
 
 ---
 
-We're not an AI agent. We're not an IDE. We're not a terminal emulator.
+Not an IDE. Not a terminal emulator. **Vim for agent management.**
 
-We're an **agent manager** — a new category for a new workflow. The same way Superhuman is an email client (not an email provider), Pane is an agent client (not an agent provider). You bring the agents. We make them fly.
+Pane manages AI coding agents without replacing them. If it runs in a terminal, it runs in Pane — instantly, with zero integration. Claude Code, Codex, Aider, Goose, or any CLI tool. No plugins, no SDK, no waiting for support.
 
 ```
 ┌──────────────┬──────────────────────────────────────────┬─────────────────┐
@@ -71,14 +72,15 @@ Pane fixes the interaction layer. It gives you a single, keyboard-driven surface
 
 ## How Pane Is Different
 
-| | Pane | Conductor | Claude Squad | Cursor/Windsurf |
-|---|---|---|---|---|
-| **Platform** | Windows + Mac + Linux | Mac only | Unix only (needs tmux) | Windows + Mac |
-| **Agent support** | Any CLI agent | Claude Code + Codex | Any (tmux-based) | Built-in only |
-| **Interface** | Desktop app, keyboard-first | Desktop app, GUI-first | Terminal UI | IDE |
-| **Git workflow** | Built-in (commit, push, rebase, merge, diff) | Worktrees + PR | Worktrees only | Editor-level |
-| **Multi-agent parallel** | Yes | Yes | Yes | No |
-| **Philosophy** | The cockpit | The dashboard | The multiplexer | The editor |
+| | Pane | Superset | Conductor | Claude Squad | Cursor/Windsurf |
+|---|---|---|---|---|---|
+| **Platform** | Win + Mac + Linux | Mac (unofficial Win/Linux) | Mac (Apple Silicon only) | Unix (tmux) | Win + Mac |
+| **Agents** | Any CLI | Any CLI | Claude + Codex | Any (tmux) | Built-in only |
+| **Diff Viewer** | Built-in, syntax-highlighted | Built-in | Built-in | None | Editor-level |
+| **Git Workflow** | Commit, push, rebase, squash, merge — all keyboard | Worktrees + merge | Worktrees + PR | Worktrees only | Editor-level |
+| **Keyboard-First** | Every action | Partial | Partial | Terminal only | IDE shortcuts |
+| **Open Source** | Yes (AGPL-3.0) | Yes (Apache-2.0) | No | Yes | No |
+| **Session Persistence** | Yes | Yes | Yes | No | N/A |
 
 Every tool in the AI coding space either only works on Mac, only works with one agent, is a terminal hack that requires tmux, treats Windows as an afterthought, or wants to be your editor, your terminal, and your agent all at once.
 
@@ -86,32 +88,39 @@ Pane is the only tool that is a real desktop app, agent-agnostic, cross-platform
 
 ---
 
+## Two Core Primitives
+
+**Panes** — One per feature, one worktree each. Create a pane, get an isolated workspace. Delete a pane, everything cleans up.
+
+**Tabs** — Agents, diff viewer, file explorer, git tree, logs — everything lives in tabs. Everything persists across restarts.
+
+---
+
+## The Integration Layer
+
+Agents already access Linear, Jira, GitHub, Slack through MCPs and CLI tools. The terminal is the universal integration layer. Pane doesn't re-integrate what your agents already access — it provides the runtime environment.
+
+---
+
 ## Features
 
-### Run Multiple AI Coding Agents in Parallel
-Run Claude Code, Codex, Aider, Goose, or any CLI tool — side by side, each in its own git worktree. Work on multiple features at once. No conflicts. No stepping on each other. Merge when ready.
+### Agent-Agnostic
+Run any CLI tool. Future agents work instantly — no waiting for official support. This is a promise, not a feature.
 
-### Keyboard-First Interface
-Every action has a keyboard shortcut. Switch between workspaces instantly. Navigate without touching the mouse. If you've used Superhuman, you know the feeling — every keystroke lands, every transition is instant.
+### Parallel Panes
+Each pane gets its own worktree and multiple terminals. Close your laptop; everything persists when reopened.
+
+### Keyboard-First
+Every action has a shortcut. Command palette via `⌘K`. If something takes more than 100ms, it's a bug.
 
 ### Built-In Git Workflow
-Agents produce code. Code lives in git. Pane makes the loop seamless. View diffs with syntax highlighting. Commit, push, rebase, squash, merge — all from keyboard shortcuts. See file-level change statistics. Preview git commands before executing them.
-
-### Agent-Agnostic
-Pane doesn't embed or bundle any agent. It wraps any CLI tool that runs in a terminal. When a new AI coding agent launches tomorrow, you don't wait for Pane to "support" it. You just run it. This is a promise, not a feature.
+View diffs with syntax highlighting. Commit, push, rebase, squash, merge — all from keyboard shortcuts. Preview git commands before executing.
 
 ### Cross-Platform — Actually
-Not "Mac-first with a Windows waitlist." Not "Linux if you compile from source." Windows, Mac, and Linux. Same UI, same shortcuts, same speed. Built by developers who use Windows daily and feel the pain that Mac-first developers never see.
+Not "Mac-first with a Windows waitlist." Windows, Mac, and Linux — same UI, same shortcuts, same speed. Built by developers who use Windows daily.
 
-### Multiple Views
-- **Output View** — Formatted terminal output with syntax highlighting
-- **Diff View** — Git diff viewer with per-file change statistics
-- **Terminal View** — Full xterm.js terminals with 50,000 line scrollback
-- **Editor View** — File editor with syntax highlighting
-- **Logs View** — Debug and session logs
-
-### Tool Panel System
-Run multiple terminal instances per session in separate panels. Create, switch, rename, and close panels dynamically. Panels only start processes when first viewed. State persists across app restarts.
+### Everything is a Tab
+Multiple views per session: Output, Diff, Terminal, Editor, Logs. Full xterm.js terminals with 50,000-line scrollback. Navigate with left/right arrows without touching the mouse.
 
 ### Session Management
 Create sessions with templates. Archive instead of delete. Continue conversations with full history. AI-powered session naming. Real-time status tracking. Prompt history with search and one-click reuse.
@@ -136,7 +145,19 @@ Desktop and sound notifications for session status changes. Know when an agent i
 
 ## Installation
 
-### Download
+### Quick Install
+
+**Mac / Linux:**
+```bash
+curl -fsSL https://runpane.com/install.sh | sh
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://runpane.com/install.ps1 | iex
+```
+
+### Direct Download
 
 > **[Download the Latest Release](https://github.com/Dcouple-Inc/Pane/releases/latest)**
 
@@ -214,7 +235,23 @@ Pane is not your editor. Not your terminal. Not your agent.
 
 It replaces the chaos. The twelve terminal windows. The alt-tabbing. The mental overhead of tracking which agent is on which branch. The frustration of tools that don't work on your OS.
 
-Pane replaces the mess with a single, fast, keyboard-driven surface.
+Pane replaces the mess with a single, fast, keyboard-driven surface. It's the thing you wish tmux was.
+
+---
+
+## FAQ
+
+**"Isn't this just tmux with extra steps?"**
+tmux is from 2007. Pane is a modern desktop app with a diff viewer, git workflow, command palette, pane management, notifications, and Windows support.
+
+**"What if a new AI agent comes out tomorrow?"**
+You just run it. Pane doesn't bundle agents or lock you in. No waiting for support — instant execution.
+
+**"Why is it called Pane?"**
+Because you look through a pane to see what's happening. Each pane is a window into an agent's work.
+
+**"Why Electron?"**
+Pane uses xterm.js — the same terminal engine powering VS Code's integrated terminal. Same rendering, same reliability, battle-tested with 50,000-line scrollback history. Electron powers VS Code, Slack, Discord, and Figma.
 
 ---
 
