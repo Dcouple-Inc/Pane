@@ -53,7 +53,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
 
   // Right-side resizable
   const { width: detailWidth, startResize: startDetailResize } = useResizable({
-    defaultWidth: 280,
+    defaultWidth: 320,
     minWidth: 200,
     maxWidth: 500,
     storageKey: 'pane-project-detail-panel-width',

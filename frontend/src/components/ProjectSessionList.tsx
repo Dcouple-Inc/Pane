@@ -707,7 +707,11 @@ function SessionRow({
     }
   }
 
-  const iconColor = session.status === 'running' || session.status === 'initializing'
+  const iconColor = gs?.prState
+    ? gs.prState === 'MERGED' ? 'text-purple-400'
+    : gs.prState === 'CLOSED' ? 'text-red-400'
+    : 'text-green-400'
+    : session.status === 'running' || session.status === 'initializing'
     ? 'text-status-success'
     : session.status === 'waiting'
     ? 'text-status-warning'
@@ -759,7 +763,11 @@ function SessionRow({
         <button onClick={onClick} className="w-full text-left min-w-0">
           {/* Row 1: icon + name + diff stats */}
           <div className="flex items-center gap-2 min-w-0">
-            <GitBranch className={`w-3.5 h-3.5 flex-shrink-0 ${iconColor}`} />
+            {gs?.prNumber ? (
+              <GitPullRequest className={`w-3.5 h-3.5 flex-shrink-0 ${iconColor}`} />
+            ) : (
+              <GitBranch className={`w-3.5 h-3.5 flex-shrink-0 ${iconColor}`} />
+            )}
             {isEditing ? (
               <input
                 ref={editInputRef}
@@ -790,19 +798,12 @@ function SessionRow({
             {branch && <span className="truncate flex-shrink min-w-0">{branch}</span>}
             {branch && (gs?.prNumber || statusText) && <span className="flex-shrink-0">·</span>}
             {gs?.prNumber && (
-              <span className="text-text-secondary flex-shrink-0 flex items-center gap-1">
-                {gs.prState && (
-                  <Tooltip content={`PR ${gs.prState.charAt(0) + gs.prState.slice(1).toLowerCase()}`} side="top">
-                    <span
-                      className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                        gs.prState === 'MERGED' ? 'bg-purple-400' :
-                        gs.prState === 'CLOSED' ? 'bg-red-400' :
-                        'bg-green-400'
-                      }`}
-                    />
-                  </Tooltip>
-                )}
-                #{gs.prNumber}
+              <span className={`flex-shrink-0 ${
+                gs.prState === 'MERGED' ? 'text-purple-400' :
+                gs.prState === 'CLOSED' ? 'text-red-400' :
+                'text-green-400'
+              }`}>
+                #{gs.prNumber} {gs.prState ? gs.prState.charAt(0) + gs.prState.slice(1).toLowerCase() : ''}
               </span>
             )}
             {gs?.prNumber && statusText && <span className="flex-shrink-0">·</span>}

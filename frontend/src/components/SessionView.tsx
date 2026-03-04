@@ -604,7 +604,7 @@ export const SessionView = memo(() => {
 
   // Right-side resizable
   const { width: detailWidth, startResize: startDetailResize } = useResizable({
-    defaultWidth: 170,
+    defaultWidth: 200,
     minWidth: 140,
     maxWidth: 350,
     storageKey: 'pane-detail-panel-width',

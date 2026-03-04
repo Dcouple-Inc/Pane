@@ -84,7 +84,7 @@ function App() {
   const { isVisible: shortcutHintsVisible } = useShortcutHintsOverlay();
   
   const { width: sidebarWidth, startResize } = useResizable({
-    defaultWidth: 320,  // ~20% of screen width
+    defaultWidth: 352,
     minWidth: 200,
     maxWidth: 500,
     storageKey: 'pane-sidebar-width'
