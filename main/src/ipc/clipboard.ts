@@ -36,10 +36,11 @@ export function registerClipboardHandlers(ipcMain: IpcMain, { getMainWindow, ses
       const gitignorePath = path.join(paneDir, '.gitignore');
       await fs.writeFile(gitignorePath, '*\n', 'utf8');
 
-      // Save file with timestamp-based name
+      // Save file with timestamp + random suffix to avoid collisions on multi-file drops
       const timestamp = Date.now();
+      const suffix = Math.random().toString(36).substring(2, 7);
       const ext = path.extname(file.name) || `.${file.mimeType.split('/')[1] || 'bin'}`;
-      const filename = `${timestamp}${ext}`;
+      const filename = `${timestamp}-${suffix}${ext}`;
       const filePath = path.join(clipboardDir, filename);
       const base64Data = file.dataUrl.split(',')[1];
       await fs.writeFile(filePath, Buffer.from(base64Data, 'base64'));

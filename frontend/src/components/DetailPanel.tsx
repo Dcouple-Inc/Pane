@@ -2,6 +2,7 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { useSession } from '../contexts/SessionContext';
 import { GitBranch, AlertTriangle, Code2, Settings, Link, TerminalSquare, Copy, ClipboardPaste, Trash2, FileIcon } from 'lucide-react';
 import { useSessionStore, type ClipboardFile } from '../stores/sessionStore';
+import { usePanelStore } from '../stores/panelStore';
 import { Button } from './ui/Button';
 import { Tooltip } from './ui/Tooltip';
 import { Dropdown, DropdownMenuItem } from './ui/Dropdown';
@@ -64,21 +65,20 @@ export function DetailPanel({ isVisible, width, onResize, mergeError, projectGit
   }, []);
 
   const insertPath = useCallback(async (absolutePath: string) => {
-    const activeEl = document.activeElement;
-    const terminalContainer = activeEl?.closest('.xterm');
-
-    if (terminalContainer) {
-      const panelEl = terminalContainer.closest('[data-panel-id]');
-      const targetPanelId = panelEl?.getAttribute('data-panel-id');
-      if (targetPanelId) {
-        await window.electronAPI.invoke('terminal:input', targetPanelId, absolutePath);
+    // Find the active terminal panel for this session via the panel store
+    if (activeSessionId) {
+      const { activePanels, panels } = usePanelStore.getState();
+      const activePanelId = activePanels[activeSessionId];
+      const activePanel = (panels[activeSessionId] || []).find(p => p.id === activePanelId);
+      if (activePanel && activePanel.type === 'terminal') {
+        await window.electronAPI.invoke('terminal:input', activePanel.id, absolutePath);
         return;
       }
     }
 
     // Fallback: copy to OS clipboard
     await navigator.clipboard.writeText(absolutePath);
-  }, []);
+  }, [activeSessionId]);
 
   const deleteFile = useCallback(async (id: string) => {
     if (!activeSessionId) return;
