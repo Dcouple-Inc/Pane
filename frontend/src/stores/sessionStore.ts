@@ -8,17 +8,6 @@ import { create } from 'zustand';
 import type { Session, SessionOutput, GitStatus, ClaudeJsonMessage } from '../types/session';
 import { API } from '../utils/api';
 
-export interface ClipboardFile {
-  id: string;
-  sessionId: string;
-  filename: string;
-  absolutePath: string;
-  mimeType: string;
-  thumbnail: string;
-  size: number;
-  createdAt: string;
-}
-
 interface CreateSessionRequest {
   prompt: string;
   worktreeTemplate: string;
@@ -78,12 +67,6 @@ interface SessionStore {
   setSpotlightActive: (sessionId: string, projectId: number, active: boolean) => void;
   isSpotlightActive: (sessionId: string) => boolean;
   getSpotlightedSessionForProject: (projectId: number) => string | undefined;
-
-  // Clipboard files
-  clipboardFiles: Record<string, ClipboardFile[]>;
-  loadClipboardFiles: (sessionId: string) => Promise<void>;
-  addClipboardFile: (file: ClipboardFile) => void;
-  removeClipboardFile: (id: string, sessionId: string) => Promise<void>;
 }
 
 export const useSessionStore = create<SessionStore>((set, get) => ({
@@ -101,7 +84,6 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   pendingGitStatusUpdates: new Map(),
 
   activeSpotlights: new Map(),
-  clipboardFiles: {},
   
   setSessions: (sessions) => set({ sessions }),
   
@@ -750,54 +732,5 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   getSpotlightedSessionForProject: (projectId) => {
     return get().activeSpotlights.get(projectId);
-  },
-
-  loadClipboardFiles: async (sessionId: string) => {
-    try {
-      const result = await window.electronAPI.clipboard.list(sessionId);
-      if (result.success && result.data) {
-        const serverFiles = result.data as ClipboardFile[];
-        set((state) => {
-          // Merge: keep locally-added files that aren't in the server response yet
-          const serverIds = new Set(serverFiles.map(f => f.id));
-          const localOnly = (state.clipboardFiles[sessionId] || []).filter(f => !serverIds.has(f.id));
-          return {
-            clipboardFiles: {
-              ...state.clipboardFiles,
-              [sessionId]: [...localOnly, ...serverFiles],
-            },
-          };
-        });
-      }
-    } catch (error) {
-      console.error('[SessionStore] Failed to load clipboard files:', error);
-    }
-  },
-
-  addClipboardFile: (file: ClipboardFile) => {
-    set((state) => ({
-      clipboardFiles: {
-        ...state.clipboardFiles,
-        [file.sessionId]: [file, ...(state.clipboardFiles[file.sessionId] || [])],
-      },
-    }));
-  },
-
-  removeClipboardFile: async (id: string, sessionId: string) => {
-    try {
-      const result = await window.electronAPI.clipboard.delete(id);
-      if (!result.success) {
-        console.error('[SessionStore] Backend failed to delete clipboard file:', result.error);
-        return;
-      }
-      set((state) => ({
-        clipboardFiles: {
-          ...state.clipboardFiles,
-          [sessionId]: (state.clipboardFiles[sessionId] || []).filter(f => f.id !== id),
-        },
-      }));
-    } catch (error) {
-      console.error('[SessionStore] Failed to remove clipboard file:', error);
-    }
   },
 }));

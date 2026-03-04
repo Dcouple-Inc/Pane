@@ -27,17 +27,6 @@ interface IPCResponse<T = any> {
   command?: string;
 }
 
-interface ClipboardFile {
-  id: string;
-  sessionId: string;
-  filename: string;
-  absolutePath: string;
-  mimeType: string;
-  thumbnail: string;
-  size: number;
-  createdAt: string;
-}
-
 interface ElectronAPI {
   // Generic invoke method for direct IPC calls
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Generic IPC bridge that returns different types based on channel
@@ -381,13 +370,6 @@ interface ElectronAPI {
     getSnapshot: () => Promise<IPCResponse>;
     startActive: () => Promise<IPCResponse>;
     stopActive: () => Promise<IPCResponse>;
-  };
-
-  // Clipboard file operations
-  clipboard: {
-    save: (sessionId: string, file: { dataUrl: string; mimeType: string; name: string; size: number }) => Promise<IPCResponse<ClipboardFile>>;
-    list: (sessionId: string) => Promise<IPCResponse<ClipboardFile[]>>;
-    delete: (id: string) => Promise<IPCResponse>;
   };
 }
 

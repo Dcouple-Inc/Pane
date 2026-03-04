@@ -706,16 +706,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     startActive: (): Promise<IPCResponse> => ipcRenderer.invoke('resource-monitor:start-active'),
     stopActive: (): Promise<IPCResponse> => ipcRenderer.invoke('resource-monitor:stop-active'),
   },
-
-  // Clipboard file operations
-  clipboard: {
-    save: (sessionId: string, file: { dataUrl: string; mimeType: string; name: string; size: number }): Promise<IPCResponse> =>
-      ipcRenderer.invoke('clipboard:save', sessionId, file),
-    list: (sessionId: string): Promise<IPCResponse> =>
-      ipcRenderer.invoke('clipboard:list', sessionId),
-    delete: (id: string): Promise<IPCResponse> =>
-      ipcRenderer.invoke('clipboard:delete', id),
-  },
 });
 
 // Expose electron event listeners and utilities for permission requests

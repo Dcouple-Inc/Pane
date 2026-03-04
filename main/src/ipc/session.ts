@@ -306,14 +306,6 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
           }
         }
 
-        // Clean up clipboard DB rows (files are deleted when worktree is removed)
-        try {
-          databaseService.deleteClipboardFilesBySession(sessionId);
-          console.log(`[Session IPC] Cleaned up clipboard files for session ${sessionId}`);
-        } catch (clipboardError) {
-          console.error(`[Session IPC] Failed to cleanup clipboard files for session ${sessionId}:`, clipboardError);
-        }
-
         // Clean up session artifacts (images)
         const artifactsDir = getAppSubdirectory('artifacts', sessionId);
         if (existsSync(artifactsDir)) {
@@ -322,9 +314,9 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
             if (archiveProgressManager) {
               archiveProgressManager.updateTaskStatus(sessionId, 'cleaning-artifacts');
             }
-
+            
             await fs.rm(artifactsDir, { recursive: true, force: true });
-
+            
             cleanupMessage += `\x1b[32m✓ Artifacts removed successfully\x1b[0m\r\n`;
           } catch (artifactsError) {
             console.error(`[Main] Failed to remove artifacts for session ${sessionId}:`, artifactsError);
