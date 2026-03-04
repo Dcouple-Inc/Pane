@@ -22,6 +22,9 @@ export function registerClipboardHandlers(ipcMain: IpcMain, { getMainWindow, ses
     try {
       // Get session's worktree path (synchronous — sessionManager.getSession() is NOT async)
       const session = sessionManager.getSession(sessionId);
+      if (session?.isMainRepo) {
+        return { success: false, error: 'Clipboard files are not supported for main-repo sessions' };
+      }
       if (!session?.worktreePath) {
         return { success: false, error: 'Session does not have a worktree' };
       }
