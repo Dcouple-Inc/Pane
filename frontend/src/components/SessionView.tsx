@@ -78,6 +78,13 @@ export const SessionView = memo(() => {
   // History store for navigation
   const { addToHistory } = useSessionHistoryStore();
 
+  // Load clipboard files when active session changes
+  useEffect(() => {
+    if (activeSession?.id && !activeSession.isMainRepo) {
+      useSessionStore.getState().loadClipboardFiles(activeSession.id);
+    }
+  }, [activeSession?.id, activeSession?.isMainRepo]);
+
   // Load panels when session changes
   useEffect(() => {
     if (activeSession?.id) {

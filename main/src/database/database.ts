@@ -2144,6 +2144,31 @@ export class DatabaseService {
         // Don't throw - allow app to continue
       }
     }
+
+    // Add clipboard_files table for drag-and-drop file clipboard
+    const clipboardFilesTableExists = this.db.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='clipboard_files'"
+    ).get();
+
+    if (!clipboardFilesTableExists) {
+      this.db.prepare(`
+        CREATE TABLE clipboard_files (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
+          filename TEXT NOT NULL,
+          absolute_path TEXT NOT NULL,
+          mime_type TEXT NOT NULL,
+          thumbnail TEXT DEFAULT '',
+          size INTEGER DEFAULT 0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+        )
+      `).run();
+      this.db.prepare(
+        "CREATE INDEX idx_clipboard_files_session_id ON clipboard_files(session_id)"
+      ).run();
+      console.log("[Database] Created clipboard_files table");
+    }
   }
 
   // Project operations
@@ -4773,6 +4798,78 @@ export class DatabaseService {
       tools,
       totalToolCalls,
     };
+  }
+
+  // Clipboard file operations
+  addClipboardFile(
+    sessionId: string,
+    id: string,
+    filename: string,
+    absolutePath: string,
+    mimeType: string,
+    thumbnail: string,
+    size: number
+  ): void {
+    this.db.prepare(`
+      INSERT INTO clipboard_files (id, session_id, filename, absolute_path, mime_type, thumbnail, size)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(id, sessionId, filename, absolutePath, mimeType, thumbnail, size);
+  }
+
+  getClipboardFilesBySession(sessionId: string): Array<{
+    id: string;
+    session_id: string;
+    filename: string;
+    absolute_path: string;
+    mime_type: string;
+    thumbnail: string;
+    size: number;
+    created_at: string;
+  }> {
+    return this.db.prepare(`
+      SELECT * FROM clipboard_files WHERE session_id = ? ORDER BY created_at DESC
+    `).all(sessionId) as Array<{
+      id: string;
+      session_id: string;
+      filename: string;
+      absolute_path: string;
+      mime_type: string;
+      thumbnail: string;
+      size: number;
+      created_at: string;
+    }>;
+  }
+
+  getClipboardFile(id: string): {
+    id: string;
+    session_id: string;
+    filename: string;
+    absolute_path: string;
+    mime_type: string;
+    thumbnail: string;
+    size: number;
+    created_at: string;
+  } | undefined {
+    return this.db.prepare(`
+      SELECT * FROM clipboard_files WHERE id = ?
+    `).get(id) as {
+      id: string;
+      session_id: string;
+      filename: string;
+      absolute_path: string;
+      mime_type: string;
+      thumbnail: string;
+      size: number;
+      created_at: string;
+    } | undefined;
+  }
+
+  deleteClipboardFile(id: string): void {
+    this.db.prepare("DELETE FROM clipboard_files WHERE id = ?").run(id);
+  }
+
+  deleteClipboardFilesBySession(sessionId: string): void {
+    this.db.prepare("DELETE FROM clipboard_files WHERE session_id = ?").run(sessionId);
   }
 
   close(): void {

@@ -15,6 +15,7 @@ import { useTerminalLinks } from '../terminal/hooks/useTerminalLinks';
 import { TerminalLinkTooltip } from '../terminal/TerminalLinkTooltip';
 import { TerminalPopover, PopoverButton } from '../terminal/TerminalPopover';
 import { SelectionPopover } from '../terminal/SelectionPopover';
+import { useSessionStore } from '../../stores/sessionStore';
 import '@xterm/xterm/css/xterm.css';
 
 // Type for terminal state restoration
@@ -37,6 +38,7 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
   const [isInitialized, setIsInitialized] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   
   // Get session data from context using the safe hook
   const sessionContext = useSession();
@@ -69,6 +71,49 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
     workingDirectory: workingDirectory || '',
     sessionId: sessionId || panel.sessionId,
   });
+
+  // Drag-drop handlers for file clipboard
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    const hasFiles = Array.from(e.dataTransfer.items).some(item => item.kind === 'file');
+    if (hasFiles) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      setIsDragging(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    if (!e.relatedTarget || !e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (!sessionId) return;
+
+    const files = Array.from(e.dataTransfer.files).slice(0, 10);
+    for (const file of files) {
+      if (file.size > 10 * 1024 * 1024) continue; // 10MB limit
+
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        if (!ev.target?.result || typeof ev.target.result !== 'string') return;
+        const result = await window.electronAPI.clipboard.save(sessionId, {
+          dataUrl: ev.target.result,
+          mimeType: file.type,
+          name: file.name,
+          size: file.size,
+        });
+        if (result.success && result.data) {
+          useSessionStore.getState().addClipboardFile(result.data);
+        }
+      };
+      reader.onerror = () => console.error('[TerminalPanel] Failed to read dropped file:', file.name);
+      reader.readAsDataURL(file);
+    }
+  }, [sessionId]);
 
   // Initialize terminal only once when component first mounts
   // Keep it alive even when switching sessions
@@ -313,7 +358,42 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           // Handle paste events (Ctrl+V, voice transcription, external text injection)
           // XTerm.js in Electron doesn't handle clipboard paste natively, so we
           // intercept the paste event and feed it to the terminal explicitly
-          const handlePaste = (e: ClipboardEvent) => {
+          const handlePaste = async (e: ClipboardEvent) => {
+            // Check for image files FIRST (clipboard only supports images, not arbitrary files)
+            const items = e.clipboardData?.items;
+            if (items) {
+              for (let i = 0; i < items.length; i++) {
+                if (items[i].kind === 'file' && items[i].type.startsWith('image/')) {
+                  e.preventDefault();
+                  const file = items[i].getAsFile();
+                  if (!file || disposed) return;
+
+                  const reader = new FileReader();
+                  reader.onload = async (ev) => {
+                    if (!ev.target?.result || typeof ev.target.result !== 'string' || disposed) return;
+                    const dataUrl = ev.target.result;
+                    if (!sessionId) return;
+                    const result = await window.electronAPI.clipboard.save(sessionId, {
+                      dataUrl,
+                      mimeType: file.type,
+                      name: file.name || `screenshot-${Date.now()}.png`,
+                      size: file.size,
+                    });
+                    if (result.success && result.data && !disposed) {
+                      // Auto-insert path into PTY
+                      if (terminal) terminal.paste(result.data.absolutePath);
+                      // Add to session store
+                      useSessionStore.getState().addClipboardFile(result.data);
+                    }
+                  };
+                  reader.onerror = () => console.error('[TerminalPanel] Failed to read pasted file');
+                  reader.readAsDataURL(file);
+                  return; // Don't fall through to text paste
+                }
+              }
+            }
+
+            // Existing text paste behavior
             const text = e.clipboardData?.getData('text');
             if (text && terminal && !disposed) {
               e.preventDefault();
@@ -534,8 +614,22 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
 
   // Always render the terminal div to keep XTerm instance alive
   return (
-    <div className="h-full w-full relative" onMouseMove={onMouseMove}>
+    <div
+      className="h-full w-full relative"
+      data-panel-id={panel.id}
+      onMouseMove={onMouseMove}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <div ref={terminalRef} className="h-full w-full" />
+
+      {/* Drop overlay for file drag-and-drop */}
+      {isDragging && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-interactive/5 border border-dashed border-interactive/40 rounded pointer-events-none">
+          <span className="text-interactive/50 text-xs select-none">Ctrl+V or drop here</span>
+        </div>
+      )}
 
       {/* Refresh button - helps recover from stuck terminals */}
       {isInitialized && (

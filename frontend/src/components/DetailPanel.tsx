@@ -1,6 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { useSession } from '../contexts/SessionContext';
-import { GitBranch, AlertTriangle, Code2, Settings, Link, TerminalSquare } from 'lucide-react';
+import { GitBranch, AlertTriangle, Code2, Settings, Link, TerminalSquare, Copy, ClipboardPaste, Trash2, FileIcon } from 'lucide-react';
+import { useSessionStore, type ClipboardFile } from '../stores/sessionStore';
+import { usePanelStore } from '../stores/panelStore';
 import { Button } from './ui/Button';
 import { Tooltip } from './ui/Tooltip';
 import { Dropdown, DropdownMenuItem } from './ui/Dropdown';
@@ -50,6 +52,80 @@ function DetailSection({ title, children }: { title: string; children: React.Rea
 
 export function DetailPanel({ isVisible, width, onResize, mergeError, projectGitActions }: DetailPanelProps) {
   const sessionContext = useSession();
+
+  // Clipboard state
+  const activeSessionId = useSessionStore(state => state.activeSessionId);
+  const clipboardFiles = useSessionStore(state =>
+    state.activeSessionId ? (state.clipboardFiles[state.activeSessionId] ?? []) : []
+  );
+  const [isClipboardDragging, setIsClipboardDragging] = useState(false);
+
+  const copyPath = useCallback(async (absolutePath: string) => {
+    await navigator.clipboard.writeText(absolutePath);
+  }, []);
+
+  const insertPath = useCallback(async (absolutePath: string) => {
+    // Find the active terminal panel for this session via the panel store
+    if (activeSessionId) {
+      const { activePanels, panels } = usePanelStore.getState();
+      const activePanelId = activePanels[activeSessionId];
+      const activePanel = (panels[activeSessionId] || []).find(p => p.id === activePanelId);
+      if (activePanel && activePanel.type === 'terminal') {
+        await window.electronAPI.invoke('terminal:input', activePanel.id, absolutePath);
+        return;
+      }
+    }
+
+    // Fallback: copy to OS clipboard
+    await navigator.clipboard.writeText(absolutePath);
+  }, [activeSessionId]);
+
+  const deleteFile = useCallback(async (id: string) => {
+    if (!activeSessionId) return;
+    await useSessionStore.getState().removeClipboardFile(id, activeSessionId);
+  }, [activeSessionId]);
+
+  const handleClipboardDragOver = useCallback((e: React.DragEvent) => {
+    const hasFiles = Array.from(e.dataTransfer.items).some(item => item.kind === 'file');
+    if (hasFiles) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      setIsClipboardDragging(true);
+    }
+  }, []);
+
+  const handleClipboardDragLeave = useCallback((e: React.DragEvent) => {
+    if (!e.relatedTarget || !e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsClipboardDragging(false);
+    }
+  }, []);
+
+  const handleClipboardDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsClipboardDragging(false);
+    if (!activeSessionId) return;
+
+    const files = Array.from(e.dataTransfer.files).slice(0, 10);
+    for (const file of files) {
+      if (file.size > 10 * 1024 * 1024) continue;
+
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        if (!ev.target?.result || typeof ev.target.result !== 'string') return;
+        const result = await window.electronAPI.clipboard.save(activeSessionId, {
+          dataUrl: ev.target.result,
+          mimeType: file.type,
+          name: file.name,
+          size: file.size,
+        });
+        if (result.success && result.data) {
+          useSessionStore.getState().addClipboardFile(result.data);
+        }
+      };
+      reader.onerror = () => console.error('[DetailPanel] Failed to read dropped file:', file.name);
+      reader.readAsDataURL(file);
+    }
+  }, [activeSessionId]);
 
   // Build IDE dropdown items, sending safe IDE keys (resolved to commands server-side)
   const ideItems = useMemo(() => {
@@ -104,6 +180,58 @@ export function DetailPanel({ isVisible, width, onResize, mergeError, projectGit
             )}
           </span>
         </div>
+
+        {/* Clipboard — worktree sessions only */}
+        {!isProject && (
+          <DetailSection title="Clipboard">
+            {clipboardFiles.length === 0 ? (
+              <div
+                className={`text-text-tertiary text-xs px-1 py-2 border border-dashed rounded text-center ${
+                  isClipboardDragging ? 'border-interactive bg-interactive/10' : 'border-border-primary'
+                }`}
+                onDragOver={handleClipboardDragOver}
+                onDragLeave={handleClipboardDragLeave}
+                onDrop={handleClipboardDrop}
+              >
+                Drop files here or Ctrl+V in terminal
+              </div>
+            ) : (
+              <div
+                className={`space-y-1.5 px-1 ${
+                  isClipboardDragging ? 'ring-1 ring-interactive rounded' : ''
+                }`}
+                onDragOver={handleClipboardDragOver}
+                onDragLeave={handleClipboardDragLeave}
+                onDrop={handleClipboardDrop}
+              >
+                {clipboardFiles.slice(0, 3).map((file: ClipboardFile) => (
+                  <div key={file.id} className="flex items-center gap-2 group">
+                    <div className="w-8 h-8 flex items-center justify-center rounded border border-border-primary bg-surface-secondary flex-shrink-0">
+                      <FileIcon className={`w-4 h-4 ${file.mimeType.startsWith('image/') ? 'text-interactive' : 'text-text-tertiary'}`} />
+                    </div>
+                    <span className="text-xs text-text-secondary truncate flex-1 min-w-0">{file.filename}</span>
+                    <div className="flex gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => copyPath(file.absolutePath)} className="p-1 rounded hover:bg-surface-hover" title="Copy path">
+                        <Copy className="w-3 h-3 text-text-tertiary" />
+                      </button>
+                      <button onClick={() => insertPath(file.absolutePath)} className="p-1 rounded hover:bg-surface-hover" title="Insert into terminal">
+                        <ClipboardPaste className="w-3 h-3 text-text-tertiary" />
+                      </button>
+                      <button onClick={() => deleteFile(file.id)} className="p-1 rounded hover:bg-surface-hover" title="Delete">
+                        <Trash2 className="w-3 h-3 text-text-tertiary" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {clipboardFiles.length > 3 && (
+                  <div className="text-text-tertiary text-xs text-center py-1">
+                    +{clipboardFiles.length - 3} more
+                  </div>
+                )}
+              </div>
+            )}
+          </DetailSection>
+        )}
 
         {/* Changes — worktree sessions only */}
         {!isProject && gitStatus && (
