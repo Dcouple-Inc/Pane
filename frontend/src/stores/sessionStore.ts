@@ -756,12 +756,18 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     try {
       const result = await window.electronAPI.clipboard.list(sessionId);
       if (result.success && result.data) {
-        set((state) => ({
-          clipboardFiles: {
-            ...state.clipboardFiles,
-            [sessionId]: result.data!,
-          },
-        }));
+        const serverFiles = result.data as ClipboardFile[];
+        set((state) => {
+          // Merge: keep locally-added files that aren't in the server response yet
+          const serverIds = new Set(serverFiles.map(f => f.id));
+          const localOnly = (state.clipboardFiles[sessionId] || []).filter(f => !serverIds.has(f.id));
+          return {
+            clipboardFiles: {
+              ...state.clipboardFiles,
+              [sessionId]: [...localOnly, ...serverFiles],
+            },
+          };
+        });
       }
     } catch (error) {
       console.error('[SessionStore] Failed to load clipboard files:', error);
@@ -779,7 +785,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   removeClipboardFile: async (id: string, sessionId: string) => {
     try {
-      await window.electronAPI.clipboard.delete(id);
+      const result = await window.electronAPI.clipboard.delete(id);
+      if (!result.success) {
+        console.error('[SessionStore] Backend failed to delete clipboard file:', result.error);
+        return;
+      }
       set((state) => ({
         clipboardFiles: {
           ...state.clipboardFiles,
