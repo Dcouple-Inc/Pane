@@ -28,8 +28,11 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
+const os = require('os');
+
 const ROOT_DIR = path.resolve(__dirname, '..');
 const NODE_MODULES = path.join(ROOT_DIR, 'node_modules');
+const HOST_ARCH = os.arch(); // 'x64' or 'arm64'
 
 // Parse command line arguments
 const shouldPublish = process.argv.includes('--publish');
@@ -40,7 +43,7 @@ if (!['x64', 'arm64', 'both'].includes(arch)) {
   process.exit(1);
 }
 
-console.log(`\n🔨 Building Pane for Windows ${arch}\n`);
+console.log(`\n🔨 Building Pane for Windows ${arch} (host: ${HOST_ARCH})\n`);
 
 /**
  * Execute a command and print output
@@ -228,6 +231,8 @@ function downloadBetterSqlitePrebuiltForArch(targetArch) {
 
   console.log(`  📦 Electron version: ${electronVersion}, arch: ${targetArch}`);
 
+  const isCrossCompiling = targetArch !== HOST_ARCH;
+
   try {
     execSync(
       `npx prebuild-install --runtime electron --target ${electronVersion} --arch ${targetArch} --verbose`,
@@ -239,38 +244,44 @@ function downloadBetterSqlitePrebuiltForArch(targetArch) {
     );
     console.log(`  ✅ Downloaded Electron prebuilt for better-sqlite3 (${targetArch})`);
   } catch (error) {
-    console.error(`  ❌ Failed to download ${targetArch} prebuilt, will try to use existing binary`);
-    console.error(`     Error: ${error.message}`);
+    if (isCrossCompiling) {
+      // When cross-compiling, we MUST have the correct arch binary - abort the build
+      console.error(`  ❌ Failed to download ${targetArch} prebuilt for better-sqlite3.`);
+      console.error(`     Host arch is ${HOST_ARCH} but target is ${targetArch} - cannot use existing binary.`);
+      console.error(`     Error: ${error.message}`);
+      process.exit(1);
+    }
+    // Same arch as host - the existing binary from pnpm install should work
+    console.warn(`  ⚠️  Failed to download ${targetArch} prebuilt, using existing binary (host arch matches)`);
+    console.warn(`     Error: ${error.message}`);
   }
 }
 
 /**
  * Download Electron-compatible prebuilts for better-sqlite3-multiple-ciphers.
- * When building 'both' architectures, only downloads for the initial build (x64).
- * ARM64 prebuilt is downloaded separately before the ARM64 build.
+ * When building 'both' architectures, downloads for the first build target (x64).
+ * The other arch prebuilt is downloaded separately before its build.
+ * When building a single arch that matches the host, this may be a no-op since
+ * pnpm install already provides the correct binary.
  */
 function downloadBetterSqlitePrebuilt() {
-  // For 'both', we'll download x64 first, then download arm64 before the arm64 build
+  // For 'both', we build x64 first, then arm64
   const targetArch = arch === 'both' ? 'x64' : arch;
   downloadBetterSqlitePrebuiltForArch(targetArch);
 }
 
 /**
- * Install ARM64-specific native module prebuilts for cross-arch packaging.
+ * Install a cross-arch native module prebuilt for node-pty.
  *
- * When building on x64, pnpm only installs x64 optional dependencies.
- * For ARM64 builds, we need to manually install the ARM64 platform packages
+ * pnpm only installs optional dependencies matching the host architecture.
+ * For cross-arch builds, we need to manually install the target platform package
  * into the pnpm virtual store and create the appropriate symlinks so
  * electron-builder includes them in the packaged app.
  */
-function installArm64NativeModules() {
-  if (arch !== 'arm64' && arch !== 'both') return;
-
-  console.log('📥 Installing ARM64 native module prebuilts...');
-
+function installNodePtyForArch(targetArch) {
   const nodePtyVersion = '1.2.0-beta.3';
-  const pkgName = '@lydell/node-pty-win32-arm64';
-  const hoistedLink = path.join(NODE_MODULES, '@lydell', 'node-pty-win32-arm64');
+  const pkgName = `@lydell/node-pty-win32-${targetArch}`;
+  const hoistedLink = path.join(NODE_MODULES, '@lydell', `node-pty-win32-${targetArch}`);
 
   if (fs.existsSync(hoistedLink)) {
     console.log(`  ℹ️  ${pkgName} already installed`);
@@ -278,7 +289,7 @@ function installArm64NativeModules() {
   }
 
   console.log(`  📦 Installing ${pkgName}@${nodePtyVersion}...`);
-  const tmpDir = path.join(ROOT_DIR, 'tmp-arm64');
+  const tmpDir = path.join(ROOT_DIR, `tmp-${targetArch}`);
 
   try {
     // Download the tarball
@@ -294,11 +305,11 @@ function installArm64NativeModules() {
       throw new Error('No tarball downloaded');
     }
 
-    // Extract into pnpm virtual store structure (mirroring the x64 layout)
+    // Extract into pnpm virtual store structure
     const pnpmStoreDir = path.join(
       NODE_MODULES, '.pnpm',
-      `@lydell+node-pty-win32-arm64@${nodePtyVersion}`,
-      'node_modules', '@lydell', 'node-pty-win32-arm64'
+      `@lydell+node-pty-win32-${targetArch}@${nodePtyVersion}`,
+      'node_modules', '@lydell', `node-pty-win32-${targetArch}`
     );
     fs.mkdirSync(pnpmStoreDir, { recursive: true });
 
@@ -316,10 +327,27 @@ function installArm64NativeModules() {
 
     console.log(`  ✅ Installed ${pkgName}`);
   } catch (error) {
-    console.error(`  ❌ Failed to install ARM64 node-pty: ${error.message}`);
+    console.error(`  ❌ Failed to install ${targetArch} node-pty: ${error.message}`);
   } finally {
     // Cleanup temp dir
     fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Install cross-arch native module prebuilts for node-pty.
+ *
+ * Detects which architectures need cross-arch installation based on the host
+ * architecture and the target build architecture(s).
+ */
+function installCrossArchNativeModules() {
+  const targetArchs = arch === 'both' ? ['x64', 'arm64'] : [arch];
+
+  for (const targetArch of targetArchs) {
+    if (targetArch === HOST_ARCH) continue; // Already installed by pnpm
+
+    console.log(`📥 Installing ${targetArch} native module prebuilts (cross-arch from ${HOST_ARCH})...`);
+    installNodePtyForArch(targetArch);
   }
 }
 
@@ -331,7 +359,7 @@ async function build() {
   patchWinptyGyp();
   copyNodeAddonApi();
   downloadBetterSqlitePrebuilt();
-  installArm64NativeModules();
+  installCrossArchNativeModules();
 
   console.log('\n🔧 Step 2: Building frontend...\n');
   run('pnpm run build:frontend');
