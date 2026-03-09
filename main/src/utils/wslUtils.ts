@@ -53,21 +53,26 @@ export function posixJoin(...segments: string[]): string {
 
 /**
  * Escape a string for use inside a bash -c "..." double-quoted context.
- * On Windows, Node's child_process.execSync runs through cmd.exe which
- * doesn't understand single quotes. We must use double quotes for the
- * outer bash -c wrapper and escape special chars inside.
+ * Only escapes bash special characters. Use escapeForCmdExecBashDoubleQuote()
+ * when the command goes through cmd.exe (e.g., child_process.execSync).
  */
 export function escapeForBashDoubleQuote(str: string): string {
-  // First: escape % for Windows cmd.exe (% → %% prevents env var expansion).
-  // cmd.exe processes the string BEFORE wsl.exe/bash sees it, so without this,
-  // %s in git --pretty=format:"%H|%s|..." gets interpreted as an env var.
-  // Then escape bash double-quote special chars: \ ` $ "
+  // In double-quoted strings, escape: \ ` $ " !
   return str
-    .replace(/%/g, '%%')
     .replace(/\\/g, '\\\\')
     .replace(/"/g, '\\"')
     .replace(/`/g, '\\`')
     .replace(/\$/g, '\\$');
+}
+
+/**
+ * Escape a string for use inside a bash -c "..." context that is executed
+ * through Windows cmd.exe (e.g., via child_process.execSync/execAsync).
+ * Escapes % for cmd.exe FIRST (% → %% prevents env var expansion), then
+ * escapes bash double-quote special chars.
+ */
+export function escapeForCmdExecBashDoubleQuote(str: string): string {
+  return escapeForBashDoubleQuote(str.replace(/%/g, '%%'));
 }
 
 /**
@@ -77,11 +82,11 @@ export function escapeForBashDoubleQuote(str: string): string {
  */
 export function wrapCommandForWSL(command: string, distro: string, cwd?: string): string {
   if (cwd) {
-    const escapedCwd = escapeForBashDoubleQuote(cwd);
-    const escapedCmd = escapeForBashDoubleQuote(command);
+    const escapedCwd = escapeForCmdExecBashDoubleQuote(cwd);
+    const escapedCmd = escapeForCmdExecBashDoubleQuote(command);
     return `wsl.exe -d ${distro} -- bash -c "cd '${escapedCwd}' && ${escapedCmd}"`;
   }
-  return `wsl.exe -d ${distro} -- bash -c "${escapeForBashDoubleQuote(command)}"`;
+  return `wsl.exe -d ${distro} -- bash -c "${escapeForCmdExecBashDoubleQuote(command)}"`;
 }
 
 /**
