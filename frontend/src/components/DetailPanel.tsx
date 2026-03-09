@@ -73,9 +73,11 @@ export function DetailPanel({ isVisible, width, onResize, mergeError, projectGit
   const { session, gitBranchActions, isMerging, gitCommands, onOpenIDEWithCommand, onConfigureIDE, onSetTracking, trackingBranch } = sessionContext;
   const gitStatus = session.gitStatus;
   const isProject = !!session.isMainRepo;
-  // Only treat git as unavailable when status was never loaded (no gitStatus at all).
-  // Don't hide git UI for transient failures (state === 'unknown') — those can recover.
-  const gitUnavailable = isProject && !gitStatus;
+  // Treat git as unavailable only when status has loaded but indicates failure.
+  // gitStatus is undefined while still loading — don't hide UI in that window.
+  // state === 'unknown' means the git status fetch completed but git commands failed;
+  // if it's a transient failure, the next poll cycle will recover and update the state.
+  const gitUnavailable = isProject && gitStatus?.state === 'unknown';
 
   return (
     <div
