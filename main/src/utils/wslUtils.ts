@@ -58,8 +58,12 @@ export function posixJoin(...segments: string[]): string {
  * outer bash -c wrapper and escape special chars inside.
  */
 export function escapeForBashDoubleQuote(str: string): string {
-  // In double-quoted strings, escape: \ ` $ " !
+  // First: escape % for Windows cmd.exe (% → %% prevents env var expansion).
+  // cmd.exe processes the string BEFORE wsl.exe/bash sees it, so without this,
+  // %s in git --pretty=format:"%H|%s|..." gets interpreted as an env var.
+  // Then escape bash double-quote special chars: \ ` $ "
   return str
+    .replace(/%/g, '%%')
     .replace(/\\/g, '\\\\')
     .replace(/"/g, '\\"')
     .replace(/`/g, '\\`')

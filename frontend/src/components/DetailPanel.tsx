@@ -73,6 +73,7 @@ export function DetailPanel({ isVisible, width, onResize, mergeError, projectGit
   const { session, gitBranchActions, isMerging, gitCommands, onOpenIDEWithCommand, onConfigureIDE, onSetTracking, trackingBranch } = sessionContext;
   const gitStatus = session.gitStatus;
   const isProject = !!session.isMainRepo;
+  const gitUnavailable = isProject && (!gitStatus || gitStatus.state === 'unknown');
 
   return (
     <div
@@ -137,10 +138,10 @@ export function DetailPanel({ isVisible, width, onResize, mergeError, projectGit
         )}
 
         {/* Branch actions */}
-        {!isProject && (onSetTracking || onOpenIDEWithCommand) && (
+        {((!isProject && (onSetTracking || onOpenIDEWithCommand)) || (isProject && onOpenIDEWithCommand)) && (
           <DetailSection title="Branch">
             <div className="space-y-0.5">
-              {onSetTracking && (
+              {!gitUnavailable && onSetTracking && (
                 <Tooltip content="Set upstream tracking branch for git pull/push" side="left">
                   <Button variant="ghost" size="sm" className={sidebarBtn} onClick={onSetTracking} disabled={isMerging}>
                     <Link className="w-4 h-4 mr-2 flex-shrink-0" />
@@ -192,6 +193,13 @@ export function DetailPanel({ isVisible, width, onResize, mergeError, projectGit
         )}
 
         {/* Git actions */}
+        {gitUnavailable ? (
+          <div className="px-3 py-4 border-b border-border-primary">
+            <p className="text-xs text-text-tertiary">
+              Git features unavailable. Initialize a git repository to enable history, branches, and sync.
+            </p>
+          </div>
+        ) : (
         <DetailSection title="Actions">
           <div className="space-y-0.5">
             {/* Worktree actions — ordered by workflow */}
@@ -350,10 +358,11 @@ export function DetailPanel({ isVisible, width, onResize, mergeError, projectGit
             )}
           </div>
         </DetailSection>
+        )}
       </div>
 
       {/* History — fills remaining space, only this section scrolls */}
-      {session.worktreePath && (
+      {!gitUnavailable && session.worktreePath && (
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
           <div className="px-2 pt-2 flex-shrink-0">
             <SectionHeader>History</SectionHeader>
