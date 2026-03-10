@@ -11,6 +11,7 @@ import { SessionView } from './components/SessionView';
 import Help from './components/Help';
 import Welcome from './components/Welcome';
 import AnalyticsConsentDialog from './components/AnalyticsConsentDialog';
+import OnboardingDialog from './components/OnboardingDialog';
 import { AboutDialog } from './components/AboutDialog';
 import { UpdateDialog } from './components/UpdateDialog';
 import { MainProcessLogger } from './components/MainProcessLogger';
@@ -67,6 +68,8 @@ function App() {
   const [currentPermissionRequest, setCurrentPermissionRequest] = useState<PermissionRequest | null>(null);
   const [isDiscordOpen, setIsDiscordOpen] = useState(false);
   const [hasCheckedWelcome, setHasCheckedWelcome] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
   const [isTokenTestOpen, setIsTokenTestOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -287,11 +290,31 @@ function App() {
     };
   }, []);
 
+  // Check if onboarding should be shown (after analytics consent, before welcome)
+  useEffect(() => {
+    if (hasCheckedOnboarding || isAnalyticsConsentOpen) return;
+
+    const checkOnboarding = async () => {
+      if (!window.electron?.invoke) return;
+      try {
+        const result = await window.electron.invoke('preferences:get', 'onboarding_repo_setup') as IPCResponse<string>;
+        if (result?.data !== 'true') {
+          setIsOnboardingOpen(true);
+        }
+      } catch (error) {
+        console.error('[App] Error checking onboarding:', error);
+      }
+    };
+
+    setHasCheckedOnboarding(true);
+    checkOnboarding();
+  }, [hasCheckedOnboarding, isAnalyticsConsentOpen]);
+
   useEffect(() => {
     // Show welcome screen and Discord popup intelligently based on user state
     // This should only run once when the app is loaded, not when sessions change
-    // Don't show welcome while analytics consent dialog is open
-    if (!isLoaded || hasCheckedWelcome || isAnalyticsConsentOpen) {
+    // Don't show welcome while analytics consent or onboarding dialogs are open
+    if (!isLoaded || hasCheckedWelcome || isAnalyticsConsentOpen || isOnboardingOpen) {
       return;
     }
 
@@ -390,7 +413,7 @@ function App() {
     // Set the flag first to prevent re-runs
     setHasCheckedWelcome(true);
     checkInitialState();
-  }, [isLoaded, isAnalyticsConsentOpen]); // Also wait for analytics consent dialog to close
+  }, [isLoaded, isAnalyticsConsentOpen, isOnboardingOpen]); // Also wait for analytics consent and onboarding dialogs to close
 
   // Discord popup logic is now combined with welcome screen logic above
 
@@ -505,6 +528,13 @@ function App() {
         <AnalyticsConsentDialog
           isOpen={isAnalyticsConsentOpen}
           onClose={() => setIsAnalyticsConsentOpen(false)}
+        />
+        <OnboardingDialog
+          isOpen={isOnboardingOpen}
+          onClose={() => {
+            setIsOnboardingOpen(false);
+            window.dispatchEvent(new Event('project-changed'));
+          }}
         />
         <Welcome isOpen={isWelcomeOpen} onClose={() => setIsWelcomeOpen(false)} />
         <AboutDialog isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} onUpdate={handleAboutUpdate} />
