@@ -290,9 +290,10 @@ function App() {
     };
   }, []);
 
-  // Check if onboarding should be shown (after analytics consent, before welcome)
+  // Check if onboarding should be shown (after analytics consent completes, before welcome)
   useEffect(() => {
-    if (hasCheckedOnboarding || isAnalyticsConsentOpen) return;
+    // Wait until the analytics consent check has finished AND the consent dialog is closed
+    if (hasCheckedOnboarding || !hasCheckedAnalyticsConsent || isAnalyticsConsentOpen) return;
 
     const checkOnboarding = async () => {
       if (!window.electron?.invoke) return;
@@ -308,7 +309,7 @@ function App() {
 
     setHasCheckedOnboarding(true);
     checkOnboarding();
-  }, [hasCheckedOnboarding, isAnalyticsConsentOpen]);
+  }, [hasCheckedOnboarding, hasCheckedAnalyticsConsent, isAnalyticsConsentOpen]);
 
   useEffect(() => {
     // Show welcome screen and Discord popup intelligently based on user state

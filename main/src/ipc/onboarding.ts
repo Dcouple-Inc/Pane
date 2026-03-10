@@ -6,6 +6,12 @@ import { execSync } from 'child_process';
 import type { AppServices } from './types';
 import { getAppDirectory } from '../utils/appDirectory';
 import { CommandRunner } from '../utils/commandRunner';
+import { getShellPath } from '../utils/shellPath';
+
+/** Returns exec options that include the user's full shell PATH (Homebrew, nvm, etc.). */
+function shellExecOpts(extra?: Record<string, unknown>): Record<string, unknown> {
+  return { ...extra, env: { ...process.env, PATH: getShellPath() } };
+}
 
 const PANE_REPO = 'Dcouple-Inc/Pane';
 const PANE_REPO_URL = `https://github.com/${PANE_REPO}.git`;
@@ -19,9 +25,9 @@ interface EnvironmentInfo {
 function detectEnvironment(): EnvironmentInfo {
   const result: EnvironmentInfo = { gitInstalled: false, ghInstalled: false, ghAuthenticated: false };
 
-  // Check git
+  // Check git (use shell-aware PATH so packaged apps find Homebrew/nvm binaries)
   try {
-    execSync('git --version', { stdio: 'ignore' });
+    execSync('git --version', shellExecOpts({ stdio: 'ignore' }));
     result.gitInstalled = true;
   } catch {
     return result;
@@ -29,7 +35,7 @@ function detectEnvironment(): EnvironmentInfo {
 
   // Check gh CLI
   try {
-    execSync('gh --version', { stdio: 'ignore' });
+    execSync('gh --version', shellExecOpts({ stdio: 'ignore' }));
     result.ghInstalled = true;
   } catch {
     return result;
@@ -37,7 +43,7 @@ function detectEnvironment(): EnvironmentInfo {
 
   // Check gh authentication
   try {
-    execSync('gh auth status', { stdio: 'ignore' });
+    execSync('gh auth status', shellExecOpts({ stdio: 'ignore' }));
     result.ghAuthenticated = true;
   } catch {
     // gh installed but not authenticated
@@ -49,7 +55,7 @@ function detectEnvironment(): EnvironmentInfo {
 function isValidGitRepo(path: string): boolean {
   if (!existsSync(join(path, '.git'))) return false;
   try {
-    execSync('git rev-parse --is-inside-work-tree', { cwd: path, stdio: 'ignore' });
+    execSync('git rev-parse --is-inside-work-tree', shellExecOpts({ cwd: path, stdio: 'ignore' }));
     return true;
   } catch {
     return false;
@@ -112,7 +118,7 @@ export function registerOnboardingHandlers(ipcMain: IpcMain, services: AppServic
               try {
                 const forkName = execSync(
                   `gh repo list --fork --limit 1000 --json nameWithOwner,parent -q '.[] | select(.parent.nameWithOwner == "${PANE_REPO}") | .nameWithOwner'`,
-                  { encoding: 'utf-8', timeout: 30000 }
+                  shellExecOpts({ encoding: 'utf-8', timeout: 30000 }) as { encoding: 'utf-8'; timeout: number }
                 ).trim();
 
                 if (forkName) {
@@ -232,7 +238,7 @@ export function registerOnboardingHandlers(ipcMain: IpcMain, services: AppServic
   // Star the Pane repo via gh API
   ipcMain.handle('onboarding:star-repo', async () => {
     try {
-      execSync(`gh api -X PUT /user/starred/${PANE_REPO}`, { stdio: 'ignore', timeout: 15000 });
+      execSync(`gh api -X PUT /user/starred/${PANE_REPO}`, shellExecOpts({ stdio: 'ignore', timeout: 15000 }));
 
       if (analyticsManager) {
         analyticsManager.track('onboarding_repo_starred');
