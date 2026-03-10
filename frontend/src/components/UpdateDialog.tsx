@@ -32,6 +32,16 @@ export function UpdateDialog({ isOpen, onClose, versionInfo }: UpdateDialogProps
   const [error, setError] = useState<string | null>(null);
   const [isPackaged, setIsPackaged] = useState(false);
 
+  // Reset internal state whenever the dialog opens so stale error/progress state
+  // from a previous attempt doesn't persist across opens
+  useEffect(() => {
+    if (isOpen) {
+      setUpdateState('idle');
+      setDownloadProgress(null);
+      setError(null);
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     // Check if app is packaged (auto-update only works in packaged apps)
     if (window.electronAPI?.isPackaged) {
