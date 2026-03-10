@@ -292,7 +292,6 @@ function App() {
   }, []);
 
   // Check if onboarding should be shown (after analytics consent completes, before welcome)
-  // Check if onboarding should be shown (after analytics consent completes, before welcome)
   useEffect(() => {
     // Wait until the analytics consent check has finished AND the consent dialog is closed
     if (hasCheckedOnboarding || onboardingCheckStarted.current || !hasCheckedAnalyticsConsent || isAnalyticsConsentOpen) return;

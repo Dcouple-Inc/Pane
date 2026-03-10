@@ -61,8 +61,9 @@ function isPaneRepo(repoPath: string): boolean {
       'git remote get-url origin',
       shellExecOpts({ cwd: repoPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }) as { cwd: string; encoding: 'utf-8' }
     )).trim().toLowerCase();
-    // Accept the canonical repo or any fork (URL contains /Pane.git or /Pane)
-    return origin.includes('dcouple-inc/pane') || origin.includes('/pane.git') || origin.includes('/pane');
+    // Match exactly "Pane" as the repo name (canonical or any fork)
+    // Handles HTTPS (github.com/owner/Pane.git), SSH (git@github.com:owner/Pane.git), and bare forms
+    return /[/:]dcouple-inc\/pane(\.git)?$/i.test(origin) || /[/:][\w.-]+\/pane(\.git)?$/i.test(origin);
   } catch {
     return false;
   }
@@ -95,10 +96,12 @@ export function registerOnboardingHandlers(ipcMain: IpcMain, services: AppServic
       const alreadyCloned = isPaneRepo(clonePath);
 
       if (!alreadyCloned) {
-        // If directory exists but isn't a valid repo, remove it
+        // If directory exists but isn't a valid Pane repo, refuse to overwrite
         if (existsSync(clonePath)) {
-          const { rm } = await import('fs/promises');
-          await rm(clonePath, { recursive: true, force: true });
+          return {
+            success: false,
+            error: `The directory ${clonePath} already exists but does not appear to be a Pane repository. Please remove or rename it and try again.`,
+          };
         }
 
         const env = detectEnvironment();
