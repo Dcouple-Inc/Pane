@@ -52,11 +52,17 @@ function detectEnvironment(): EnvironmentInfo {
   return result;
 }
 
-function isValidGitRepo(path: string): boolean {
-  if (!existsSync(join(path, '.git'))) return false;
+/** Checks that the path is a git repo whose origin points to the Pane repository (or a fork of it). */
+function isPaneRepo(repoPath: string): boolean {
+  if (!existsSync(join(repoPath, '.git'))) return false;
   try {
-    execSync('git rev-parse --is-inside-work-tree', shellExecOpts({ cwd: path, stdio: 'ignore' }));
-    return true;
+    execSync('git rev-parse --is-inside-work-tree', shellExecOpts({ cwd: repoPath, stdio: 'ignore' }));
+    const origin = (execSync(
+      'git remote get-url origin',
+      shellExecOpts({ cwd: repoPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }) as { cwd: string; encoding: 'utf-8' }
+    )).trim().toLowerCase();
+    // Accept the canonical repo or any fork (URL contains /Pane.git or /Pane)
+    return origin.includes('dcouple-inc/pane') || origin.includes('/pane.git') || origin.includes('/pane');
   } catch {
     return false;
   }
@@ -86,7 +92,7 @@ export function registerOnboardingHandlers(ipcMain: IpcMain, services: AppServic
       await mkdir(projectsDir, { recursive: true });
 
       // Check if already cloned and valid
-      const alreadyCloned = isValidGitRepo(clonePath);
+      const alreadyCloned = isPaneRepo(clonePath);
 
       if (!alreadyCloned) {
         // If directory exists but isn't a valid repo, remove it

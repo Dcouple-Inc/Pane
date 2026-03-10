@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useIPCEvents } from './hooks/useIPCEvents';
 import { useNotifications } from './hooks/useNotifications';
 import { useResizable } from './hooks/useResizable';
@@ -70,6 +70,8 @@ function App() {
   const [hasCheckedWelcome, setHasCheckedWelcome] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
+  const analyticsCheckStarted = useRef(false);
+  const onboardingCheckStarted = useRef(false);
   const [isTokenTestOpen, setIsTokenTestOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -211,30 +213,29 @@ function App() {
 
   // Check if analytics consent dialog should be shown (before other dialogs)
   useEffect(() => {
-    if (hasCheckedAnalyticsConsent) {
-      return;
-    }
+    if (hasCheckedAnalyticsConsent || analyticsCheckStarted.current) return;
+    analyticsCheckStarted.current = true;
 
     const checkAnalyticsConsent = async () => {
       if (!window.electron?.invoke) {
+        setHasCheckedAnalyticsConsent(true);
         return;
       }
 
       try {
-        // Check if consent has already been shown
         const consentResult = await window.electron.invoke('preferences:get', 'analytics_consent_shown') as IPCResponse<string>;
         const hasShownConsent = consentResult?.data === 'true';
 
         if (!hasShownConsent) {
-          // Show consent dialog
           setIsAnalyticsConsentOpen(true);
         }
       } catch (error) {
         console.error('[App] Error checking analytics consent:', error);
+      } finally {
+        setHasCheckedAnalyticsConsent(true);
       }
     };
 
-    setHasCheckedAnalyticsConsent(true);
     checkAnalyticsConsent();
   }, [hasCheckedAnalyticsConsent]);
 
@@ -291,12 +292,17 @@ function App() {
   }, []);
 
   // Check if onboarding should be shown (after analytics consent completes, before welcome)
+  // Check if onboarding should be shown (after analytics consent completes, before welcome)
   useEffect(() => {
     // Wait until the analytics consent check has finished AND the consent dialog is closed
-    if (hasCheckedOnboarding || !hasCheckedAnalyticsConsent || isAnalyticsConsentOpen) return;
+    if (hasCheckedOnboarding || onboardingCheckStarted.current || !hasCheckedAnalyticsConsent || isAnalyticsConsentOpen) return;
+    onboardingCheckStarted.current = true;
 
     const checkOnboarding = async () => {
-      if (!window.electron?.invoke) return;
+      if (!window.electron?.invoke) {
+        setHasCheckedOnboarding(true);
+        return;
+      }
       try {
         const result = await window.electron.invoke('preferences:get', 'onboarding_repo_setup') as IPCResponse<string>;
         if (result?.data !== 'true') {
@@ -304,10 +310,11 @@ function App() {
         }
       } catch (error) {
         console.error('[App] Error checking onboarding:', error);
+      } finally {
+        setHasCheckedOnboarding(true);
       }
     };
 
-    setHasCheckedOnboarding(true);
     checkOnboarding();
   }, [hasCheckedOnboarding, hasCheckedAnalyticsConsent, isAnalyticsConsentOpen]);
 
