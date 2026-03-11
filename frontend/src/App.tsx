@@ -305,7 +305,13 @@ function App() {
       try {
         const result = await window.electron.invoke('preferences:get', 'onboarding_repo_setup') as IPCResponse<string>;
         if (result?.data !== 'true') {
-          setIsOnboardingOpen(true);
+          // Only show onboarding for truly new users (no existing projects).
+          // Existing users who upgrade won't have this preference but already have projects.
+          const projectsRes = await API.projects.getAll();
+          const hasExistingProjects = projectsRes.success && projectsRes.data && projectsRes.data.length > 0;
+          if (!hasExistingProjects) {
+            setIsOnboardingOpen(true);
+          }
         }
       } catch (error) {
         console.error('[App] Error checking onboarding:', error);
