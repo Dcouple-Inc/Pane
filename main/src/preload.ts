@@ -429,6 +429,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
   },
 
+  // Onboarding
+  onboarding: {
+    detectEnvironment: (): Promise<IPCResponse> => ipcRenderer.invoke('onboarding:detect-environment'),
+    setupDefaultRepo: (): Promise<IPCResponse> => ipcRenderer.invoke('onboarding:setup-default-repo'),
+    starRepo: (): Promise<IPCResponse> => ipcRenderer.invoke('onboarding:star-repo'),
+  },
+
   // UI State management
   uiState: {
     getExpanded: (): Promise<IPCResponse> => ipcRenderer.invoke('ui-state:get-expanded'),
