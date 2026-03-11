@@ -52,24 +52,26 @@ function detectEnvironment(): EnvironmentInfo {
   return result;
 }
 
-/** Checks that the path is a git repo related to Dcouple-Inc/Pane (canonical or a fork with upstream set). */
+/** Checks that the path is a git repo related to Dcouple-Inc/Pane (canonical or a fork cloned via `gh repo clone`). */
 function isPaneRepo(repoPath: string): boolean {
   if (!existsSync(join(repoPath, '.git'))) return false;
   try {
     execSync('git rev-parse --is-inside-work-tree', shellExecOpts({ cwd: repoPath, stdio: 'ignore' }));
     const execOpts = shellExecOpts({ cwd: repoPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }) as { cwd: string; encoding: 'utf-8' };
     const canonicalPattern = /[/:]dcouple-inc\/pane(\.git)?$/i;
+    // Fork pattern: any GitHub-hosted repo named exactly "Pane" (gh repo clone sets origin to user's fork)
+    const forkPattern = /github\.com[/:][\w.-]+\/pane(\.git)?$/i;
 
-    // Check origin
+    // Check origin — accept canonical or any GitHub fork named "Pane"
     const origin = execSync('git remote get-url origin', execOpts).trim();
-    if (canonicalPattern.test(origin)) return true;
+    if (canonicalPattern.test(origin) || forkPattern.test(origin)) return true;
 
-    // For forks, check upstream remote (gh sets this automatically)
+    // Also check upstream remote (gh sometimes sets this for forks)
     try {
       const upstream = execSync('git remote get-url upstream', execOpts).trim();
       if (canonicalPattern.test(upstream)) return true;
     } catch {
-      // No upstream remote — not a fork
+      // No upstream remote
     }
 
     return false;

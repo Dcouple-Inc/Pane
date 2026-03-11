@@ -83,15 +83,23 @@ export default function OnboardingDialog({ isOpen, onClose }: OnboardingDialogPr
 
   const handleSkip = async () => {
     capture('onboarding_skipped');
-    if (window.electron?.invoke) {
-      await window.electron.invoke('preferences:set', 'onboarding_repo_setup', 'true');
+    try {
+      if (window.electron?.invoke) {
+        await window.electron.invoke('preferences:set', 'onboarding_repo_setup', 'true');
+      }
+    } catch {
+      // Ensure dialog closes even if preference write fails
     }
     onClose();
   };
 
   const handleFinish = async () => {
-    if (window.electron?.invoke) {
-      await window.electron.invoke('preferences:set', 'onboarding_repo_setup', 'true');
+    try {
+      if (window.electron?.invoke) {
+        await window.electron.invoke('preferences:set', 'onboarding_repo_setup', 'true');
+      }
+    } catch {
+      // Ensure dialog closes even if preference write fails
     }
     // Parent onClose handler dispatches 'project-changed', so no need to dispatch here
     onClose();
