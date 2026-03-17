@@ -1,9 +1,195 @@
-import { IpcMain, BrowserWindow } from 'electron';
+import { IpcMain, BrowserWindow, clipboard } from 'electron';
+import { existsSync, readdirSync } from 'fs';
+import fs from 'fs/promises';
+import path from 'path';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { panelManager } from '../services/panelManager';
 import { terminalPanelManager } from '../services/terminalPanelManager';
 import { databaseService } from '../services/database';
 import { CreatePanelRequest, PanelEventType, ToolPanel } from '../../../shared/types/panels';
 import type { AppServices } from './types';
+import { getAppSubdirectory } from '../utils/appDirectory';
+
+const execFileAsync = promisify(execFile);
+
+// In-memory cache: sessionId -> imageCount for terminal image paste
+// Initialized from disk on first paste per session to survive app restarts
+export const sessionImageCounters = new Map<string, number>();
+
+// MIME type to file extension mapping
+const MIME_EXTENSIONS: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
+  'image/bmp': 'bmp',
+};
+
+// Cache WSL detection result
+let isWSLCached: boolean | null = null;
+
+async function isWSL(): Promise<boolean> {
+  if (isWSLCached !== null) return isWSLCached;
+  try {
+    const { stdout } = await execFileAsync('uname', ['-r']);
+    isWSLCached = stdout.toLowerCase().includes('microsoft');
+  } catch {
+    isWSLCached = false;
+  }
+  return isWSLCached;
+}
+
+// Find powershell.exe from WSL
+async function findPowerShell(): Promise<string | null> {
+  const candidates = [
+    '/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',
+    '/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/powershell.exe',
+    '/mnt/c/Windows/SysWOW64/WindowsPowerShell/v1.0/powershell.exe',
+  ];
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+  // Fallback: try PATH
+  try {
+    await execFileAsync('which', ['powershell.exe']);
+    return 'powershell.exe';
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Try to read an image from the system clipboard using platform-specific methods.
+ * This is the fallback for when the browser's clipboardData.items doesn't contain
+ * image data (e.g. on WSL where the Windows clipboard isn't bridged).
+ * Returns the saved file path, or null if no image was found.
+ */
+async function readClipboardImageFallback(sessionId: string): Promise<{ filePath: string; imageNumber: number } | null> {
+  const imagesDir = getAppSubdirectory('images');
+  if (!existsSync(imagesDir)) {
+    await fs.mkdir(imagesDir, { recursive: true });
+  }
+
+  // Initialize counter from existing files on disk if not cached
+  if (!sessionImageCounters.has(sessionId)) {
+    const existing = readdirSync(imagesDir)
+      .filter(f => f.startsWith(`${sessionId}_`));
+    sessionImageCounters.set(sessionId, existing.length);
+  }
+
+  const count = (sessionImageCounters.get(sessionId) ?? 0) + 1;
+  const timestamp = Date.now();
+  const randomStr = Math.random().toString(36).substring(2, 9);
+
+  // Extension is determined per-platform; default to png for WSL/macOS/Windows
+  let extension = 'png';
+
+  const buildFilePath = () => {
+    const filename = `${sessionId}_${count}_${timestamp}_${randomStr}.${extension}`;
+    return path.join(imagesDir, filename);
+  };
+
+  const wsl = await isWSL();
+
+  if (wsl) {
+    // WSL: Use PowerShell to read the Windows clipboard (saves as BMP/PNG)
+    const ps = await findPowerShell();
+    if (!ps) {
+      console.warn('[ClipboardFallback] PowerShell not found on WSL');
+      return null;
+    }
+
+    const filePath = buildFilePath();
+
+    // Convert WSL path to Windows path for PowerShell
+    let winPath: string;
+    try {
+      const { stdout } = await execFileAsync('wslpath', ['-w', filePath]);
+      winPath = stdout.trim();
+    } catch {
+      console.warn('[ClipboardFallback] wslpath failed');
+      return null;
+    }
+
+    // Escape for PowerShell single-quoted string: double any apostrophes, escape backslashes
+    const escapedPath = winPath.replace(/'/g, "''").replace(/\\/g, '\\\\');
+    const psCommand = `Add-Type -AssemblyName System.Windows.Forms; $img = [System.Windows.Forms.Clipboard]::GetImage(); if ($img -ne $null) { $img.Save('${escapedPath}'); Write-Output 'OK' } else { Write-Output 'NO_IMAGE' }`;
+
+    try {
+      const { stdout } = await execFileAsync(ps, ['-NoProfile', '-NonInteractive', '-Command', psCommand], { timeout: 5000 });
+      if (stdout.trim() !== 'OK') {
+        return null;
+      }
+    } catch (err) {
+      console.warn('[ClipboardFallback] PowerShell clipboard read failed:', err);
+      return null;
+    }
+  } else if (process.platform === 'darwin') {
+    // macOS: Use Electron's clipboard.readImage()
+    const img = clipboard.readImage();
+    if (img.isEmpty()) return null;
+    await fs.writeFile(buildFilePath(), img.toPNG());
+  } else if (process.platform === 'win32') {
+    // Native Windows: Use Electron's clipboard.readImage()
+    const img = clipboard.readImage();
+    if (img.isEmpty()) return null;
+    await fs.writeFile(buildFilePath(), img.toPNG());
+  } else {
+    // Linux: Try xclip — detect actual MIME type from clipboard
+    try {
+      const { stdout } = await execFileAsync('xclip', ['-selection', 'clipboard', '-t', 'TARGETS', '-o']);
+      const targets = stdout.split('\n').map(t => t.trim());
+      // Prefer png, then jpeg, then any image type
+      const preferredOrder = ['image/png', 'image/jpeg', 'image/bmp', 'image/webp', 'image/gif'];
+      const imageTarget = preferredOrder.find(t => targets.includes(t))
+        ?? targets.find(t => t.startsWith('image/'));
+      if (!imageTarget) {
+        return null;
+      }
+      // Set file extension based on actual clipboard MIME type
+      extension = MIME_EXTENSIONS[imageTarget] ?? imageTarget.split('/')[1]?.replace(/[^a-z0-9]/g, '') ?? 'png';
+      // Read image data as binary
+      const imgData = await new Promise<Buffer>((resolve, reject) => {
+        const proc = execFile('xclip', ['-selection', 'clipboard', '-t', imageTarget, '-o']);
+        const chunks: Buffer[] = [];
+        proc.stdout?.on('data', (chunk: Buffer) => chunks.push(chunk));
+        proc.on('close', (code) => {
+          if (code === 0) resolve(Buffer.concat(chunks));
+          else reject(new Error(`xclip exited with code ${code}`));
+        });
+        proc.on('error', reject);
+      });
+      await fs.writeFile(buildFilePath(), imgData);
+    } catch {
+      return null;
+    }
+  }
+
+  const filePath = buildFilePath();
+
+  // Verify file was actually created and has content
+  try {
+    const stat = await fs.stat(filePath);
+    if (stat.size === 0) {
+      await fs.unlink(filePath).catch(() => {});
+      return null;
+    }
+    // Backend size validation (10MB limit)
+    if (stat.size > 10 * 1024 * 1024) {
+      await fs.unlink(filePath).catch(() => {});
+      throw new Error('Image too large');
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message === 'Image too large') throw err;
+    return null;
+  }
+
+  // Commit the counter increment only after successful save
+  sessionImageCounters.set(sessionId, count);
+
+  return { filePath, imageNumber: count };
+}
 
 export function registerPanelHandlers(ipcMain: IpcMain, services: AppServices) {
   // Panel CRUD operations
@@ -186,6 +372,68 @@ export function registerPanelHandlers(ipcMain: IpcMain, services: AppServices) {
   // Reset flow control state (for recovering from stuck terminals)
   ipcMain.handle('terminal:resetFlowControl', async (_, panelId: string) => {
     terminalPanelManager.resetFlowControl(panelId);
+  });
+
+  // Save a pasted image to ~/.pane/images/ and return the file path with image number
+  ipcMain.handle('terminal:paste-image', async (
+    _,
+    _panelId: string,
+    sessionId: string,
+    dataUrl: string,
+    mimeType: string
+  ) => {
+    const imagesDir = getAppSubdirectory('images');
+    if (!existsSync(imagesDir)) {
+      await fs.mkdir(imagesDir, { recursive: true });
+    }
+
+    // Initialize counter from existing files on disk if not cached
+    if (!sessionImageCounters.has(sessionId)) {
+      const existing = readdirSync(imagesDir)
+        .filter(f => f.startsWith(`${sessionId}_`));
+      sessionImageCounters.set(sessionId, existing.length);
+    }
+
+    // Increment counter
+    const count = (sessionImageCounters.get(sessionId) ?? 0) + 1;
+    sessionImageCounters.set(sessionId, count);
+
+    const timestamp = Date.now();
+    const randomStr = Math.random().toString(36).substring(2, 9);
+    const extension = MIME_EXTENSIONS[mimeType] ?? 'png';
+    const filename = `${sessionId}_${count}_${timestamp}_${randomStr}.${extension}`;
+    const filePath = path.join(imagesDir, filename);
+
+    // Decode and save
+    const base64Data = dataUrl.split(',')[1];
+    if (!base64Data) {
+      throw new Error('Invalid image data URL');
+    }
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    // Backend size validation (10MB limit)
+    if (buffer.length > 10 * 1024 * 1024) {
+      throw new Error('Image too large');
+    }
+
+    await fs.writeFile(filePath, buffer);
+
+    return { filePath, imageNumber: count };
+  });
+
+  // Fallback clipboard image check for platforms where browser clipboardData
+  // doesn't contain image data (WSL, some Linux configs).
+  // Reads system clipboard using platform-specific tools.
+  ipcMain.handle('terminal:clipboard-paste-image', async (_, sessionId: string) => {
+    try {
+      return await readClipboardImageFallback(sessionId);
+    } catch (err) {
+      console.error('[ClipboardFallback] Failed:', err);
+      if (err instanceof Error && err.message === 'Image too large') {
+        throw err;
+      }
+      return null;
+    }
   });
 
   // Check if a panel type should be auto-created (not previously closed by user)

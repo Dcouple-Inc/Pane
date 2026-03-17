@@ -314,10 +314,83 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           // XTerm.js in Electron doesn't handle clipboard paste natively, so we
           // intercept the paste event and feed it to the terminal explicitly
           const handlePaste = (e: ClipboardEvent) => {
-            const text = e.clipboardData?.getData('text');
-            if (text && terminal && !disposed) {
-              e.preventDefault();
-              terminal.paste(text);
+            // Check for images in browser clipboard first (works on native Windows/macOS)
+            const items = e.clipboardData?.items;
+            let foundBrowserImage = false;
+            if (items) {
+              for (let i = 0; i < items.length; i++) {
+                if (items[i].type.startsWith('image/')) {
+                  foundBrowserImage = true;
+                  e.preventDefault();
+                  const file = items[i].getAsFile();
+                  if (!file) return;
+
+                  if (file.size > 10 * 1024 * 1024) {
+                    const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+                    if (terminal && !disposed) {
+                      terminal.paste(`[Image paste failed] File too large (${sizeMB} MB), max 10 MB\n`);
+                    }
+                    return;
+                  }
+
+                  const reader = new FileReader();
+                  reader.onload = async (ev) => {
+                    if (disposed || !terminal) return;
+                    const dataUrl = ev.target?.result as string;
+                    if (!dataUrl) return;
+
+                    try {
+                      const result = await window.electronAPI.invoke(
+                        'terminal:paste-image',
+                        panel.id,
+                        sessionId || panel.sessionId,
+                        dataUrl,
+                        file.type
+                      ) as { filePath: string; imageNumber: number } | null;
+                      if (result?.filePath && !disposed && terminal) {
+                        terminal.paste(`[Image ${result.imageNumber}] ${result.filePath}\n`);
+                      }
+                    } catch (err) {
+                      console.error('[TerminalPanel] Failed to paste image:', err);
+                    }
+                  };
+                  reader.readAsDataURL(file);
+                  return;
+                }
+              }
+            }
+
+            if (!foundBrowserImage) {
+              // No image in browser clipboard — try system clipboard fallback
+              // (handles WSL, some Linux configs where browser doesn't see images)
+              const text = e.clipboardData?.getData('text');
+
+              // Only attempt fallback if there's no text being pasted,
+              // or if text is empty (user likely intended to paste an image)
+              if (!text) {
+                e.preventDefault();
+                (async () => {
+                  if (disposed || !terminal) return;
+                  try {
+                    const result = await window.electronAPI.invoke(
+                      'terminal:clipboard-paste-image',
+                      sessionId || panel.sessionId
+                    ) as { filePath: string; imageNumber: number } | null;
+                    if (result?.filePath && !disposed && terminal) {
+                      terminal.paste(`[Image ${result.imageNumber}] ${result.filePath}\n`);
+                    }
+                  } catch (err) {
+                    console.error('[TerminalPanel] Clipboard fallback failed:', err);
+                  }
+                })();
+                return;
+              }
+
+              // Regular text paste
+              if (text && terminal && !disposed) {
+                e.preventDefault();
+                terminal.paste(text);
+              }
             }
           };
           terminalRef.current.addEventListener('paste', handlePaste);
