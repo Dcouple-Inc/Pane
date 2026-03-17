@@ -173,6 +173,7 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
       setSelectedFile(undefined);
       setHistorySource(isMainRepo ? 'remote' : 'branch');
       diffCacheRef.current.clear();
+      lastPrefetchRef.current = 0;
     }
   }, [sessionId, lastSessionId, isMainRepo]);
 
@@ -267,10 +268,11 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
       lastPrefetchRef.current = Date.now();
 
       // Prefetch executions and let the diff loading effect chain handle the rest
+      // Only auto-select if user hasn't made a custom selection (preserves their commit range)
       API.sessions.getExecutions(sessionId).then(response => {
         if (!response.success) return;
         const data: ExecutionDiff[] = response.data || [];
-        processExecutions(data, true);
+        processExecutions(data, selectedExecutionsRef.current.length === 0);
       }).catch(() => { /* silent — prefetch is best-effort */ });
     };
 
@@ -278,9 +280,11 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
     return () => window.removeEventListener('git-status-updated', handleGitStatusUpdated);
   }, [sessionId, processExecutions]);
 
-  // Keep a ref to executions.length so the diff effect doesn't re-trigger when executions load
+  // Keep refs to avoid stale closures in event handlers
   const executionsLengthRef = useRef(executions.length);
   executionsLengthRef.current = executions.length;
+  const selectedExecutionsRef = useRef(selectedExecutions);
+  selectedExecutionsRef.current = selectedExecutions;
 
   // Load combined diff when selection changes (with caching)
   useEffect(() => {
