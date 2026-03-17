@@ -37,7 +37,7 @@ export default function Welcome({ isOpen, onClose }: WelcomeProps) {
         <img src={paneLogo} alt="Pane" className="h-12 w-12 mb-4" />
         <h1 className="text-lg font-semibold text-text-primary">Welcome to Pane</h1>
         <p className="text-sm text-text-tertiary mt-1">
-          Run multiple AI coding sessions in parallel, each in its own git worktree.
+          Run multiple agentic coding sessions in parallel, each in its own git worktree.
         </p>
         <p className="text-xs text-text-quaternary mt-3">
           Make sure your CLI tool (Claude Code, Codex, etc.) is installed and authenticated.
