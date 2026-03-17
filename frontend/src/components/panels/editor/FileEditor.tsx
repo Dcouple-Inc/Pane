@@ -480,7 +480,12 @@ function HeadlessFileTree({
   }, [searchQuery, showNewItemDialog, contextMenu]);
 
   return (
-    <div className="h-full flex flex-col">
+    <div
+      className={`h-full flex flex-col ${isDragOver ? 'ring-2 ring-interactive ring-inset bg-interactive/10' : ''}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <div className="flex items-center justify-between p-2 border-b border-border-primary">
         <span className="text-sm font-medium text-text-primary">Files</span>
         <div className="flex gap-1">
@@ -623,12 +628,7 @@ function HeadlessFileTree({
           populates the cache. Hidden (not unmounted) when search is active. */}
       <div
         {...tree.getContainerProps()}
-        className={`overflow-auto outline-none ${searchQuery ? 'hidden' : 'flex-1'} ${
-          isDragOver ? 'ring-2 ring-interactive ring-inset bg-interactive/10' : ''
-        }`}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
+        className={`overflow-auto outline-none ${searchQuery ? 'hidden' : 'flex-1'}`}
       >
         {tree.getItems().map((item: ItemInstance<FileItem>) => {
           const data = item.getItemData();
