@@ -50,14 +50,18 @@ export const DiffPanel: React.FC<DiffPanelProps> = ({
     };
   }, [panel.id, sessionId]);
 
-  // Mark stale when panel was inactive and becomes active (may have missed changes)
-  const wasActiveRef = useRef(isActive);
+  // Listen for git-status-updated events (detects new commits from Claude, etc.)
   useEffect(() => {
-    if (isActive && !wasActiveRef.current) {
-      setIsStale(true);
-    }
-    wasActiveRef.current = isActive;
-  }, [isActive]);
+    const handleGitStatusUpdated = (event: Event) => {
+      const { sessionId: eventSessionId } = (event as CustomEvent).detail || {};
+      if (eventSessionId === sessionId) {
+        setIsStale(true);
+      }
+    };
+
+    window.addEventListener('git-status-updated', handleGitStatusUpdated);
+    return () => window.removeEventListener('git-status-updated', handleGitStatusUpdated);
+  }, [sessionId]);
 
   // Auto-refresh when becoming active and stale
   useEffect(() => {

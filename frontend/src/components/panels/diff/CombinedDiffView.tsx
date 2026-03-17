@@ -90,13 +90,15 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
 
   const diffViewerRef = useRef<DiffViewerHandle>(null);
 
+  // Track last prefetch time to avoid redundant fetches
+  const lastPrefetchRef = useRef<number>(0);
+
   // Expose refresh() to parent (DiffPanel) via ref
+  // Non-destructive: keeps current view visible while new data loads
   useImperativeHandle(ref, () => ({
     refresh: () => {
       diffCacheRef.current.clear();
       setForceRefresh(prev => prev + 1);
-      setCombinedDiff(null);
-      setSelectedExecutions([]);
     }
   }));
 
@@ -174,9 +176,49 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
     }
   }, [sessionId, lastSessionId, isMainRepo]);
 
-  // Load executions for the session (skip when panel is not visible)
+  // Shared logic to process loaded executions
+  const processExecutions = useCallback((data: ExecutionDiff[], autoSelect: boolean) => {
+    setError(null);
+    setExecutions(data);
+
+    if (data.length > 0) {
+      const metadata = data.find(exec => exec.comparison_branch || exec.history_source) || data[0];
+      if (metadata?.comparison_branch) {
+        setMainBranch(metadata.comparison_branch);
+      }
+      if (metadata?.history_source) {
+        setHistorySource(metadata.history_source);
+      } else {
+        setHistorySource(isMainRepo ? 'remote' : 'branch');
+      }
+    } else {
+      setHistorySource(prev => {
+        if (isMainRepo) {
+          return prev;
+        }
+        return 'branch';
+      });
+    }
+
+    // Auto-select executions when no selection exists or when prefetching
+    if (autoSelect && data.length > 0) {
+      const allCommitIds = data
+        .filter((exec: ExecutionDiff) => exec.id !== 0)
+        .map((exec: ExecutionDiff) => exec.id);
+
+      if (allCommitIds.length > 0) {
+        setSelectedExecutions([allCommitIds[allCommitIds.length - 1], allCommitIds[0]]);
+      } else {
+        setSelectedExecutions(data.map((exec: ExecutionDiff) => exec.id));
+      }
+    }
+  }, [isMainRepo]);
+
+  // Load executions for the session (skip when panel is not visible or recently prefetched)
   useEffect(() => {
     if (!isVisible) return;
+    // Skip if recently prefetched (within 5s)
+    if (Date.now() - lastPrefetchRef.current < 5000) return;
     let cancelled = false;
 
     const timeoutId = setTimeout(() => {
@@ -191,40 +233,7 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
             throw new Error(response.error || 'Failed to load executions');
           }
           const data: ExecutionDiff[] = response.data || [];
-          setError(null);
-          setExecutions(data);
-
-          if (data.length > 0) {
-            const metadata = data.find(exec => exec.comparison_branch || exec.history_source) || data[0];
-            if (metadata?.comparison_branch) {
-              setMainBranch(metadata.comparison_branch);
-            }
-            if (metadata?.history_source) {
-              setHistorySource(metadata.history_source);
-            } else {
-              setHistorySource(isMainRepo ? 'remote' : 'branch');
-            }
-          } else {
-            setHistorySource(prev => {
-              if (isMainRepo) {
-                return prev;
-              }
-              return 'branch';
-            });
-          }
-
-          // If no initial selection and session just changed, select all executions by default
-          if (selectedExecutions.length === 0 && data.length > 0) {
-            const allCommitIds = data
-              .filter((exec: ExecutionDiff) => exec.id !== 0)
-              .map((exec: ExecutionDiff) => exec.id);
-
-            if (allCommitIds.length > 0) {
-              setSelectedExecutions([allCommitIds[allCommitIds.length - 1], allCommitIds[0]]);
-            } else {
-              setSelectedExecutions(data.map((exec: ExecutionDiff) => exec.id));
-            }
-          }
+          processExecutions(data, selectedExecutions.length === 0);
         } catch (err) {
           if (!cancelled) {
             setError(err instanceof Error ? err.message : 'Failed to load executions');
@@ -243,7 +252,31 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
       cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [sessionId, isMainRepo, forceRefresh, isVisible]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedExecutions read inside closure to check if auto-select needed; must not re-trigger on selection change
+  }, [sessionId, isMainRepo, forceRefresh, isVisible, processExecutions]);
+
+  // Background prefetch: when git status changes, fetch executions + diff even when not visible
+  // This ensures the diff tab has data ready before the user opens it
+  useEffect(() => {
+    const handleGitStatusUpdated = (event: Event) => {
+      const { sessionId: eventSessionId } = (event as CustomEvent).detail || {};
+      if (eventSessionId !== sessionId) return;
+
+      // Clear stale cache
+      diffCacheRef.current.clear();
+      lastPrefetchRef.current = Date.now();
+
+      // Prefetch executions and let the diff loading effect chain handle the rest
+      API.sessions.getExecutions(sessionId).then(response => {
+        if (!response.success) return;
+        const data: ExecutionDiff[] = response.data || [];
+        processExecutions(data, true);
+      }).catch(() => { /* silent — prefetch is best-effort */ });
+    };
+
+    window.addEventListener('git-status-updated', handleGitStatusUpdated);
+    return () => window.removeEventListener('git-status-updated', handleGitStatusUpdated);
+  }, [sessionId, processExecutions]);
 
   // Keep a ref to executions.length so the diff effect doesn't re-trigger when executions load
   const executionsLengthRef = useRef(executions.length);
@@ -321,7 +354,7 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
       clearTimeout(timeoutId);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- executions.length read via ref to avoid re-triggering when executions reload
-  }, [selectedExecutions, sessionId]);
+  }, [selectedExecutions, sessionId, forceRefresh]);
 
   const handleSelectionChange = (newSelection: number[]) => {
     setSelectedExecutions(newSelection);
