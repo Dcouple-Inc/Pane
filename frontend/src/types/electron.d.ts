@@ -346,6 +346,13 @@ interface ElectronAPI {
     syncDistinctId: (distinctId: string) => void;
   };
 
+  // Onboarding
+  onboarding: {
+    detectEnvironment: () => Promise<IPCResponse>;
+    setupDefaultRepo: () => Promise<IPCResponse>;
+    starRepo: () => Promise<IPCResponse>;
+  };
+
   // Spotlight
   spotlight: {
     enable: (sessionId: string) => Promise<IPCResponse>;
