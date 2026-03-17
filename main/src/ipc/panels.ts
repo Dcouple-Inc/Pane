@@ -81,18 +81,26 @@ async function readClipboardImageFallback(sessionId: string): Promise<{ filePath
   const count = (sessionImageCounters.get(sessionId) ?? 0) + 1;
   const timestamp = Date.now();
   const randomStr = Math.random().toString(36).substring(2, 9);
-  const filename = `${sessionId}_${count}_${timestamp}_${randomStr}.png`;
-  const filePath = path.join(imagesDir, filename);
+
+  // Extension is determined per-platform; default to png for WSL/macOS/Windows
+  let extension = 'png';
+
+  const buildFilePath = () => {
+    const filename = `${sessionId}_${count}_${timestamp}_${randomStr}.${extension}`;
+    return path.join(imagesDir, filename);
+  };
 
   const wsl = await isWSL();
 
   if (wsl) {
-    // WSL: Use PowerShell to read the Windows clipboard
+    // WSL: Use PowerShell to read the Windows clipboard (saves as BMP/PNG)
     const ps = await findPowerShell();
     if (!ps) {
       console.warn('[ClipboardFallback] PowerShell not found on WSL');
       return null;
     }
+
+    const filePath = buildFilePath();
 
     // Convert WSL path to Windows path for PowerShell
     let winPath: string;
@@ -121,17 +129,16 @@ async function readClipboardImageFallback(sessionId: string): Promise<{ filePath
     // macOS: Use Electron's clipboard.readImage()
     const img = clipboard.readImage();
     if (img.isEmpty()) return null;
-    await fs.writeFile(filePath, img.toPNG());
+    await fs.writeFile(buildFilePath(), img.toPNG());
   } else if (process.platform === 'win32') {
     // Native Windows: Use Electron's clipboard.readImage()
     const img = clipboard.readImage();
     if (img.isEmpty()) return null;
-    await fs.writeFile(filePath, img.toPNG());
+    await fs.writeFile(buildFilePath(), img.toPNG());
   } else {
-    // Linux: Try xclip
+    // Linux: Try xclip — detect actual MIME type from clipboard
     try {
       const { stdout } = await execFileAsync('xclip', ['-selection', 'clipboard', '-t', 'TARGETS', '-o']);
-      // Find the first image/* MIME type advertised by the clipboard
       const targets = stdout.split('\n').map(t => t.trim());
       // Prefer png, then jpeg, then any image type
       const preferredOrder = ['image/png', 'image/jpeg', 'image/bmp', 'image/webp', 'image/gif'];
@@ -140,7 +147,9 @@ async function readClipboardImageFallback(sessionId: string): Promise<{ filePath
       if (!imageTarget) {
         return null;
       }
-      // Read image data as binary via child_process.exec
+      // Set file extension based on actual clipboard MIME type
+      extension = MIME_EXTENSIONS[imageTarget] ?? imageTarget.split('/')[1]?.replace(/[^a-z0-9]/g, '') ?? 'png';
+      // Read image data as binary
       const imgData = await new Promise<Buffer>((resolve, reject) => {
         const proc = execFile('xclip', ['-selection', 'clipboard', '-t', imageTarget, '-o']);
         const chunks: Buffer[] = [];
@@ -151,11 +160,13 @@ async function readClipboardImageFallback(sessionId: string): Promise<{ filePath
         });
         proc.on('error', reject);
       });
-      await fs.writeFile(filePath, imgData);
+      await fs.writeFile(buildFilePath(), imgData);
     } catch {
       return null;
     }
   }
+
+  const filePath = buildFilePath();
 
   // Verify file was actually created and has content
   try {
