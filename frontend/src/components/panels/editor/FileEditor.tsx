@@ -383,7 +383,11 @@ function HeadlessFileTree({
     setUploadStatus(`Uploading ${validFiles.length} file${validFiles.length > 1 ? 's' : ''}...`);
 
     try {
-      const results = await Promise.all(validFiles.map(file => uploadFile(file)));
+      // Upload sequentially to avoid race condition when multiple files share the same name
+      const results: { success: boolean; name: string; error?: string }[] = [];
+      for (const file of validFiles) {
+        results.push(await uploadFile(file));
+      }
       const failed = results.filter(r => !r.success);
 
       // Combine oversized and failed errors into one message
