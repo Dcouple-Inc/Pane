@@ -325,22 +325,25 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
           }
         }
 
-        // Clean up terminal-pasted images from global images dir
-        const imagesDir = getAppSubdirectory('images');
-        if (existsSync(imagesDir)) {
-          try {
-            const imageFiles = await fs.readdir(imagesDir);
-            const sessionPrefix = `${sessionId}_`;
-            const sessionImageFiles = imageFiles.filter(f => f.startsWith(sessionPrefix));
-            for (const file of sessionImageFiles) {
-              await fs.unlink(path.join(imagesDir, file)).catch(() => {});
+        // Clean up terminal-pasted images and dropped files
+        for (const subdir of ['images', 'files'] as const) {
+          const dir = getAppSubdirectory(subdir);
+          if (existsSync(dir)) {
+            try {
+              const allFiles = await fs.readdir(dir);
+              const sessionPrefix = `${sessionId}_`;
+              const sessionFiles = allFiles.filter(f => f.startsWith(sessionPrefix));
+              for (const file of sessionFiles) {
+                await fs.unlink(path.join(dir, file)).catch(() => {});
+              }
+              if (sessionFiles.length > 0) {
+                const label = subdir === 'images' ? 'pasted image(s)' : 'dropped file(s)';
+                cleanupMessage += `\x1b[32m✓ ${sessionFiles.length} ${label} removed\x1b[0m\r\n`;
+              }
+            } catch (err) {
+              console.error(`[Main] Failed to clean up ${subdir} for session ${sessionId}:`, err);
+              cleanupMessage += `\x1b[33m⚠ Failed to remove ${subdir}\x1b[0m\r\n`;
             }
-            if (sessionImageFiles.length > 0) {
-              cleanupMessage += `\x1b[32m✓ ${sessionImageFiles.length} pasted image(s) removed\x1b[0m\r\n`;
-            }
-          } catch (imgError) {
-            console.error(`[Main] Failed to clean up pasted images for session ${sessionId}:`, imgError);
-            cleanupMessage += `\x1b[33m⚠ Failed to remove pasted images\x1b[0m\r\n`;
           }
         }
 
