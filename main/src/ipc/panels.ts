@@ -13,6 +13,30 @@ import { getAppSubdirectory } from '../utils/appDirectory';
 
 const execFileAsync = promisify(execFile);
 
+/**
+ * Convert a Windows path to a WSL mount path.
+ * C:\Users\khaza\.pane\images\file.png → /mnt/c/Users/khaza/.pane/images/file.png
+ */
+function windowsPathToWSLMount(winPath: string): string {
+  const match = winPath.match(/^([a-zA-Z]):\\(.*)/);
+  if (!match) return winPath;
+  const drive = match[1].toLowerCase();
+  const rest = match[2].replace(/\\/g, '/');
+  return `/mnt/${drive}/${rest}`;
+}
+
+/**
+ * Check if a session's project is WSL-enabled and convert path if needed.
+ */
+function resolveImagePathForSession(filePath: string, sessionId: string): string {
+  if (process.platform !== 'win32') return filePath;
+  const session = databaseService.getSession(sessionId);
+  if (!session?.project_id) return filePath;
+  const project = databaseService.getProject(session.project_id);
+  if (!project?.wsl_enabled) return filePath;
+  return windowsPathToWSLMount(filePath);
+}
+
 // In-memory cache: sessionId -> imageCount for terminal image paste
 // Initialized from disk on first paste per session to survive app restarts
 export const sessionImageCounters = new Map<string, number>();
@@ -188,7 +212,7 @@ async function readClipboardImageFallback(sessionId: string): Promise<{ filePath
   // Commit the counter increment only after successful save
   sessionImageCounters.set(sessionId, count);
 
-  return { filePath, imageNumber: count };
+  return { filePath: resolveImagePathForSession(filePath, sessionId), imageNumber: count };
 }
 
 export function registerPanelHandlers(ipcMain: IpcMain, services: AppServices) {
@@ -418,7 +442,7 @@ export function registerPanelHandlers(ipcMain: IpcMain, services: AppServices) {
 
     await fs.writeFile(filePath, buffer);
 
-    return { filePath, imageNumber: count };
+    return { filePath: resolveImagePathForSession(filePath, sessionId), imageNumber: count };
   });
 
   // Fallback clipboard image check for platforms where browser clipboardData
@@ -434,6 +458,41 @@ export function registerPanelHandlers(ipcMain: IpcMain, services: AppServices) {
       }
       return null;
     }
+  });
+
+  // Save a dropped file (any type) to ~/.pane/files/ and return the resolved path
+  ipcMain.handle('terminal:paste-file', async (
+    _,
+    sessionId: string,
+    dataUrl: string,
+    originalFileName: string
+  ) => {
+    const filesDir = getAppSubdirectory('files');
+    if (!existsSync(filesDir)) {
+      await fs.mkdir(filesDir, { recursive: true });
+    }
+
+    // Derive extension from original filename
+    const extMatch = originalFileName.match(/\.([a-zA-Z0-9]+)$/);
+    const extension = extMatch ? extMatch[1].toLowerCase() : 'bin';
+
+    const timestamp = Date.now();
+    const randomStr = Math.random().toString(36).substring(2, 9);
+    const filename = `${sessionId}_${timestamp}_${randomStr}.${extension}`;
+    const filePath = path.join(filesDir, filename);
+
+    const base64Data = dataUrl.split(',')[1];
+    if (!base64Data) {
+      throw new Error('Invalid data URL');
+    }
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    if (buffer.length > 50 * 1024 * 1024) {
+      throw new Error('File too large (max 50 MB)');
+    }
+
+    await fs.writeFile(filePath, buffer);
+    return { filePath: resolveImagePathForSession(filePath, sessionId) };
   });
 
   // Check if a panel type should be auto-created (not previously closed by user)

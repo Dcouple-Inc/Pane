@@ -348,7 +348,7 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
                         file.type
                       ) as { filePath: string; imageNumber: number } | null;
                       if (result?.filePath && !disposed && terminal) {
-                        terminal.paste(`[Image ${result.imageNumber}] ${result.filePath}\n`);
+                        terminal.paste(`[Image] ${result.filePath}\n`);
                       }
                     } catch (err) {
                       console.error('[TerminalPanel] Failed to paste image:', err);
@@ -377,7 +377,7 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
                       sessionId || panel.sessionId
                     ) as { filePath: string; imageNumber: number } | null;
                     if (result?.filePath && !disposed && terminal) {
-                      terminal.paste(`[Image ${result.imageNumber}] ${result.filePath}\n`);
+                      terminal.paste(`[Image] ${result.filePath}\n`);
                     }
                   } catch (err) {
                     console.error('[TerminalPanel] Clipboard fallback failed:', err);
@@ -393,7 +393,80 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
               }
             }
           };
-          terminalRef.current.addEventListener('paste', handlePaste);
+          // Attach paste handler to xterm's internal textarea — xterm calls
+          // stopPropagation() on paste events so they never bubble to the container.
+          // On Windows this means a container-level listener never fires.
+          const xtermTextarea = terminalRef.current.querySelector('textarea.xterm-helper-textarea');
+          if (xtermTextarea) {
+            xtermTextarea.addEventListener('paste', handlePaste as EventListener);
+          } else {
+            terminalRef.current.addEventListener('paste', handlePaste);
+          }
+
+          // Handle drag-and-drop of files onto the terminal
+          const handleDragOver = (e: DragEvent) => {
+            if (e.dataTransfer?.types.includes('Files')) {
+              e.preventDefault();
+              if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+            }
+          };
+          const handleDrop = (e: DragEvent) => {
+            if (!e.dataTransfer?.files.length || disposed || !terminal) return;
+            e.preventDefault();
+
+            // Save all dropped files to disk and paste the resolved path
+            const files = Array.from(e.dataTransfer.files);
+            (async () => {
+              for (const file of files) {
+                if (file.size > 50 * 1024 * 1024) {
+                  const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+                  if (!disposed && terminal) {
+                    terminal.paste(`[Drop failed] File too large (${sizeMB} MB), max 50 MB\n`);
+                  }
+                  continue;
+                }
+                const dataUrl = await new Promise<string | null>((resolve) => {
+                  const reader = new FileReader();
+                  reader.onload = (ev) => resolve(ev.target?.result as string ?? null);
+                  reader.onerror = () => resolve(null);
+                  reader.readAsDataURL(file);
+                });
+                if (!dataUrl || disposed || !terminal) continue;
+                try {
+                  const isImage = file.type.startsWith('image/');
+                  let resolvedPath: string | null = null;
+
+                  if (isImage) {
+                    const result = await window.electronAPI.invoke(
+                      'terminal:paste-image',
+                      panel.id,
+                      sessionId || panel.sessionId,
+                      dataUrl,
+                      file.type
+                    ) as { filePath: string; imageNumber: number } | null;
+                    resolvedPath = result?.filePath ?? null;
+                  } else {
+                    const result = await window.electronAPI.invoke(
+                      'terminal:paste-file',
+                      sessionId || panel.sessionId,
+                      dataUrl,
+                      file.name
+                    ) as { filePath: string } | null;
+                    resolvedPath = result?.filePath ?? null;
+                  }
+
+                  if (resolvedPath && !disposed && terminal) {
+                    const prefix = isImage ? '[Image] ' : '';
+                    terminal.paste(`${prefix}${resolvedPath}\n`);
+                  }
+                } catch (err) {
+                  console.error('[TerminalPanel] Failed to drop file:', err);
+                }
+              }
+            })();
+          };
+          terminalRef.current.addEventListener('dragover', handleDragOver);
+          terminalRef.current.addEventListener('drop', handleDrop);
 
           setIsInitialized(true);
           console.log('[TerminalPanel] Terminal initialization complete, isInitialized set to true');
