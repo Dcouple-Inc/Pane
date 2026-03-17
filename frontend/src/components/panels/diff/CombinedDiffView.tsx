@@ -90,9 +90,6 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
 
   const diffViewerRef = useRef<DiffViewerHandle>(null);
 
-  // Track last prefetch time to avoid redundant fetches
-  const lastPrefetchRef = useRef<number>(0);
-
   // Expose refresh() to parent (DiffPanel) via ref
   // Keeps current diff visible while new data loads (no flash),
   // but resets selection since execution IDs are positional and
@@ -176,7 +173,6 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
       setSelectedFile(undefined);
       setHistorySource(isMainRepo ? 'remote' : 'branch');
       diffCacheRef.current.clear();
-      lastPrefetchRef.current = 0;
     }
   }, [sessionId, lastSessionId, isMainRepo]);
 
@@ -218,11 +214,9 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
     }
   }, [isMainRepo]);
 
-  // Load executions for the session (skip when panel is not visible or recently prefetched)
+  // Load executions for the session (skip when panel is not visible)
   useEffect(() => {
     if (!isVisible) return;
-    // Skip if recently prefetched (within 5s)
-    if (Date.now() - lastPrefetchRef.current < 5000) return;
     let cancelled = false;
 
     const timeoutId = setTimeout(() => {
@@ -270,8 +264,6 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
 
       // Clear stale cache
       diffCacheRef.current.clear();
-      lastPrefetchRef.current = Date.now();
-
       // Prefetch executions and let the diff loading effect chain handle the rest
       // Only auto-select if user hasn't made a custom selection (preserves their commit range)
       API.sessions.getExecutions(sessionId).then(response => {
