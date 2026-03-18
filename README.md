@@ -1,21 +1,19 @@
-<p align="center">
-  <img src="frontend/src/assets/pane-logo.png" alt="Pane" width="120" height="120">
-</p>
-
-<h1 align="center">Pane</h1>
+<h1 align="center"><img src="frontend/src/assets/pane-logo.png" alt="" width="28" height="28"> Pane</h1>
 
 <p align="center">
-  <strong>Run any agent. Any OS. Ship faster.</strong>
-</p>
-
-<p align="center">
-  <em>just terminals. no abstractions.</em><br>
-  the only agent manager for every CLI agent, every OS.
+  <strong>Run any agent. Any OS. Ship faster.</strong><br>
+  <em>just terminals. no abstractions.</em>
 </p>
 
 <div align="center">
 
-<br />
+<a href="https://runpane.com">
+  <img src="screenshot.png" alt="Pane — running Claude Code with multiple sessions" width="100%">
+</a>
+
+<sub>See more at <a href="https://runpane.com">runpane.com</a></sub>
+
+<br /><br />
 
 [![AGPL-3.0 License](https://img.shields.io/badge/License-AGPL--3.0-555555.svg?labelColor=333333&color=666666)](./LICENSE)
 [![Downloads](https://img.shields.io/github/downloads/Dcouple-Inc/Pane/total?labelColor=333333&color=666666)](https://github.com/Dcouple-Inc/Pane/releases)
@@ -29,14 +27,6 @@
 <br />
 
 [Installation](#installation) · [Features](#features) · [Keyboard Shortcuts](#keyboard-shortcuts) · [Building from Source](#building-from-source)
-
-<br />
-
-<a href="https://runpane.com">
-  <img src="screenshot.png" alt="Pane — running Claude Code with multiple sessions" width="100%">
-</a>
-
-<sub>See more screenshots and demo at <a href="https://runpane.com">runpane.com</a></sub>
 
 </div>
 
