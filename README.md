@@ -11,7 +11,7 @@
   <img src="screenshot.png" alt="Pane — running Claude Code with multiple sessions" width="100%">
 </a>
 
-<sub>See more at <a href="https://runpane.com">runpane.com</a></sub>
+<sub>See more themes and demo at <a href="https://runpane.com">runpane.com</a></sub>
 
 <br /><br />
 
