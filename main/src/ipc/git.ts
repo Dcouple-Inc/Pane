@@ -53,7 +53,8 @@ interface RawCommitData {
 
 
 function isValidGitUrl(url: string): boolean {
-  return /^(https?:\/\/[\w.\-\/:@]+|git@[\w.\-]+:[\w.\-\/]+)(\.git)?$/.test(url);
+  // Accept https://, ssh://, and scp-style git@host:path formats
+  return /^(https?:\/\/[\w.\-\/:@]+|ssh:\/\/[\w.\-\/:@]+|git@[\w.\-]+:[\w.\-\/]+)(\.git)?$/.test(url);
 }
 
 function extractRepoName(url: string): string {
@@ -1980,9 +1981,12 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
     }
 
     try {
+      // Escape single quotes in path for safe shell interpolation
+      const escapedUrl = url.replace(/'/g, "'\\''");
+      const escapedPath = clonePath.replace(/'/g, "'\\''");
       const commandRunner = new CommandRunner({ path: destDir, wsl_enabled: false, wsl_distribution: null });
       await commandRunner.execAsync(
-        `git clone "${url}" "${clonePath}"`,
+        `git clone '${escapedUrl}' '${escapedPath}'`,
         destDir,
         { timeout: 300000, env: { ...process.env, PATH: getShellPath() } as Record<string, string> }
       );

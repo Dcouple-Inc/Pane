@@ -155,8 +155,6 @@ function OpenProjectCard({
 
 export function HomePage() {
   const { sessions, setActiveSession } = useSessionStore();
-  const navigateToProject = useNavigationStore(s => s.navigateToProject);
-
   const [projects, setProjects] = useState<Project[]>([]);
   const [showAddProject, setShowAddProject] = useState(false);
   const [showCloneDialog, setShowCloneDialog] = useState(false);
@@ -195,11 +193,12 @@ export function HomePage() {
     return map;
   }, [projects]);
 
+  const navigateToSessions = useNavigationStore(s => s.navigateToSessions);
+
   const handleOpenSession = (session: Session) => {
+    // Ensure activeView is 'sessions' so SessionView renders the session, not a project dashboard
+    navigateToSessions();
     setActiveSession(session.id).catch(() => {});
-    if (session.projectId != null) {
-      navigateToProject(session.projectId);
-    }
   };
 
   return (
