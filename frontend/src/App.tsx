@@ -9,7 +9,6 @@ import { formatKeyDisplay } from './utils/hotkeyUtils';
 import { ShortcutHintsOverlay } from './components/ShortcutHintsOverlay';
 import { Sidebar } from './components/Sidebar';
 import { SessionView } from './components/SessionView';
-import Help from './components/Help';
 import Welcome from './components/Welcome';
 import AnalyticsConsentDialog from './components/AnalyticsConsentDialog';
 import OnboardingDialog from './components/OnboardingDialog';
@@ -59,7 +58,6 @@ interface PermissionRequest {
 }
 
 function App() {
-  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isWelcomeOpen, setIsWelcomeOpen] = useState(false);
   const [isAnalyticsConsentOpen, setIsAnalyticsConsentOpen] = useState(false);
   const [hasCheckedAnalyticsConsent, setHasCheckedAnalyticsConsent] = useState(false);
@@ -521,7 +519,6 @@ function App() {
           style={{ width: (immersiveMode || sidebarCollapsed) ? '48px' : `${sidebarWidth}px` }}
         >
           <Sidebar
-            onHelpClick={() => setIsHelpOpen(true)}
             onAboutClick={() => setIsAboutOpen(true)}
             onSettingsClick={() => setIsSettingsOpen(true)}
             isSettingsOpen={isSettingsOpen}
@@ -536,7 +533,6 @@ function App() {
         <SessionView />
         <CloudOverlay />
         <CloudWidget />
-        <Help isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
         <AnalyticsConsentDialog
           isOpen={isAnalyticsConsentOpen}
           onClose={() => setIsAnalyticsConsentOpen(false)}
