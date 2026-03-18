@@ -610,7 +610,29 @@ export const SessionView = memo(() => {
     storageKey: 'pane-detail-panel-width',
     side: 'right'
   });
-  
+
+  // Layout swap state
+  const [layoutSwapped, setLayoutSwapped] = useState(() => {
+    return localStorage.getItem('pane-layout-swapped') === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('pane-layout-swapped', String(layoutSwapped));
+  }, [layoutSwapped]);
+
+  const toggleLayoutSwap = useCallback(() => {
+    setLayoutSwapped(prev => !prev);
+  }, []);
+
+  // Auto-collapse sidebars for immersive panels (diff, explorer)
+  const isImmersivePanel = currentActivePanel ? currentActivePanel.type === 'diff' || currentActivePanel.type === 'explorer' : false;
+  const setImmersiveMode = useNavigationStore(s => s.setImmersiveMode);
+  const immersiveMode = useNavigationStore(s => s.immersiveMode);
+
+  useEffect(() => {
+    setImmersiveMode(isImmersivePanel);
+  }, [isImmersivePanel, setImmersiveMode]);
+
   // Auto-create terminal panel for existing sessions that don't have one
   // Unless the user has explicitly closed it previously
   const hasTriedCreatingTerminal = useRef(false);
@@ -648,6 +670,36 @@ export const SessionView = memo(() => {
     maxHeight: 500,
     storageKey: 'pane-bottom-terminal-height',
   });
+
+  // Resizable width for terminal when it occupies the right column (swapped layout)
+  const { width: rightTerminalWidth, startResize: startRightTerminalResize } = useResizable({
+    defaultWidth: 350,
+    minWidth: 200,
+    maxWidth: 600,
+    storageKey: 'pane-right-terminal-width',
+    side: 'right',
+  });
+
+  // Resizable height for detail panel when it is the bottom bar (swapped layout)
+  const { height: detailBottomHeight, startResize: startDetailBottomResize } = useResizableHeight({
+    defaultHeight: 200,
+    minHeight: 80,
+    maxHeight: 400,
+    storageKey: 'pane-bottom-detail-height',
+  });
+
+  const [isDetailCollapsed, setIsDetailCollapsed] = useState(() => {
+    const stored = localStorage.getItem('pane-detail-collapsed');
+    return stored === null ? false : stored === 'true';
+  });
+
+  const toggleDetailCollapse = useCallback(() => {
+    setIsDetailCollapsed(prev => {
+      const newValue = !prev;
+      localStorage.setItem('pane-detail-collapsed', String(newValue));
+      return newValue;
+    });
+  }, []);
 
   // Terminal collapse state with localStorage persistence (collapsed by default)
   const [isTerminalCollapsed, setIsTerminalCollapsed] = useState(() => {
@@ -847,161 +899,307 @@ export const SessionView = memo(() => {
           onPanelSelect={handlePanelSelect}
           onPanelClose={handlePanelClose}
           onPanelCreate={handlePanelCreate}
-          onToggleDetailPanel={() => setDetailVisible(v => !v)}
+          onToggleDetailPanel={() => {
+            if (layoutSwapped) {
+              toggleDetailCollapse();
+            } else {
+              setDetailVisible(v => !v);
+            }
+          }}
           detailPanelVisible={detailVisible}
         />
 
         {/* Content area: center panels + right detail */}
         <div className="flex-1 flex flex-row min-h-0">
-          {/* Center column: vertical split with panels on top, terminal on bottom */}
-          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-            {/* Top: active panel content */}
-            <div className="flex-1 relative min-h-0 overflow-hidden">
-              {sessionPanels.length > 0 && currentActivePanel ? (
-                sessionPanels
-                  .filter(p => !defaultTerminalPanel || p.id !== defaultTerminalPanel.id)
-                  .map(panel => {
-                    const isActive = panel.id === currentActivePanel.id;
-                    const shouldKeepAlive = ['terminal'].includes(panel.type);
-                    if (!isActive && !shouldKeepAlive) return null;
-                    return (
-                      <div
-                        key={panel.id}
-                        className="absolute inset-0"
-                        style={{
-                          display: isActive ? 'block' : 'none',
-                          pointerEvents: isActive ? 'auto' : 'none'
-                        }}
-                      >
-                        <PanelContainer
-                          panel={panel}
-                          isActive={isActive}
-                          isMainRepo={!!activeSession.isMainRepo}
-                        />
+          {layoutSwapped && defaultTerminalPanel ? (
+            <>
+              {/* SWAPPED LAYOUT: Center column with panels on top, horizontal detail panel on bottom */}
+              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                {/* Top: active panel content */}
+                <div className="flex-1 relative min-h-0 overflow-hidden">
+                  {sessionPanels.length > 0 && currentActivePanel ? (
+                    sessionPanels
+                      .filter(p => !defaultTerminalPanel || p.id !== defaultTerminalPanel.id)
+                      .map(panel => {
+                        const isActive = panel.id === currentActivePanel.id;
+                        const shouldKeepAlive = ['terminal'].includes(panel.type);
+                        if (!isActive && !shouldKeepAlive) return null;
+                        return (
+                          <div
+                            key={panel.id}
+                            className="absolute inset-0"
+                            style={{
+                              display: isActive ? 'block' : 'none',
+                              pointerEvents: isActive ? 'auto' : 'none'
+                            }}
+                          >
+                            <PanelContainer
+                              panel={panel}
+                              isActive={isActive}
+                              isMainRepo={!!activeSession.isMainRepo}
+                            />
+                          </div>
+                        );
+                      })
+                  ) : (
+                    <div className="flex-1 flex items-center justify-center text-text-secondary">
+                      <div className="text-center p-8">
+                        <div className="text-4xl mb-4">⚡</div>
+                        <h2 className="text-xl font-semibold mb-2">No Active Panel</h2>
+                        <p className="text-sm">Add a tool panel to get started</p>
                       </div>
-                    );
-                  })
-              ) : (
-                <div className="flex-1 flex items-center justify-center text-text-secondary">
-                  <div className="text-center p-8">
-                    <div className="text-4xl mb-4">⚡</div>
-                    <h2 className="text-xl font-semibold mb-2">No Active Panel</h2>
-                    <p className="text-sm">Add a tool panel to get started</p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Bottom: persistent terminal (collapsible) */}
-            {defaultTerminalPanel && (
-              <div
-                className="flex-shrink-0 border-t border-border-primary transition-all duration-200"
-                style={{ height: isTerminalCollapsed ? '32px' : `${terminalHeight}px` }}
-              >
-                {/* Terminal tab header with collapse toggle and pill shortcuts */}
-                <div className="flex items-center h-8 px-3 bg-surface-primary border-b border-border-primary gap-2">
-                  {/* Left: chevron + icon + label */}
-                  <button
-                    onClick={toggleTerminalCollapse}
-                    className="p-0.5 hover:bg-surface-hover rounded transition-colors"
-                    title={isTerminalCollapsed ? 'Expand terminal' : 'Collapse terminal'}
-                  >
-                    {isTerminalCollapsed ? (
-                      <ChevronUp className="w-3.5 h-3.5 text-text-tertiary" />
-                    ) : (
-                      <ChevronDown className="w-3.5 h-3.5 text-text-tertiary" />
-                    )}
-                  </button>
-                  <Terminal className="w-3.5 h-3.5 text-text-tertiary" />
-                  <span className="text-[11px] font-medium text-text-secondary uppercase tracking-wider">Terminal</span>
-
-                  {/* Middle: scrollable pill shortcuts */}
-                  <div className="flex-1 flex items-center gap-2 overflow-x-auto ml-3 scrollbar-none">
-                    {/* Claude pill */}
-                    <Tooltip content={hotkeyDisplay('add-tool-terminal-claude') ? <Kbd>{hotkeyDisplay('add-tool-terminal-claude')}</Kbd> : undefined} side="top">
-                      <button
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-text-tertiary border border-border-primary hover:bg-surface-hover hover:text-text-secondary transition-colors whitespace-nowrap flex-shrink-0"
-                        onClick={() => handlePanelCreate('terminal', {
-                          initialCommand: 'claude --dangerously-skip-permissions',
-                          title: 'Claude CLI'
-                        })}
-                      >
-                        <MessageSquare className="w-3 h-3" />
-                        Claude
-                      </button>
-                    </Tooltip>
-
-                    {/* Codex pill */}
-                    <Tooltip content={hotkeyDisplay('add-tool-terminal-codex') ? <Kbd>{hotkeyDisplay('add-tool-terminal-codex')}</Kbd> : undefined} side="top">
-                      <button
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-text-tertiary border border-border-primary hover:bg-surface-hover hover:text-text-secondary transition-colors whitespace-nowrap flex-shrink-0"
-                        onClick={() => handlePanelCreate('terminal', {
-                          initialCommand: 'codex',
-                          title: 'Codex CLI'
-                        })}
-                      >
-                        <Code2 className="w-3 h-3" />
-                        Codex
-                      </button>
-                    </Tooltip>
-
-                    {/* Custom command pills */}
-                    {customCommands.map((cmd, index) => {
-                      const shortcutDisplay = hotkeyDisplay(`add-tool-custom-${index}`);
-                      const pill = (
-                        <button
-                          key={`shortcut-${index}`}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-text-tertiary border border-border-primary hover:bg-surface-hover hover:text-text-secondary transition-colors whitespace-nowrap flex-shrink-0"
-                          onClick={() => handlePanelCreate('terminal', {
-                            initialCommand: cmd.command,
-                            title: cmd.name
-                          })}
-                          title={cmd.command}
-                        >
-                          <TerminalSquare className="w-3 h-3" />
-                          {cmd.name.length > 18 ? cmd.name.slice(0, 18) + '...' : cmd.name}
-                        </button>
-                      );
-                      return shortcutDisplay ? (
-                        <Tooltip key={`shortcut-${index}`} content={<Kbd>{shortcutDisplay}</Kbd>} side="top">
-                          {pill}
-                        </Tooltip>
-                      ) : pill;
-                    })}
-                  </div>
-
-                  {/* Right: resize grip (only when expanded, always outside scroll container) */}
-                  {!isTerminalCollapsed && (
-                    <div
-                      className="ml-2 h-full flex items-center cursor-row-resize group flex-shrink-0"
-                      onMouseDown={startTerminalResize}
-                    >
-                      <GripHorizontal className="w-4 h-3 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
                   )}
                 </div>
-                {/* Terminal content (hidden when collapsed) */}
-                {!isTerminalCollapsed && (
-                  <div className="relative pb-1" style={{ height: `calc(100% - 36px)` }}>
-                    <PanelContainer
-                      panel={defaultTerminalPanel}
-                      isActive={true}
-                      isMainRepo={!!activeSession.isMainRepo}
-                    />
+
+                {/* Bottom: horizontal detail panel */}
+                <DetailPanel
+                  isVisible={true}
+                  onToggle={toggleDetailCollapse}
+                  width={0}
+                  height={detailBottomHeight}
+                  onResize={startDetailBottomResize}
+                  mergeError={hook.mergeError}
+                  orientation="horizontal"
+                  isCollapsed={isDetailCollapsed}
+                  onToggleCollapse={toggleDetailCollapse}
+                  onSwapLayout={toggleLayoutSwap}
+                  terminalShortcuts={
+                    <>
+                      <Tooltip content={hotkeyDisplay('add-tool-terminal-claude') ? <Kbd>{hotkeyDisplay('add-tool-terminal-claude')}</Kbd> : undefined} side="top">
+                        <button
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-text-tertiary border border-border-primary hover:bg-surface-hover hover:text-text-secondary transition-colors whitespace-nowrap flex-shrink-0"
+                          onClick={() => handlePanelCreate('terminal', {
+                            initialCommand: 'claude --dangerously-skip-permissions',
+                            title: 'Claude CLI'
+                          })}
+                        >
+                          <MessageSquare className="w-3 h-3" />
+                          Claude
+                        </button>
+                      </Tooltip>
+                      <Tooltip content={hotkeyDisplay('add-tool-terminal-codex') ? <Kbd>{hotkeyDisplay('add-tool-terminal-codex')}</Kbd> : undefined} side="top">
+                        <button
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-text-tertiary border border-border-primary hover:bg-surface-hover hover:text-text-secondary transition-colors whitespace-nowrap flex-shrink-0"
+                          onClick={() => handlePanelCreate('terminal', {
+                            initialCommand: 'codex',
+                            title: 'Codex CLI'
+                          })}
+                        >
+                          <Code2 className="w-3 h-3" />
+                          Codex
+                        </button>
+                      </Tooltip>
+                      {customCommands.map((cmd, index) => {
+                        const shortcutDisplay = hotkeyDisplay(`add-tool-custom-${index}`);
+                        const pill = (
+                          <button
+                            key={`shortcut-${index}`}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-text-tertiary border border-border-primary hover:bg-surface-hover hover:text-text-secondary transition-colors whitespace-nowrap flex-shrink-0"
+                            onClick={() => handlePanelCreate('terminal', {
+                              initialCommand: cmd.command,
+                              title: cmd.name
+                            })}
+                            title={cmd.command}
+                          >
+                            <TerminalSquare className="w-3 h-3" />
+                            {cmd.name.length > 18 ? cmd.name.slice(0, 18) + '...' : cmd.name}
+                          </button>
+                        );
+                        return shortcutDisplay ? (
+                          <Tooltip key={`shortcut-${index}`} content={<Kbd>{shortcutDisplay}</Kbd>} side="top">
+                            {pill}
+                          </Tooltip>
+                        ) : pill;
+                      })}
+                    </>
+                  }
+                />
+              </div>
+
+              {/* Right column: terminal at full height */}
+              <div
+                className={`flex-shrink-0 bg-surface-primary flex flex-col overflow-hidden relative transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${immersiveMode ? '' : 'border-l border-border-primary'}`}
+                style={{ width: immersiveMode ? '0px' : `${rightTerminalWidth}px` }}
+              >
+                {/* Resize handle on left edge */}
+                <div
+                  className="absolute top-0 left-0 w-1 h-full cursor-col-resize group z-10"
+                  onMouseDown={startRightTerminalResize}
+                >
+                  <div className="absolute inset-0 bg-border-primary hover:bg-interactive transition-colors" />
+                </div>
+
+                {/* Terminal header */}
+                <div className="flex items-center h-8 px-3 bg-surface-primary border-b border-border-primary gap-2">
+                  <Terminal className="w-3.5 h-3.5 text-text-tertiary" />
+                  <span className="text-[11px] font-medium text-text-secondary uppercase tracking-wider">Terminal</span>
+                </div>
+
+                {/* Terminal content - full height */}
+                <div className="flex-1 relative min-h-0 pb-1">
+                  <PanelContainer
+                    panel={defaultTerminalPanel}
+                    isActive={true}
+                    isMainRepo={!!activeSession.isMainRepo}
+                  />
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* DEFAULT LAYOUT: Center column with panels on top, terminal on bottom */}
+              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                {/* Top: active panel content */}
+                <div className="flex-1 relative min-h-0 overflow-hidden">
+                  {sessionPanels.length > 0 && currentActivePanel ? (
+                    sessionPanels
+                      .filter(p => !defaultTerminalPanel || p.id !== defaultTerminalPanel.id)
+                      .map(panel => {
+                        const isActive = panel.id === currentActivePanel.id;
+                        const shouldKeepAlive = ['terminal'].includes(panel.type);
+                        if (!isActive && !shouldKeepAlive) return null;
+                        return (
+                          <div
+                            key={panel.id}
+                            className="absolute inset-0"
+                            style={{
+                              display: isActive ? 'block' : 'none',
+                              pointerEvents: isActive ? 'auto' : 'none'
+                            }}
+                          >
+                            <PanelContainer
+                              panel={panel}
+                              isActive={isActive}
+                              isMainRepo={!!activeSession.isMainRepo}
+                            />
+                          </div>
+                        );
+                      })
+                  ) : (
+                    <div className="flex-1 flex items-center justify-center text-text-secondary">
+                      <div className="text-center p-8">
+                        <div className="text-4xl mb-4">⚡</div>
+                        <h2 className="text-xl font-semibold mb-2">No Active Panel</h2>
+                        <p className="text-sm">Add a tool panel to get started</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Bottom: persistent terminal (collapsible) */}
+                {defaultTerminalPanel && (
+                  <div
+                    className="flex-shrink-0 border-t border-border-primary transition-all duration-200"
+                    style={{ height: isTerminalCollapsed ? '32px' : `${terminalHeight}px` }}
+                  >
+                    {/* Terminal tab header with collapse toggle and pill shortcuts */}
+                    <div className="flex items-center h-8 px-3 bg-surface-primary border-b border-border-primary gap-2">
+                      {/* Left: chevron + icon + label */}
+                      <button
+                        onClick={toggleTerminalCollapse}
+                        className="p-0.5 hover:bg-surface-hover rounded transition-colors"
+                        title={isTerminalCollapsed ? 'Expand terminal' : 'Collapse terminal'}
+                      >
+                        {isTerminalCollapsed ? (
+                          <ChevronUp className="w-3.5 h-3.5 text-text-tertiary" />
+                        ) : (
+                          <ChevronDown className="w-3.5 h-3.5 text-text-tertiary" />
+                        )}
+                      </button>
+                      <Terminal className="w-3.5 h-3.5 text-text-tertiary" />
+                      <span className="text-[11px] font-medium text-text-secondary uppercase tracking-wider">Terminal</span>
+
+                      {/* Middle: scrollable pill shortcuts */}
+                      <div className="flex-1 flex items-center gap-2 overflow-x-auto ml-3 scrollbar-none">
+                        {/* Claude pill */}
+                        <Tooltip content={hotkeyDisplay('add-tool-terminal-claude') ? <Kbd>{hotkeyDisplay('add-tool-terminal-claude')}</Kbd> : undefined} side="top">
+                          <button
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-text-tertiary border border-border-primary hover:bg-surface-hover hover:text-text-secondary transition-colors whitespace-nowrap flex-shrink-0"
+                            onClick={() => handlePanelCreate('terminal', {
+                              initialCommand: 'claude --dangerously-skip-permissions',
+                              title: 'Claude CLI'
+                            })}
+                          >
+                            <MessageSquare className="w-3 h-3" />
+                            Claude
+                          </button>
+                        </Tooltip>
+
+                        {/* Codex pill */}
+                        <Tooltip content={hotkeyDisplay('add-tool-terminal-codex') ? <Kbd>{hotkeyDisplay('add-tool-terminal-codex')}</Kbd> : undefined} side="top">
+                          <button
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-text-tertiary border border-border-primary hover:bg-surface-hover hover:text-text-secondary transition-colors whitespace-nowrap flex-shrink-0"
+                            onClick={() => handlePanelCreate('terminal', {
+                              initialCommand: 'codex',
+                              title: 'Codex CLI'
+                            })}
+                          >
+                            <Code2 className="w-3 h-3" />
+                            Codex
+                          </button>
+                        </Tooltip>
+
+                        {/* Custom command pills */}
+                        {customCommands.map((cmd, index) => {
+                          const shortcutDisplay = hotkeyDisplay(`add-tool-custom-${index}`);
+                          const pill = (
+                            <button
+                              key={`shortcut-${index}`}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-text-tertiary border border-border-primary hover:bg-surface-hover hover:text-text-secondary transition-colors whitespace-nowrap flex-shrink-0"
+                              onClick={() => handlePanelCreate('terminal', {
+                                initialCommand: cmd.command,
+                                title: cmd.name
+                              })}
+                              title={cmd.command}
+                            >
+                              <TerminalSquare className="w-3 h-3" />
+                              {cmd.name.length > 18 ? cmd.name.slice(0, 18) + '...' : cmd.name}
+                            </button>
+                          );
+                          return shortcutDisplay ? (
+                            <Tooltip key={`shortcut-${index}`} content={<Kbd>{shortcutDisplay}</Kbd>} side="top">
+                              {pill}
+                            </Tooltip>
+                          ) : pill;
+                        })}
+                      </div>
+
+                      {/* Right: resize grip (only when expanded, always outside scroll container) */}
+                      {!isTerminalCollapsed && (
+                        <div
+                          className="ml-2 h-full flex items-center cursor-row-resize group flex-shrink-0"
+                          onMouseDown={startTerminalResize}
+                        >
+                          <GripHorizontal className="w-4 h-3 text-text-muted opacity-40 hover:opacity-100 transition-opacity" />
+                        </div>
+                      )}
+                    </div>
+                    {/* Terminal content (hidden when collapsed) */}
+                    {!isTerminalCollapsed && (
+                      <div className="relative pb-1" style={{ height: `calc(100% - 36px)` }}>
+                        <PanelContainer
+                          panel={defaultTerminalPanel}
+                          isActive={true}
+                          isMainRepo={!!activeSession.isMainRepo}
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
-          </div>
 
-          {/* Right: detail panel */}
-          <DetailPanel
-            isVisible={detailVisible}
-            onToggle={() => setDetailVisible(v => !v)}
-            width={detailWidth}
-            onResize={startDetailResize}
-            mergeError={hook.mergeError}
-          />
+              {/* Right: detail panel */}
+              <DetailPanel
+                isVisible={detailVisible}
+                onToggle={() => setDetailVisible(v => !v)}
+                width={detailWidth}
+                onResize={startDetailResize}
+                mergeError={hook.mergeError}
+                onSwapLayout={toggleLayoutSwap}
+              />
+            </>
+          )}
         </div>
 
       </SessionProvider>

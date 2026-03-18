@@ -83,6 +83,9 @@ function App() {
   const [showAddProjectDialog, setShowAddProjectDialog] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const activeProjectId = useNavigationStore(s => s.activeProjectId);
+  const sidebarCollapsed = useNavigationStore(s => s.sidebarCollapsed);
+  const toggleSidebarCollapsed = useNavigationStore(s => s.toggleSidebarCollapsed);
+  const immersiveMode = useNavigationStore(s => s.immersiveMode);
   const { currentError, clearError } = useErrorStore();
   const { sessions, isLoaded } = useSessionStore();
   const { fetchConfig, config: appConfig } = useConfigStore();
@@ -96,16 +99,6 @@ function App() {
     storageKey: 'pane-sidebar-width'
   });
 
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    return localStorage.getItem('pane-sidebar-collapsed') === 'true';
-  });
-  const toggleSidebarCollapsed = () => {
-    setSidebarCollapsed(prev => {
-      const next = !prev;
-      localStorage.setItem('pane-sidebar-collapsed', String(next));
-      return next;
-    });
-  };
   
   useIPCEvents();
   const { showNotification } = useNotifications();
@@ -523,18 +516,23 @@ function App() {
         )}
         <div className="flex flex-1 min-h-0">
         <MainProcessLogger />
-        <Sidebar
-          onHelpClick={() => setIsHelpOpen(true)}
-          onAboutClick={() => setIsAboutOpen(true)}
-          onSettingsClick={() => setIsSettingsOpen(true)}
-          isSettingsOpen={isSettingsOpen}
-          onSettingsClose={() => { setIsSettingsOpen(false); setSettingsInitialSection(undefined); }}
-          settingsInitialSection={settingsInitialSection}
-          width={sidebarWidth}
-          onResize={startResize}
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={toggleSidebarCollapsed}
-        />
+        <div
+          className="flex-shrink-0 overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
+          style={{ width: (immersiveMode || sidebarCollapsed) ? '48px' : `${sidebarWidth}px` }}
+        >
+          <Sidebar
+            onHelpClick={() => setIsHelpOpen(true)}
+            onAboutClick={() => setIsAboutOpen(true)}
+            onSettingsClick={() => setIsSettingsOpen(true)}
+            isSettingsOpen={isSettingsOpen}
+            onSettingsClose={() => { setIsSettingsOpen(false); setSettingsInitialSection(undefined); }}
+            settingsInitialSection={settingsInitialSection}
+            width={sidebarWidth}
+            onResize={startResize}
+            collapsed={sidebarCollapsed}
+            onToggleCollapse={toggleSidebarCollapsed}
+          />
+        </div>
         <SessionView />
         <CloudOverlay />
         <CloudWidget />

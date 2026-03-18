@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useSession } from '../contexts/SessionContext';
-import { GitBranch, AlertTriangle, Code2, Settings, Link, TerminalSquare } from 'lucide-react';
+import { useNavigationStore } from '../stores/navigationStore';
+import { GitBranch, AlertTriangle, Code2, Settings, Link, TerminalSquare, ChevronUp, ChevronDown, ArrowLeftRight } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Tooltip } from './ui/Tooltip';
 import { Dropdown, DropdownMenuItem } from './ui/Dropdown';
@@ -10,6 +11,7 @@ interface DetailPanelProps {
   isVisible: boolean;
   onToggle: () => void;
   width: number;
+  height?: number;
   onResize: (e: React.MouseEvent) => void;
   mergeError?: string | null;
   projectGitActions?: {
@@ -17,6 +19,11 @@ interface DetailPanelProps {
     onPush?: () => void;
     isMerging?: boolean;
   };
+  orientation?: 'vertical' | 'horizontal';
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
+  onSwapLayout?: () => void;
+  terminalShortcuts?: React.ReactNode;
 }
 
 /** Consistent compact button class for sidebar actions */
@@ -48,8 +55,9 @@ function DetailSection({ title, children }: { title: string; children: React.Rea
   );
 }
 
-export function DetailPanel({ isVisible, width, onResize, mergeError, projectGitActions }: DetailPanelProps) {
+export function DetailPanel({ isVisible, width, height, onResize, mergeError, projectGitActions, orientation, isCollapsed, onToggleCollapse, onSwapLayout, terminalShortcuts }: DetailPanelProps) {
   const sessionContext = useSession();
+  const immersiveMode = useNavigationStore(s => s.immersiveMode);
 
   // Build IDE dropdown items, sending safe IDE keys (resolved to commands server-side)
   const ideItems = useMemo(() => {
@@ -68,7 +76,7 @@ export function DetailPanel({ isVisible, width, onResize, mergeError, projectGit
     ];
   }, [sessionContext?.onOpenIDEWithCommand, sessionContext?.configuredIDECommand]);
 
-  if (!isVisible || !sessionContext) return null;
+  if (!sessionContext) return null;
 
   const { session, gitBranchActions, isMerging, gitCommands, onOpenIDEWithCommand, onConfigureIDE, onSetTracking, trackingBranch } = sessionContext;
   const gitStatus = session.gitStatus;
@@ -79,17 +87,152 @@ export function DetailPanel({ isVisible, width, onResize, mergeError, projectGit
   // if it's a transient failure, the next poll cycle will recover and update the state.
   const gitUnavailable = isProject && gitStatus?.state === 'unknown';
 
+  // Horizontal bottom-bar rendering mode
+  if (orientation === 'horizontal') {
+    return (
+      <div
+        className={`flex-shrink-0 bg-surface-primary flex flex-col overflow-hidden relative transition-[height] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${immersiveMode ? '' : 'border-t border-border-primary'}`}
+        style={{ height: immersiveMode ? '0px' : isCollapsed ? (terminalShortcuts ? '60px' : '32px') : `${height ?? 200}px` }}
+      >
+        {/* Resize handle at top edge */}
+        {!isCollapsed && (
+          <div
+            className="absolute top-0 left-0 right-0 h-1 cursor-row-resize group z-10"
+            onMouseDown={onResize}
+          >
+            <div className="absolute inset-0 bg-border-primary hover:bg-interactive transition-colors" />
+          </div>
+        )}
+
+        {/* Header row */}
+        <div className="flex items-center h-8 px-3 gap-2 flex-shrink-0">
+          {/* Collapse toggle */}
+          <button
+            onClick={onToggleCollapse}
+            className="p-0.5 hover:bg-surface-hover rounded transition-colors"
+            title={isCollapsed ? 'Expand detail panel' : 'Collapse detail panel'}
+          >
+            {isCollapsed ? (
+              <ChevronUp className="w-3.5 h-3.5 text-text-tertiary" />
+            ) : (
+              <ChevronDown className="w-3.5 h-3.5 text-text-tertiary" />
+            )}
+          </button>
+
+          {/* Branch icon + name */}
+          <GitBranch className="w-3.5 h-3.5 text-text-tertiary flex-shrink-0" />
+          <span className="text-sm text-text-primary font-medium truncate max-w-[150px]">
+            {(gitCommands?.currentBranch?.trim()) || session.baseBranch?.replace(/^origin\//, '') || 'unknown'}
+          </span>
+
+          {/* Inline change badges */}
+          {!isProject && gitStatus && (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {gitStatus.ahead != null && gitStatus.ahead > 0 && (
+                <span className="text-[10px] text-status-success font-medium">&uarr;{gitStatus.ahead}</span>
+              )}
+              {gitStatus.behind != null && gitStatus.behind > 0 && (
+                <span className="text-[10px] text-status-warning font-medium">&darr;{gitStatus.behind}</span>
+              )}
+              {gitStatus.hasUncommittedChanges && gitStatus.filesChanged != null && gitStatus.filesChanged > 0 && (
+                <span className="text-[10px] text-status-info font-medium">{gitStatus.filesChanged} files</span>
+              )}
+            </div>
+          )}
+
+          {/* Merge error indicator */}
+          {mergeError && (
+            <Tooltip content={mergeError} side="top">
+              <AlertTriangle className="w-3.5 h-3.5 text-status-error flex-shrink-0" />
+            </Tooltip>
+          )}
+
+          {/* Action buttons row */}
+          <div className="flex-1 flex items-center gap-1 overflow-x-auto ml-2 scrollbar-none">
+            {/* Flatten git actions into compact horizontal buttons */}
+            {!gitUnavailable && !isProject && gitBranchActions?.map(action => (
+              <Tooltip key={action.id} content={action.description} side="top">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="!px-1.5 !py-0.5 text-xs h-6 flex-shrink-0"
+                  onClick={action.onClick}
+                  disabled={action.disabled || isMerging}
+                >
+                  <action.icon className="w-3 h-3 mr-1" />
+                  {action.label}
+                </Button>
+              </Tooltip>
+            ))}
+
+            {/* IDE button */}
+            {onOpenIDEWithCommand && (
+              <Dropdown
+                trigger={
+                  <Button variant="ghost" size="sm" className="!px-1.5 !py-0.5 text-xs h-6 flex-shrink-0">
+                    <Code2 className="w-3 h-3 mr-1" />
+                    IDE
+                  </Button>
+                }
+                items={ideItems}
+                footer={
+                  <DropdownMenuItem
+                    icon={Settings}
+                    label="Configure..."
+                    onClick={onConfigureIDE}
+                  />
+                }
+                position="auto"
+                width="sm"
+              />
+            )}
+          </div>
+
+          {/* Swap button */}
+          {onSwapLayout && (
+            <Tooltip content="Swap terminal and detail panel positions" side="top">
+              <button
+                onClick={onSwapLayout}
+                className="p-1 hover:bg-surface-hover rounded transition-colors flex-shrink-0"
+              >
+                <ArrowLeftRight className="w-3.5 h-3.5 text-text-tertiary" />
+              </button>
+            </Tooltip>
+          )}
+        </div>
+
+        {/* Terminal shortcut pills row */}
+        {terminalShortcuts && (
+          <div className="flex items-center h-7 px-3 gap-2 flex-shrink-0 overflow-x-auto scrollbar-none">
+            {terminalShortcuts}
+          </div>
+        )}
+
+        {/* Expandable content: history */}
+        {!isCollapsed && !gitUnavailable && session.worktreePath && (
+          <div className="flex-1 min-h-0 overflow-y-auto px-2 py-2">
+            <GitHistoryGraph
+              sessionId={session.id}
+              baseBranch={session.baseBranch || 'main'}
+              layout="wide"
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
-      className="flex-shrink-0 min-w-0 border-l border-border-primary bg-surface-primary flex flex-col overflow-hidden relative"
-      style={{ width: `${width}px` }}
+      className={`flex-shrink-0 min-w-0 bg-surface-primary flex flex-col overflow-hidden relative transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${isVisible && !immersiveMode ? 'border-l border-border-primary' : ''}`}
+      style={{ width: isVisible && !immersiveMode ? `${width}px` : '0px' }}
     >
       {/* Resize handle */}
       <div
         className="absolute top-0 left-0 w-1 h-full cursor-col-resize group z-10"
         onMouseDown={onResize}
       >
-        <div className="absolute inset-0 group-hover:bg-interactive transition-colors" />
+        <div className="absolute inset-0 bg-border-primary hover:bg-interactive transition-colors" />
       </div>
 
       {/* Fixed top sections — never scroll */}
@@ -97,7 +240,7 @@ export function DetailPanel({ isVisible, width, onResize, mergeError, projectGit
         {/* Branch name — standalone header */}
         <div className="flex items-center gap-2 px-3 py-2 border-b border-border-primary min-w-0">
           <GitBranch className="w-3.5 h-3.5 text-text-tertiary flex-shrink-0" />
-          <span className="flex flex-col leading-tight min-w-0">
+          <span className="flex flex-col leading-tight min-w-0 flex-1">
             <span className="text-sm text-text-primary font-medium truncate">
               {(gitCommands?.currentBranch?.trim()) || session.baseBranch?.replace(/^origin\//, '') || 'unknown'}
             </span>
@@ -108,6 +251,16 @@ export function DetailPanel({ isVisible, width, onResize, mergeError, projectGit
               </span>
             )}
           </span>
+          {onSwapLayout && (
+            <Tooltip content="Swap terminal and detail panel positions" side="left">
+              <button
+                onClick={onSwapLayout}
+                className="p-1 hover:bg-surface-hover rounded transition-colors flex-shrink-0"
+              >
+                <ArrowLeftRight className="w-3.5 h-3.5 text-text-tertiary" />
+              </button>
+            </Tooltip>
+          )}
         </div>
 
         {/* Changes — worktree sessions only */}
