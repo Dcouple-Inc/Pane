@@ -77,6 +77,16 @@ body.light {
   box-shadow: inset 0 -4px 0 0 var(--tab-indicator-color, #3574F0);
 }
 
+/* Dusk theme — rounded panel sections (Emdash-inspired soft rounding) */
+:root.dusk .xterm {
+  border-radius: var(--radius-lg);
+}
+
+/* Forge theme — rounded "islands" for content areas (IntelliJ Islands-inspired) */
+:root.forge .xterm {
+  border-radius: var(--radius-default);
+}
+
 /* Hide scrollbar completely */
 .scrollbar-none {
   scrollbar-width: none;

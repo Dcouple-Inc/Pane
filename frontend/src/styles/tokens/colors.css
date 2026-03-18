@@ -370,8 +370,8 @@
   --color-scrollbar-thumb: var(--gh-light-200);
   --color-scrollbar-thumb-hover: var(--gh-light-300);
 
-  /* Structural tokens */
-  --color-bg-chrome: var(--color-bg-primary);
+  /* Structural tokens — chrome uses secondary for contrast with white active tabs */
+  --color-bg-chrome: var(--color-surface-secondary);
   --color-bg-editor: var(--color-bg-primary);
   --tab-indicator-color: transparent;
   --tab-indicator-height: 0px;

@@ -427,7 +427,7 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
           const tab = (
             <div
               className={cn(
-                "group relative inline-flex items-center h-[var(--panel-tab-height)] px-3 text-sm whitespace-nowrap cursor-pointer select-none",
+                "group relative inline-flex items-center h-[var(--panel-tab-height)] min-w-[4.5rem] justify-center px-3 text-sm whitespace-nowrap cursor-pointer select-none",
                 activePanel?.id === panel.id
                   ? "text-text-primary"
                   : "text-text-tertiary hover:text-text-primary hover:bg-surface-hover"
