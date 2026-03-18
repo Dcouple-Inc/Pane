@@ -33,6 +33,7 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
   const webglAddonRef = useRef<WebglAddon | null>(null);
   const webLinksAddonRef = useRef<WebLinksAddon | null>(null);
   const isActiveRef = useRef(isActive);
+  const isNearBottomRef = useRef(true); // Track if user is scrolled near the bottom
   const [isInitialized, setIsInitialized] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -275,6 +276,14 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           xtermRef.current = terminal;
           fitAddonRef.current = fitAddon;
 
+          // Track scroll position — consider "near bottom" if within 10% of total rows
+          const terminalInstance = terminal;
+          const scrollDisposable = terminalInstance.onScroll(() => {
+            const buf = terminalInstance.buffer.active;
+            const threshold = Math.max(3, Math.ceil(terminalInstance.rows * 0.1));
+            isNearBottomRef.current = buf.viewportY >= buf.baseY - threshold;
+          });
+
           // Ack batching for flow control
           const ACK_BATCH_SIZE = 10_000; // 10KB
           const ACK_BATCH_INTERVAL = 100; // ms
@@ -490,8 +499,14 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
                   ackFlushTimer = setTimeout(flushAck, ACK_BATCH_INTERVAL);
                 }
 
-                // Write to terminal (fire-and-forget, ack already sent)
-                terminal.write(typedData.output);
+                // Write to terminal — if user is near bottom, snap back after write
+                // completes to prevent the viewport jumping to top on large output chunks
+                const shouldSnap = isNearBottomRef.current;
+                terminal.write(typedData.output, () => {
+                  if (shouldSnap && terminal && !disposed) {
+                    terminal.scrollToBottom();
+                  }
+                });
               }
             }
             // Ignore session terminal output (has sessionId instead of panelId)
@@ -546,6 +561,7 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
             if (resizeTimer) clearTimeout(resizeTimer);
             unsubscribeOutput(); // Use the unsubscribe function
             inputDisposable.dispose();
+            scrollDisposable.dispose();
             terminalElement?.removeEventListener('paste', handlePaste);
           };
         }
@@ -617,6 +633,13 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           if (dimensions.cols < 20) {
             setTimeout(fitTerminal, 150);
           } else {
+            // Repaint all visible rows — after display:none→block, the WebGL/canvas
+            // renderer has stale glyph positions that cause janky shifted text.
+            // Without this, the terminal only fixes itself on the next keystroke.
+            const rows = xtermRef.current?.rows ?? 0;
+            if (rows > 0) {
+              xtermRef.current!.refresh(0, rows - 1);
+            }
             // Focus the terminal once it's properly sized
             xtermRef.current?.focus();
             // Re-focus after a short delay to handle any focus stealing from other components
@@ -692,16 +715,38 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
     <div className="h-full w-full relative" onMouseMove={onMouseMove}>
       <div ref={terminalRef} className="h-full w-full" />
 
-      {/* Refresh button - helps recover from stuck terminals */}
+      {/* Terminal action buttons */}
       {isInitialized && (
-        <button
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-          className="absolute top-2 right-2 p-1.5 rounded bg-surface-secondary/80 hover:bg-surface-tertiary text-text-tertiary hover:text-text-primary transition-colors opacity-0 hover:opacity-100 focus:opacity-100"
-          title="Refresh terminal (reset flow control)"
-        >
-          <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-        </button>
+        <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 hover:opacity-100 focus-within:opacity-100 transition-opacity">
+          <button
+            onClick={() => xtermRef.current?.scrollToTop()}
+            className="p-1.5 rounded bg-surface-secondary/80 hover:bg-surface-tertiary text-text-tertiary hover:text-text-primary transition-colors"
+            title="Scroll to top"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 5.5L7 2L11 5.5" />
+              <line x1="7" y1="2.5" x2="7" y2="12" />
+            </svg>
+          </button>
+          <button
+            onClick={() => xtermRef.current?.scrollToBottom()}
+            className="p-1.5 rounded bg-surface-secondary/80 hover:bg-surface-tertiary text-text-tertiary hover:text-text-primary transition-colors"
+            title="Scroll to bottom"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 8.5L7 12L11 8.5" />
+              <line x1="7" y1="11.5" x2="7" y2="2" />
+            </svg>
+          </button>
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="p-1.5 rounded bg-surface-secondary/80 hover:bg-surface-tertiary text-text-tertiary hover:text-text-primary transition-colors"
+            title="Refresh terminal (reset flow control)"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       )}
 
       {!isInitialized && (

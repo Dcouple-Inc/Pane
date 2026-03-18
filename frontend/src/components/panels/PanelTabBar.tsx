@@ -13,6 +13,7 @@ import { useHotkeyStore } from '../../stores/hotkeyStore';
 import { Tooltip } from '../ui/Tooltip';
 import { Kbd } from '../ui/Kbd';
 import { useResourceMonitor } from '../../hooks/useResourceMonitor';
+import { ClaudeIcon, OpenAIIcon } from '../ui/BrandIcons';
 
 function formatMemory(mb: number): string {
   if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
@@ -354,7 +355,17 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
       return true;
     });
   
-  const getPanelIcon = (type: ToolPanelType) => {
+  const getPanelIcon = (type: ToolPanelType, panel?: ToolPanel) => {
+    // Check for brand-specific terminal panels by title
+    if (type === 'terminal' && panel) {
+      const title = panel.title.toLowerCase();
+      if (title.includes('claude')) {
+        return <ClaudeIcon className="w-4 h-4" />;
+      }
+      if (title.includes('codex')) {
+        return <OpenAIIcon className="w-4 h-4" />;
+      }
+    }
     switch (type) {
       case 'terminal':
         return <Terminal className="w-4 h-4" />;
@@ -434,7 +445,7 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
                 }
               }}
             >
-              {getPanelIcon(panel.type)}
+              {getPanelIcon(panel.type, panel)}
 
               {isEditing ? (
                 <input
@@ -465,7 +476,7 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
 
               {!isPermanent && !isEditing && (
                 <button
-                  className="ml-1 p-0.5 rounded transition-colors text-text-muted hover:bg-surface-hover hover:text-status-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring-subtle"
+                  className="ml-1 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity transition-colors text-text-muted hover:bg-surface-hover hover:text-status-error focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring-subtle"
                   onClick={(e) => handlePanelClose(e, panel)}
                 >
                   <X className="w-3 h-3" />
@@ -545,7 +556,7 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
                   {hotkeyDisplay('add-tool-explorer') && <Kbd size="xs" variant="muted" className="ml-auto">{hotkeyDisplay('add-tool-explorer')}</Kbd>}
                 </button>
               )}
-              {/* Terminal with Claude CLI */}
+              {/* Claude Code */}
               {availablePanelTypes.includes('terminal') && (
                 <button
                   ref={(el) => { dropdownItemsRef.current[refIndex++] = el; }}
@@ -553,15 +564,15 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
                   className={menuItemClass}
                   onClick={() => handleAddPanel('terminal', {
                     initialCommand: 'claude --dangerously-skip-permissions',
-                    title: 'Claude CLI'
+                    title: 'Claude Code'
                   })}
                 >
-                  <Terminal className="w-4 h-4 flex-shrink-0" />
-                  <span className="ml-2">Terminal (Claude)</span>
+                  <ClaudeIcon className="w-4 h-4 flex-shrink-0" />
+                  <span className="ml-2">Claude Code</span>
                   {hotkeyDisplay('add-tool-terminal-claude') && <Kbd size="xs" variant="muted" className="ml-auto">{hotkeyDisplay('add-tool-terminal-claude')}</Kbd>}
                 </button>
               )}
-              {/* Terminal with Codex CLI */}
+              {/* Codex */}
               {availablePanelTypes.includes('terminal') && (
                 <button
                   ref={(el) => { dropdownItemsRef.current[refIndex++] = el; }}
@@ -569,11 +580,11 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
                   className={menuItemClass}
                   onClick={() => handleAddPanel('terminal', {
                     initialCommand: 'codex',
-                    title: 'Codex CLI'
+                    title: 'Codex'
                   })}
                 >
-                  <Terminal className="w-4 h-4 flex-shrink-0" />
-                  <span className="ml-2">Terminal (Codex)</span>
+                  <OpenAIIcon className="w-4 h-4 flex-shrink-0" />
+                  <span className="ml-2">Codex</span>
                   {hotkeyDisplay('add-tool-terminal-codex') && <Kbd size="xs" variant="muted" className="ml-auto">{hotkeyDisplay('add-tool-terminal-codex')}</Kbd>}
                 </button>
               )}
