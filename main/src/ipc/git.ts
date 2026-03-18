@@ -1,4 +1,6 @@
 import { IpcMain } from 'electron';
+import { existsSync } from 'fs';
+import { join } from 'path';
 import type { AppServices } from './types';
 import { buildGitCommitCommand } from '../utils/shellEscape';
 import { mainWindow } from '../index';
@@ -6,7 +8,9 @@ import { panelEventBus } from '../services/panelEventBus';
 import { PanelEventType, ToolPanelType, PanelEvent } from '../../../shared/types/panels';
 import type { Session } from '../types/session';
 import type { GitCommit, GitGraphCommit } from '../services/gitDiffManager';
-import type { CommandRunner } from '../utils/commandRunner';
+import { CommandRunner } from '../utils/commandRunner';
+import { getShellPath } from '../utils/shellPath';
+import { parseWSLPath, validateWSLAvailable } from '../utils/wslUtils';
 
 // Extended type for git system virtual panels
 type SystemPanelType = ToolPanelType | 'git';
@@ -48,6 +52,17 @@ interface RawCommitData {
   filesChanged?: number;
 }
 
+
+function isValidGitUrl(url: string): boolean {
+  // Accept https://, ssh://, and scp-style git@host:path formats
+  return /^(https?:\/\/[\w.\-\/:@]+|ssh:\/\/[\w.\-\/:@]+|git@[\w.\-]+:[\w.\-\/]+)(\.git)?$/.test(url);
+}
+
+function extractRepoName(url: string): string {
+  const cleaned = url.replace(/\/+$/, '').replace(/\.git$/, '');
+  const lastSegment = cleaned.split('/').pop() || cleaned.split(':').pop() || 'repo';
+  return lastSegment;
+}
 
 export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): void {
   const { sessionManager, gitDiffManager, worktreeManager, claudeCodeManager, gitStatusManager, databaseService } = services;
@@ -1953,4 +1968,65 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       return { success: true, data: null }; // Silent fail, just no git links
     }
   });
-} 
+
+  ipcMain.handle('git:clone-repo', async (_event, url: string, destDir: string) => {
+    if (!isValidGitUrl(url)) {
+      return { success: false, error: 'Invalid repository URL. Use https:// or git@ format.' };
+    }
+
+    const repoName = extractRepoName(url);
+
+    // Detect WSL path (e.g. \\wsl$\Ubuntu\home\user) and configure accordingly
+    const wslInfo = parseWSLPath(destDir);
+    let actualDestDir = destDir;
+    let wslEnabled = false;
+    let wslDistribution: string | null = null;
+
+    if (wslInfo) {
+      const wslError = validateWSLAvailable(wslInfo.distro);
+      if (wslError) {
+        return { success: false, error: wslError };
+      }
+      wslEnabled = true;
+      wslDistribution = wslInfo.distro;
+      actualDestDir = wslInfo.linuxPath;
+    }
+
+    const clonePath = wslEnabled ? `${actualDestDir}/${repoName}` : join(destDir, repoName);
+    const fsCheckPath = wslEnabled ? join(destDir, repoName) : clonePath;
+
+    if (existsSync(fsCheckPath)) {
+      return { success: false, error: `Directory "${repoName}" already exists in the destination folder` };
+    }
+
+    try {
+      // Use double quotes for cross-platform compatibility (single quotes break on Windows cmd.exe)
+      const escapedUrl = url.replace(/"/g, '\\"');
+      const escapedPath = clonePath.replace(/"/g, '\\"');
+      const commandRunner = new CommandRunner({ path: actualDestDir, wsl_enabled: wslEnabled, wsl_distribution: wslDistribution });
+      await commandRunner.execAsync(
+        `git clone "${escapedUrl}" "${escapedPath}"`,
+        actualDestDir,
+        { timeout: 300000, env: { ...process.env, PATH: getShellPath() } as Record<string, string> }
+      );
+
+      // Return the original (non-WSL-translated) path so the frontend can use it directly
+      const returnPath = wslEnabled ? join(destDir, repoName) : clonePath;
+      return { success: true, data: { clonedPath: returnPath, repoName } };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+
+      if (errorMsg.includes('Could not resolve host') || errorMsg.includes('Connection timed out')) {
+        return { success: false, error: 'Network error — check your internet connection and try again.' };
+      }
+      if (errorMsg.includes('Authentication failed') || errorMsg.includes('could not read Username')) {
+        return { success: false, error: 'Authentication failed — check your credentials or use an SSH URL.' };
+      }
+      if (errorMsg.includes('not found') || errorMsg.includes('does not exist')) {
+        return { success: false, error: 'Repository not found — check the URL and try again.' };
+      }
+
+      return { success: false, error: errorMsg };
+    }
+  });
+}

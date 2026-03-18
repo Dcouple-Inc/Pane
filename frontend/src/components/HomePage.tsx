@@ -1,71 +1,256 @@
-/**
- * HomePage Component
- *
- * Landing page displayed when no session is selected. Provides quick access to:
- * - Theme toggle (dark/light mode)
- * - UI scale adjustment
- * - Terminal shell preference (Windows only)
- * - List of active sessions (running/waiting)
- *
- * Replaces the previous EmptyState component to provide a more functional
- * default view that allows users to configure settings without opening
- * the full Settings dialog.
- */
-import { useState, useEffect } from 'react';
-import { ChevronUp, ChevronDown, Terminal } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { ChevronDown, ChevronUp, Terminal } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useConfigStore } from '../stores/configStore';
 import { useSessionStore } from '../stores/sessionStore';
+import { useNavigationStore } from '../stores/navigationStore';
 import { API } from '../utils/api';
 import { Dropdown } from './ui/Dropdown';
+import { Badge } from './ui/Badge';
+import { AddProjectDialog } from './AddProjectDialog';
+import { CloneFromGitHubDialog } from './CloneFromGitHubDialog';
+import { formatDistanceToNow } from '../utils/timestampUtils';
+import type { Project } from '../types/project';
+import type { Session } from '../types/session';
+
+const actionCardClassName =
+  'flex min-h-[9.2rem] min-w-0 w-full flex-col items-center justify-center gap-3 rounded-xl bg-surface-secondary p-6 text-center transition-colors hover:bg-surface-hover cursor-pointer';
+
+const paneAscii = String.raw`
+░█████████                                    
+░██     ░██                                   
+░██     ░██  ░██████   ░████████   ░███████   
+░█████████        ░██  ░██    ░██ ░██    ░██  
+░██          ░███████  ░██    ░██ ░█████████  
+░██         ░██   ░██  ░██    ░██ ░██         
+░██          ░█████░██ ░██    ░██  ░███████   
+`;
+
+function FolderOpenIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M5 19a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4l2 2h4a2 2 0 0 1 2 2v1" />
+      <path d="M20.5 16.5L21 12h-6l-.5 4.5" />
+      <path d="M3 12h18l-1.5 7H4.5L3 12z" />
+    </svg>
+  );
+}
+
+function PlusIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
+function GitHubIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
+    </svg>
+  );
+}
+
+function getStatusVariant(
+  status: Session['status'],
+): 'success' | 'warning' | 'error' | 'info' | 'default' {
+  switch (status) {
+    case 'running':
+      return 'success';
+    case 'waiting':
+      return 'warning';
+    case 'error':
+      return 'error';
+    case 'initializing':
+    case 'completed_unviewed':
+      return 'info';
+    case 'stopped':
+    case 'ready':
+    default:
+      return 'default';
+  }
+}
+
+function getStatusLabel(status: Session['status']): string {
+  switch (status) {
+    case 'running':
+      return 'Running';
+    case 'waiting':
+      return 'Waiting';
+    case 'error':
+      return 'Error';
+    case 'initializing':
+      return 'Initializing';
+    case 'completed_unviewed':
+      return 'New Activity';
+    case 'stopped':
+      return 'Stopped';
+    case 'ready':
+      return 'Ready';
+    default:
+      return status;
+  }
+}
+
+function getRepositoryName(project: Project): string {
+  const normalizedPath = project.path.replace(/[\\/]+$/, '');
+  const segments = normalizedPath.split(/[\\/]/).filter(Boolean);
+  return segments[segments.length - 1] || project.name;
+}
+
+function getProjectSecondaryLabel(project: Project): string {
+  const repoName = getRepositoryName(project);
+  return project.name !== repoName ? `${project.name} · ${project.path}` : project.path;
+}
+
+function OpenProjectCard({
+  projects,
+  onAddProject,
+}: {
+  projects: Project[];
+  onAddProject: () => void;
+}) {
+  const navigateToProject = useNavigationStore(s => s.navigateToProject);
+
+  return (
+    <Dropdown
+      trigger={
+        <div className={actionCardClassName}>
+          <FolderOpenIcon className="w-8 h-8 text-text-secondary" />
+          <span className="text-sm font-medium text-text-primary">Open Project</span>
+        </div>
+      }
+      items={projects.map(project => ({
+        id: String(project.id),
+        label: (
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium">{getRepositoryName(project)}</div>
+            <div className="truncate text-xs text-text-tertiary">
+              {getProjectSecondaryLabel(project)}
+            </div>
+          </div>
+        ),
+        onClick: () => {
+          API.projects.activate(String(project.id)).catch(() => {});
+          navigateToProject(project.id);
+        },
+      }))}
+      footer={({ close }) => (
+        <button
+          type="button"
+          onClick={() => {
+            close();
+            onAddProject();
+          }}
+          className="w-full rounded-sm px-3 py-2.5 text-left text-sm text-interactive transition-colors hover:bg-surface-hover"
+        >
+          + Add Repository
+        </button>
+      )}
+      position="bottom-left"
+      width="lg"
+    />
+  );
+}
 
 export function HomePage() {
   const { theme, setTheme } = useTheme();
   const { config, updateConfig } = useConfigStore();
   const { sessions, setActiveSession } = useSessionStore();
+  const navigateToSessions = useNavigationStore(s => s.navigateToSessions);
 
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [showAddProject, setShowAddProject] = useState(false);
+  const [showCloneDialog, setShowCloneDialog] = useState(false);
   const [platform, setPlatform] = useState<string>('');
-  const [availableShells, setAvailableShells] = useState<Array<{id: string; name: string; path: string}>>([]);
+  const [availableShells, setAvailableShells] = useState<Array<{ id: string; name: string; path: string }>>([]);
   const [preferredShell, setPreferredShell] = useState<string>('auto');
 
   const uiScale = config?.uiScale ?? 1.0;
 
-  // Filter for active sessions (running or waiting)
-  const activeSessions = sessions.filter(
-    s => s.status === 'running' || s.status === 'waiting'
-  );
+  const loadProjects = useCallback(async () => {
+    try {
+      const result = await API.projects.getAll();
+      if (result.success && result.data) {
+        setProjects(result.data as Project[]);
+      }
+    } catch {
+      // Ignore transient IPC failures on home page
+    }
+  }, []);
 
-  // Fetch platform and available shells on mount
   useEffect(() => {
-    window.electronAPI
+    void window.electronAPI
       .getPlatform()
-      .then(async (p) => {
-        setPlatform(p);
-        if (p === 'win32') {
-          try {
-            const shellsResponse = await API.config.getAvailableShells();
-            if (shellsResponse.success) {
-              setAvailableShells(shellsResponse.data);
-            }
-          } catch (error) {
-            console.error('Failed to fetch available shells:', error);
+      .then(async currentPlatform => {
+        setPlatform(currentPlatform);
+        if (currentPlatform === 'win32') {
+          const shellsResponse = await API.config.getAvailableShells();
+          if (shellsResponse.success) {
+            setAvailableShells(shellsResponse.data);
           }
         }
       })
-      .catch((error) => {
-        console.error('Failed to get platform:', error);
-      });
+      .catch(() => {});
   }, []);
 
-  // Sync preferredShell with config
   useEffect(() => {
     if (config?.preferredShell) {
       setPreferredShell(config.preferredShell);
     }
   }, [config?.preferredShell]);
 
+  useEffect(() => {
+    void loadProjects();
+    const handler = () => void loadProjects();
+    window.addEventListener('project-changed', handler);
+    window.addEventListener('project-sessions-refresh', handler);
+    return () => {
+      window.removeEventListener('project-changed', handler);
+      window.removeEventListener('project-sessions-refresh', handler);
+    };
+  }, [loadProjects]);
+
+  const recentSessions = useMemo(() => {
+    return sessions
+      .filter((s): s is Session & { lastActivity: string } => !s.archived && typeof s.lastActivity === 'string')
+      .sort((a, b) => new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime())
+      .slice(0, 8);
+  }, [sessions]);
+
+  const projectNameMap = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const project of projects) {
+      map.set(project.id, getRepositoryName(project));
+    }
+    return map;
+  }, [projects]);
+
+  const handleOpenSession = (session: Session) => {
+    navigateToSessions();
+    setActiveSession(session.id).catch(() => {});
+  };
+
   const handleScaleChange = async (delta: number) => {
-    const newScale = Math.round((uiScale + delta) * 10) / 10; // Avoid floating point issues
+    const newScale = Math.round((uiScale + delta) * 10) / 10;
     if (newScale >= 0.8 && newScale <= 1.5) {
       await updateConfig({ uiScale: newScale }).catch(() => {});
     }
@@ -73,126 +258,192 @@ export function HomePage() {
 
   const handleShellChange = async (shell: string) => {
     setPreferredShell(shell);
-    await updateConfig({ preferredShell: shell as 'auto' | 'gitbash' | 'powershell' | 'pwsh' | 'cmd' }).catch(() => {});
+    await updateConfig({
+      preferredShell: shell as 'auto' | 'gitbash' | 'powershell' | 'pwsh' | 'cmd',
+    }).catch(() => {});
   };
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-8 bg-bg-primary">
-      <div className="w-full max-w-md space-y-8">
-
-        {/* Quick Preferences */}
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-text-primary">Preferences</h2>
-
-          {/* Theme */}
-          <div className="flex items-center justify-between p-4 bg-surface-secondary rounded-lg">
-            <span className="text-text-primary">Theme</span>
-            <Dropdown
-              trigger={
-                <button
-                  type="button"
-                  className="px-3 py-1.5 rounded-md bg-surface-tertiary hover:bg-surface-hover text-sm text-text-primary border border-border-secondary focus:outline-none focus:ring-2 focus:ring-interactive cursor-pointer flex items-center gap-2"
-                >
-                  <span>{theme === 'light' ? 'Light' : theme === 'dark' ? 'Dark' : 'OLED Black'}</span>
-                  <ChevronDown className="w-3 h-3 text-text-tertiary" />
-                </button>
-              }
-              items={[
-                { id: 'light', label: 'Light', onClick: () => setTheme('light') },
-                { id: 'dark', label: 'Dark', onClick: () => setTheme('dark') },
-                { id: 'oled', label: 'OLED Black', onClick: () => setTheme('oled') },
-              ]}
-              selectedId={theme}
-              position="bottom-right"
-              width="sm"
-            />
+    <div className="flex-1 overflow-y-auto bg-bg-primary px-8 py-10">
+      <div className="flex min-h-full items-center">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-8">
+          <div className="flex justify-center">
+            <pre className="max-w-full overflow-hidden whitespace-pre text-center font-mono text-[10px] leading-[0.95] tracking-tight text-text-tertiary sm:text-[11px]">
+              {paneAscii}
+            </pre>
           </div>
-
-          {/* UI Scale */}
-          <div className="flex items-center justify-between p-4 bg-surface-secondary rounded-lg">
-            <span className="text-text-primary">UI Scale</span>
-            <div className="flex items-center gap-2">
+          <section className="grid gap-8 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,1fr)] lg:items-stretch">
+            <div className="space-y-5 rounded-2xl border border-border-secondary bg-surface-primary/70 p-6 shadow-sm">
+            <div>
+              <h2 className="mb-2 text-lg font-semibold text-text-primary">Get Started</h2>
+              <p className="text-sm text-text-tertiary">
+                Open a project, create a new one, or clone from GitHub.
+              </p>
+            </div>
+            <div className="grid justify-center gap-4 sm:grid-cols-3">
+              <OpenProjectCard
+                projects={projects}
+                onAddProject={() => setShowAddProject(true)}
+              />
               <button
-                onClick={() => handleScaleChange(-0.1)}
-                disabled={uiScale <= 0.8}
-                className="p-1 rounded-md bg-surface-tertiary hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed"
+                type="button"
+                onClick={() => setShowAddProject(true)}
+                className={actionCardClassName}
               >
-                <ChevronDown className="w-4 h-4" />
+                <PlusIcon className="w-8 h-8 text-text-secondary" />
+                <span className="text-sm font-medium text-text-primary">New Project</span>
               </button>
-              <span className="text-sm text-text-secondary w-10 text-center">{uiScale.toFixed(1)}x</span>
               <button
-                onClick={() => handleScaleChange(0.1)}
-                disabled={uiScale >= 1.5}
-                className="p-1 rounded-md bg-surface-tertiary hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed"
+                type="button"
+                onClick={() => setShowCloneDialog(true)}
+                className={actionCardClassName}
               >
-                <ChevronUp className="w-4 h-4" />
+                <GitHubIcon className="w-8 h-8 text-text-secondary" />
+                <span className="text-sm font-medium text-text-primary">GitHub</span>
               </button>
             </div>
-          </div>
+            </div>
 
-          {/* Terminal Shell (Windows only) */}
-          {platform === 'win32' && (
-            <div className="flex items-center justify-between p-4 bg-surface-secondary rounded-lg">
-              <div className="flex items-center gap-2">
-                <Terminal className="w-4 h-4 text-text-secondary" />
-                <span className="text-text-primary">Terminal Shell</span>
+            <section className="space-y-4 rounded-2xl border border-border-secondary bg-surface-primary/70 p-6 shadow-sm">
+              <div>
+                <h2 className="text-lg font-semibold text-text-primary">Preferences</h2>
+                <p className="mt-2 text-sm text-text-tertiary">Make Pane your own</p>
               </div>
+
+            <div className="flex items-center justify-between rounded-lg bg-surface-secondary p-4">
+              <span className="text-text-primary">Theme</span>
               <Dropdown
                 trigger={
                   <button
                     type="button"
-                    className="px-3 py-1.5 rounded-md bg-surface-tertiary hover:bg-surface-hover text-sm text-text-primary border border-border-secondary focus:outline-none focus:ring-2 focus:ring-interactive cursor-pointer flex items-center gap-2"
+                    className="flex cursor-pointer items-center gap-2 rounded-md border border-border-secondary bg-surface-tertiary px-3 py-1.5 text-sm text-text-primary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-interactive"
                   >
-                    <span>{preferredShell === 'auto' ? 'Auto (Git Bash)' : availableShells.find(s => s.id === preferredShell)?.name ?? preferredShell}</span>
+                    <span>{theme === 'light' ? 'Light' : theme === 'dark' ? 'Dark' : 'OLED Black'}</span>
                     <ChevronDown className="w-3 h-3 text-text-tertiary" />
                   </button>
                 }
                 items={[
-                  { id: 'auto', label: 'Auto (Git Bash)', onClick: () => handleShellChange('auto') },
-                  ...availableShells.map(shell => ({
-                    id: shell.id,
-                    label: shell.name,
-                    onClick: () => handleShellChange(shell.id),
-                  })),
+                  { id: 'light', label: 'Light', onClick: () => setTheme('light') },
+                  { id: 'dark', label: 'Dark', onClick: () => setTheme('dark') },
+                  { id: 'oled', label: 'OLED Black', onClick: () => setTheme('oled') },
                 ]}
-                selectedId={preferredShell}
+                selectedId={theme}
                 position="bottom-right"
                 width="sm"
               />
             </div>
+
+            <div className="flex items-center justify-between rounded-lg bg-surface-secondary p-4">
+              <span className="text-text-primary">UI Scale</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleScaleChange(-0.1)}
+                  disabled={uiScale <= 0.8}
+                  className="rounded-md bg-surface-tertiary p-1 hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+                <span className="w-10 text-center text-sm text-text-secondary">{uiScale.toFixed(1)}x</span>
+                <button
+                  type="button"
+                  onClick={() => void handleScaleChange(0.1)}
+                  disabled={uiScale >= 1.5}
+                  className="rounded-md bg-surface-tertiary p-1 hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <ChevronUp className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {platform === 'win32' && (
+              <div className="flex items-center justify-between rounded-lg bg-surface-secondary p-4">
+                <div className="flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-text-secondary" />
+                  <span className="text-text-primary">Terminal Shell</span>
+                </div>
+                <Dropdown
+                  trigger={
+                    <button
+                      type="button"
+                      className="flex cursor-pointer items-center gap-2 rounded-md border border-border-secondary bg-surface-tertiary px-3 py-1.5 text-sm text-text-primary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-interactive"
+                    >
+                      <span>
+                        {preferredShell === 'auto'
+                          ? 'Auto (Git Bash)'
+                          : availableShells.find(shell => shell.id === preferredShell)?.name ?? preferredShell}
+                      </span>
+                      <ChevronDown className="w-3 h-3 text-text-tertiary" />
+                    </button>
+                  }
+                  items={[
+                    { id: 'auto', label: 'Auto (Git Bash)', onClick: () => void handleShellChange('auto') },
+                    ...availableShells.map(shell => ({
+                      id: shell.id,
+                      label: shell.name,
+                      onClick: () => void handleShellChange(shell.id),
+                    })),
+                  ]}
+                  selectedId={preferredShell}
+                  position="bottom-right"
+                  width="sm"
+                />
+              </div>
+            )}
+            </section>
+          </section>
+
+          {recentSessions.length > 0 && (
+            <section className="rounded-2xl border border-border-secondary bg-surface-primary/70 p-6 shadow-sm">
+              <h2 className="mb-4 text-lg font-semibold text-text-primary">Recent Panes</h2>
+              <div className="space-y-1">
+                {recentSessions.map(session => (
+                  <button
+                    key={session.id}
+                    type="button"
+                    onClick={() => handleOpenSession(session)}
+                    className="flex w-full items-center justify-between gap-4 rounded-lg bg-surface-secondary px-4 py-3 text-left transition-colors hover:bg-surface-hover"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-text-primary">
+                        {session.name}
+                      </span>
+                      {session.projectId != null && projectNameMap.has(session.projectId) && (
+                        <span className="block truncate text-xs text-text-tertiary">
+                          {projectNameMap.get(session.projectId)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <Badge variant={getStatusVariant(session.status)} size="sm">
+                        {getStatusLabel(session.status)}
+                      </Badge>
+                      <span className="whitespace-nowrap text-xs text-text-tertiary">
+                        {formatDistanceToNow(session.lastActivity)}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {recentSessions.length === 0 && projects.length === 0 && (
+            <p className="text-center text-sm text-text-tertiary">
+              Select a project from the sidebar or create a new one to get started.
+            </p>
           )}
         </div>
-
-        {/* Active Sessions */}
-        {activeSessions.length > 0 && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-text-primary">Active Panes</h2>
-            <div className="space-y-2">
-              {activeSessions.slice(0, 5).map((session) => (
-                <button
-                  key={session.id}
-                  onClick={() => setActiveSession(session.id)}
-                  className="w-full flex items-center justify-between p-3 bg-surface-secondary rounded-lg hover:bg-surface-hover text-left"
-                >
-                  <span className="text-text-primary truncate">{session.name}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded ${
-                    session.status === 'waiting'
-                      ? 'bg-yellow-500/20 text-yellow-400'
-                      : 'bg-green-500/20 text-green-400'
-                  }`}>
-                    {session.status}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Fallback message */}
-        <p className="text-center text-sm text-text-tertiary">
-          Select a pane from the sidebar or create a new one to get started.
-        </p>
       </div>
+
+      <AddProjectDialog
+        isOpen={showAddProject}
+        onClose={() => setShowAddProject(false)}
+      />
+      <CloneFromGitHubDialog
+        isOpen={showCloneDialog}
+        onClose={() => setShowCloneDialog(false)}
+      />
     </div>
   );
 }
