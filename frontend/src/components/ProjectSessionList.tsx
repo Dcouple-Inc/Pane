@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { ChevronDown, ChevronRight, Plus, GitBranch, GitFork, MoreHorizontal, Home, Archive, ArchiveRestore, Trash2, Loader2, GitPullRequest, FolderOpen } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, GitBranch, GitFork, MoreHorizontal, Home, Archive, ArchiveRestore, Trash2, Loader2, GitPullRequest } from 'lucide-react';
 import { useSessionStore } from '../stores/sessionStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import { useHotkeyStore } from '../stores/hotkeyStore';
@@ -7,7 +7,6 @@ import { CreateSessionDialog } from './CreateSessionDialog';
 import { AddProjectDialog } from './AddProjectDialog';
 import { Dropdown } from './ui/Dropdown';
 import { Tooltip } from './ui/Tooltip';
-import { CopyableField } from './ui/CopyableField';
 import type { DropdownItem } from './ui/Dropdown';
 import { API } from '../utils/api';
 import { cycleIndex } from '../utils/arrayUtils';
@@ -342,18 +341,16 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
             <div key={project.id} className="mt-3 first:mt-2">
               {/* Project header */}
               <div className="group/project flex items-center px-4 py-1.5 hover:bg-surface-hover transition-colors">
-                <Tooltip content={<ProjectTooltipContent name={project.name} path={project.path} sessionCount={projectSessions.length} />} side="right" className="flex-1 min-w-0">
-                  <button
-                    onClick={() => toggleProject(project.id)}
-                    className="w-full flex items-center gap-1.5 min-w-0"
-                  >
-                    <GitFork className="w-3.5 h-3.5 text-text-tertiary flex-shrink-0" />
-                    {parentFolder && (
-                      <span className="text-[10px] text-text-tertiary truncate">{parentFolder} /</span>
-                    )}
-                    <span className="text-xs font-semibold text-text-primary truncate">{repoName}</span>
-                  </button>
-                </Tooltip>
+                <button
+                  onClick={() => toggleProject(project.id)}
+                  className="flex-1 min-w-0 flex items-center gap-1.5"
+                >
+                  <GitFork className="w-3.5 h-3.5 text-text-tertiary flex-shrink-0" />
+                  {parentFolder && (
+                    <span className="text-[10px] text-text-tertiary truncate">{parentFolder} /</span>
+                  )}
+                  <span className="text-xs font-semibold text-text-primary truncate">{repoName}</span>
+                </button>
                 <div className="flex-shrink-0 opacity-0 group-hover/project:opacity-100 transition-opacity ml-auto">
                   <Dropdown
                     trigger={
@@ -456,22 +453,6 @@ export function ProjectSessionList({ sessionSortAscending }: ProjectSessionListP
   );
 }
 
-// --- Tooltip content components ---
-
-function ProjectTooltipContent({ name, path, sessionCount }: { name: string; path: string; sessionCount: number }) {
-  return (
-    <div className="max-w-xs space-y-1">
-      <p className="text-[11px] text-text-primary font-medium">{name}</p>
-      <div className="border-t border-border-primary" />
-      <div className="space-y-0.5 text-[10px]">
-        <CopyableField icon={FolderOpen} value={path} mono />
-      </div>
-      <p className="text-[10px] text-text-tertiary">
-        {sessionCount} {sessionCount === 1 ? 'workspace' : 'workspaces'}
-      </p>
-    </div>
-  );
-}
 
 
 function SessionTooltipContent({ gs }: {
