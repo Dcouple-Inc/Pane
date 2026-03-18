@@ -24,7 +24,7 @@ import { SessionProvider } from '../contexts/SessionContext';
 import { ToolPanel, ToolPanelType, PANEL_CAPABILITIES } from '../../../shared/types/panels';
 import { PanelCreateOptions } from '../types/panelComponents';
 import { Download, Upload, GitMerge, GitPullRequestArrow, Terminal, GripHorizontal, ChevronDown, ChevronUp, RefreshCw, Archive, ArchiveRestore, GitCommitHorizontal, TerminalSquare } from 'lucide-react';
-import { ClaudeIcon, OpenAIIcon } from './ui/BrandIcons';
+import { ClaudeIcon, OpenAIIcon, getCliBrandIcon } from './ui/BrandIcons';
 import type { Project } from '../types/project';
 import { devLog, renderLog } from '../utils/console';
 import { useConfigStore } from '../stores/configStore';
@@ -1012,7 +1012,7 @@ export const SessionView = memo(() => {
                             })}
                             title={cmd.command}
                           >
-                            <TerminalSquare className="w-3 h-3" />
+                            {getCliBrandIcon(cmd.command, 'w-3 h-3') || <TerminalSquare className="w-3 h-3" />}
                             {cmd.name.length > 18 ? cmd.name.slice(0, 18) + '...' : cmd.name}
                           </button>
                         );
@@ -1168,7 +1168,7 @@ export const SessionView = memo(() => {
                               })}
                               title={cmd.command}
                             >
-                              <TerminalSquare className="w-3 h-3" />
+                              {getCliBrandIcon(cmd.command, 'w-3 h-3') || <TerminalSquare className="w-3 h-3" />}
                               {cmd.name.length > 18 ? cmd.name.slice(0, 18) + '...' : cmd.name}
                             </button>
                           );

@@ -727,10 +727,10 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
 
       {/* Terminal action buttons — revealed on parent hover via group */}
       {isInitialized && (
-        <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 pointer-events-none group-hover/terminal:opacity-100 group-hover/terminal:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto transition-opacity">
+        <div className="absolute top-2 right-2 z-50 flex items-center gap-1 opacity-0 pointer-events-none group-hover/terminal:opacity-100 group-hover/terminal:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto transition-opacity">
           <button
             onClick={() => xtermRef.current?.scrollToTop()}
-            className="p-1.5 rounded bg-surface-secondary/80 hover:bg-surface-tertiary text-text-tertiary hover:text-text-primary transition-colors"
+            className="p-1.5 rounded-full border border-border-primary/40 bg-surface-secondary/80 hover:bg-surface-tertiary text-text-tertiary hover:text-text-primary transition-colors"
             title="Scroll to top"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -740,7 +740,7 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           </button>
           <button
             onClick={() => xtermRef.current?.scrollToBottom()}
-            className="p-1.5 rounded bg-surface-secondary/80 hover:bg-surface-tertiary text-text-tertiary hover:text-text-primary transition-colors"
+            className="p-1.5 rounded-full border border-border-primary/40 bg-surface-secondary/80 hover:bg-surface-tertiary text-text-tertiary hover:text-text-primary transition-colors"
             title="Scroll to bottom"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -751,7 +751,7 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="p-1.5 rounded bg-surface-secondary/80 hover:bg-surface-tertiary text-text-tertiary hover:text-text-primary transition-colors"
+            className="p-1.5 rounded-full border border-border-primary/40 bg-surface-secondary/80 hover:bg-surface-tertiary text-text-tertiary hover:text-text-primary transition-colors"
             title="Refresh terminal (reset flow control)"
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />

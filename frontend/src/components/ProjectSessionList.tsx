@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { ChevronDown, ChevronRight, Plus, GitBranch, GitFork, MoreHorizontal, Home, Archive, ArchiveRestore, Trash2, GitPullRequest } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useSessionStore } from '../stores/sessionStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import { useHotkeyStore } from '../stores/hotkeyStore';
@@ -471,9 +473,9 @@ function SessionTooltipContent({ gs }: {
         </span>
       </div>
       {gs.prBody && (
-        <p className="text-text-tertiary whitespace-pre-wrap break-words leading-snug line-clamp-4">
-          {gs.prBody}
-        </p>
+        <div className="text-text-tertiary break-words leading-snug line-clamp-[32] prose prose-xs prose-invert max-w-none [&_h1]:text-[11px] [&_h2]:text-[11px] [&_h3]:text-[10px] [&_p]:text-[10px] [&_li]:text-[10px] [&_code]:text-[9px] [&_ul]:my-0.5 [&_ol]:my-0.5 [&_p]:my-0.5">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{gs.prBody}</ReactMarkdown>
+        </div>
       )}
     </div>
   );

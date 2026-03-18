@@ -13,7 +13,7 @@ import { useHotkeyStore } from '../../stores/hotkeyStore';
 import { Tooltip } from '../ui/Tooltip';
 import { Kbd } from '../ui/Kbd';
 import { useResourceMonitor } from '../../hooks/useResourceMonitor';
-import { ClaudeIcon, OpenAIIcon, CLI_BRAND_ICONS } from '../ui/BrandIcons';
+import { ClaudeIcon, OpenAIIcon, CLI_BRAND_ICONS, getCliBrandIcon } from '../ui/BrandIcons';
 
 function formatMemory(mb: number): string {
   if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
@@ -616,7 +616,7 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
                   }}
                   title={`${cmd.name} (Delete/Backspace to remove)`}
                 >
-                  <TerminalSquare className="w-4 h-4 flex-shrink-0" />
+                  {getCliBrandIcon(cmd.command, 'w-4 h-4 flex-shrink-0') || <TerminalSquare className="w-4 h-4 flex-shrink-0" />}
                   <span className="ml-2 truncate">{cmd.name}</span>
                   {shortcutDisplay && <Kbd size="xs" variant="muted" className="ml-auto">{shortcutDisplay}</Kbd>}
                 </button>
