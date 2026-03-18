@@ -2,9 +2,10 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useConfigStore } from '../stores/configStore';
 import { API } from '../utils/api';
 
-type Theme = 'light' | 'dark' | 'oled';
+type Theme = 'light' | 'dark' | 'oled' | 'dusk' | 'forge';
 
-const VALID_THEMES: Theme[] = ['light', 'dark', 'oled'];
+const VALID_THEMES: Theme[] = ['light', 'dark', 'oled', 'dusk', 'forge'];
+const DARK_THEMES: Theme[] = ['dark', 'oled', 'dusk', 'forge'];
 const isValidTheme = (t: string): t is Theme => VALID_THEMES.includes(t as Theme);
 
 interface ThemeContextType {
@@ -38,14 +39,18 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const root = document.documentElement;
     const body = document.body;
 
-    // Remove all theme classes, then add current
-    // OLED theme extends dark, so keep 'dark' class for Tailwind dark: utilities
-    root.classList.remove('light', 'dark', 'oled');
-    body.classList.remove('light', 'dark', 'oled');
-    if (theme === 'oled') {
-      root.classList.add('dark', 'oled');
-      body.classList.add('dark', 'oled');
-    } else {
+    // Remove ALL theme classes from both root and body
+    root.classList.remove('light', 'dark', 'oled', 'dusk', 'forge');
+    body.classList.remove('light', 'dark', 'oled', 'dusk', 'forge');
+
+    // All dark-based themes need the 'dark' class for Tailwind dark: utilities
+    if (DARK_THEMES.includes(theme)) {
+      root.classList.add('dark');
+      body.classList.add('dark');
+    }
+
+    // Add theme-specific class (except for 'dark' which is already added above)
+    if (theme !== 'dark') {
       root.classList.add(theme);
       body.classList.add(theme);
     }

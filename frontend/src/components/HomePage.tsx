@@ -318,7 +318,7 @@ export function HomePage() {
                     type="button"
                     className="flex cursor-pointer items-center gap-2 rounded-md border border-border-secondary bg-surface-tertiary px-3 py-1.5 text-sm text-text-primary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-interactive"
                   >
-                    <span>{theme === 'light' ? 'Light' : theme === 'dark' ? 'Dark' : 'OLED Black'}</span>
+                    <span>{{ light: 'Light', dark: 'Dark', oled: 'OLED Black', dusk: 'Dusk', forge: 'Forge' }[theme]}</span>
                     <ChevronDown className="w-3 h-3 text-text-tertiary" />
                   </button>
                 }
@@ -326,6 +326,8 @@ export function HomePage() {
                   { id: 'light', label: 'Light', onClick: () => setTheme('light') },
                   { id: 'dark', label: 'Dark', onClick: () => setTheme('dark') },
                   { id: 'oled', label: 'OLED Black', onClick: () => setTheme('oled') },
+                  { id: 'dusk', label: 'Dusk', onClick: () => setTheme('dusk') },
+                  { id: 'forge', label: 'Forge', onClick: () => setTheme('forge') },
                 ]}
                 selectedId={theme}
                 position="bottom-right"

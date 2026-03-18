@@ -22,7 +22,7 @@ export interface AppConfig {
   claudeExecutablePath?: string;
   defaultPermissionMode?: 'approve' | 'ignore';
   autoCheckUpdates?: boolean;
-  theme?: 'light' | 'dark' | 'oled';
+  theme?: 'light' | 'dark' | 'oled' | 'dusk' | 'forge';
   uiScale?: number;
   notifications?: {
     enabled: boolean;

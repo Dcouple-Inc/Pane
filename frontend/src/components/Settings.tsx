@@ -367,7 +367,7 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
                       type="button"
                       className="w-full px-4 py-3 bg-surface-secondary hover:bg-surface-hover rounded-lg transition-colors border border-border-secondary text-text-primary focus:outline-none focus:ring-2 focus:ring-interactive cursor-pointer flex items-center justify-between"
                     >
-                      <span>{theme === 'light' ? 'Light' : theme === 'dark' ? 'Dark' : 'OLED Black'}</span>
+                      <span>{{ light: 'Light', dark: 'Dark', oled: 'OLED Black', dusk: 'Dusk', forge: 'Forge' }[theme]}</span>
                       <ChevronDown className="w-4 h-4 text-text-tertiary" />
                     </button>
                   }
@@ -375,6 +375,8 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
                     { id: 'light', label: 'Light', onClick: () => setTheme('light') },
                     { id: 'dark', label: 'Dark', onClick: () => setTheme('dark') },
                     { id: 'oled', label: 'OLED Black', onClick: () => setTheme('oled') },
+                    { id: 'dusk', label: 'Dusk', onClick: () => setTheme('dusk') },
+                    { id: 'forge', label: 'Forge', onClick: () => setTheme('forge') },
                   ]}
                   selectedId={theme}
                   position="bottom-left"

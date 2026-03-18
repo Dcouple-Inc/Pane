@@ -66,6 +66,17 @@ body.light {
   scrollbar-color: var(--color-border-secondary) transparent;
 }
 
+/* Tab indicator — default fill mode */
+.panel-tab-bar [aria-selected="true"] {
+  background-color: var(--color-surface-primary);
+}
+
+/* Tab indicator — Forge underline mode */
+:root.forge .panel-tab-bar [aria-selected="true"] {
+  background-color: transparent;
+  box-shadow: inset 0 -4px 0 0 var(--tab-indicator-color, #3574F0);
+}
+
 /* Hide scrollbar completely */
 .scrollbar-none {
   scrollbar-width: none;
@@ -409,11 +420,19 @@ body.light {
 /* Monaco Editor CSS Variable Overrides */
 
 /* Dark theme overrides */
-:root.dark, :root.oled {
+:root.dark, :root.oled, :root.dusk {
   --vscode-editor-background: #0d1117 !important;
   --vscode-editor-foreground: #e6edf3 !important;
   --vscode-editorWidget-background: #0d1117 !important;
   --vscode-editorWidget-foreground: #e6edf3 !important;
+}
+
+/* Forge theme overrides — IntelliJ editor colors */
+:root.forge {
+  --vscode-editor-background: #1E1F22 !important;
+  --vscode-editor-foreground: #DFE1E5 !important;
+  --vscode-editorWidget-background: #1E1F22 !important;
+  --vscode-editorWidget-foreground: #DFE1E5 !important;
 }
 
 /* Light theme overrides */

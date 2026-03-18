@@ -136,3 +136,26 @@
   --hover-opacity: var(--opacity-80);
   --modal-overlay-opacity: var(--opacity-50);
 }
+
+/* Dusk Theme — softer radius, minimal shadows (Emdash-inspired) */
+:root.dusk {
+  --button-radius: var(--radius-md);      /* 6px (was 4px) */
+  --card-radius: var(--radius-lg);        /* 8px (was 6px) */
+  --input-radius: var(--radius-md);       /* 6px (was 4px) */
+  --button-shadow: var(--shadow-none);    /* no button shadow */
+  --button-shadow-hover: var(--shadow-none);
+  --card-shadow: var(--shadow-xs);        /* subtle shadow on cards only */
+}
+
+/* Forge Theme — specific radii, NO shadows (IntelliJ-inspired) */
+:root.forge {
+  --button-radius: var(--radius-lg);      /* 8px (IntelliJ Button.arc: 8) */
+  --card-radius: var(--radius-default);   /* 4px (IntelliJ TabbedPane.tabSelectionArc: 4) */
+  --input-radius: var(--radius-default);  /* 4px */
+  --modal-radius: var(--radius-lg);       /* 8px */
+  --button-shadow: var(--shadow-none);
+  --button-shadow-hover: var(--shadow-none);
+  --card-shadow: var(--shadow-none);      /* NO shadows — depth via bg color only */
+  --modal-shadow: var(--shadow-none);
+  --dropdown-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);  /* exception: dropdowns need depth */
+}

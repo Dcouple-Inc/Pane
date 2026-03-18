@@ -397,7 +397,7 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
 
   return (
     <>
-    <div className="panel-tab-bar bg-surface-secondary flex-shrink-0">
+    <div className="panel-tab-bar bg-bg-chrome flex-shrink-0">
       {/* Flex container */}
       <div
         className="flex items-center min-h-[var(--panel-tab-height)] px-2 gap-x-1"
@@ -427,9 +427,9 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
           const tab = (
             <div
               className={cn(
-                "group relative inline-flex items-center h-9 px-3 text-sm whitespace-nowrap cursor-pointer select-none",
+                "group relative inline-flex items-center h-[var(--panel-tab-height)] px-3 text-sm whitespace-nowrap cursor-pointer select-none",
                 activePanel?.id === panel.id
-                  ? "bg-surface-primary text-text-primary"
+                  ? "text-text-primary"
                   : "text-text-tertiary hover:text-text-primary hover:bg-surface-hover"
               )}
               onClick={() => !isEditing && handlePanelClick(panel)}
@@ -503,10 +503,10 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
         </div>
 
         {/* Add Panel dropdown button - outside overflow container so dropdown isn't clipped */}
-        <div className="relative h-9 flex items-center ml-1 flex-shrink-0" ref={dropdownRef}>
+        <div className="relative h-[var(--panel-tab-height)] flex items-center ml-1 flex-shrink-0" ref={dropdownRef}>
           <Tooltip content={hotkeyDisplay('open-add-tool') ? <Kbd>{hotkeyDisplay('open-add-tool')}</Kbd> : undefined} side="bottom">
             <button
-              className="inline-flex items-center h-9 px-3 text-sm text-text-tertiary hover:text-text-primary hover:bg-surface-hover rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring-subtle"
+              className="inline-flex items-center h-[var(--panel-tab-height)] px-3 text-sm text-text-tertiary hover:text-text-primary hover:bg-surface-hover rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring-subtle"
               onClick={() => setShowDropdown(!showDropdown)}
               onKeyDown={(e) => {
                 if (e.key === 'ArrowDown' && !showDropdown) {
@@ -717,7 +717,7 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
           {session && (
             <Tooltip content="Run Dev Server" side="bottom">
               <button
-                className="inline-flex items-center h-9 px-2 text-text-tertiary hover:text-status-success hover:bg-surface-hover transition-colors flex-shrink-0"
+                className="inline-flex items-center h-[var(--panel-tab-height)] px-2 text-text-tertiary hover:text-status-success hover:bg-surface-hover transition-colors flex-shrink-0"
                 onClick={async () => {
                   const scriptExists = await window.electronAPI?.invoke('file:exists', {
                     sessionId: session.id,

@@ -938,7 +938,7 @@ export const SessionView = memo(() => {
               {/* SWAPPED LAYOUT: Center column with panels on top, horizontal detail panel on bottom */}
               <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                 {/* Top: active panel content */}
-                <div className="flex-1 relative min-h-0 overflow-hidden">
+                <div className="flex-1 relative min-h-0 overflow-hidden bg-bg-editor">
                   {sessionPanels.length > 0 && currentActivePanel ? (
                     sessionPanels
                       .filter(p => !defaultTerminalPanel || p.id !== defaultTerminalPanel.id)
@@ -1078,7 +1078,7 @@ export const SessionView = memo(() => {
               {/* DEFAULT LAYOUT: Center column with panels on top, terminal on bottom */}
               <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                 {/* Top: active panel content */}
-                <div className="flex-1 relative min-h-0 overflow-hidden">
+                <div className="flex-1 relative min-h-0 overflow-hidden bg-bg-editor">
                   {sessionPanels.length > 0 && currentActivePanel ? (
                     sessionPanels
                       .filter(p => !defaultTerminalPanel || p.id !== defaultTerminalPanel.id)
