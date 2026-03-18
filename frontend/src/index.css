@@ -225,7 +225,7 @@ body.light-rounded {
 :root.dusk .pane-terminal-dock,
 :root.dusk .pane-terminal-rail-shell,
 :root.dusk .pane-detail-panel-inner {
-  border-width: 2px;
+  border-width: 1.5px;
   border-color: rgba(255, 255, 255, 0.16);
   box-shadow:
     0 16px 36px rgba(0, 0, 0, 0.24),
@@ -238,7 +238,7 @@ body.light-rounded {
 :root.forge .pane-terminal-dock,
 :root.forge .pane-terminal-rail-shell,
 :root.forge .pane-detail-panel-inner {
-  border-width: 2px;
+  border-width: 1.5px;
   border-color: var(--forge-gray5);
   box-shadow:
     0 14px 30px rgba(0, 0, 0, 0.2),
@@ -251,7 +251,7 @@ body.light-rounded {
 :root.ember .pane-terminal-dock,
 :root.ember .pane-terminal-rail-shell,
 :root.ember .pane-detail-panel-inner {
-  border-width: 2px;
+  border-width: 1.5px;
   border-color: rgba(255, 106, 193, 0.22);
   box-shadow:
     0 18px 44px rgba(7, 2, 17, 0.36),
@@ -264,7 +264,7 @@ body.light-rounded {
 :root.aurora .pane-terminal-dock,
 :root.aurora .pane-terminal-rail-shell,
 :root.aurora .pane-detail-panel-inner {
-  border-width: 2px;
+  border-width: 1.5px;
   border-color: rgba(196, 167, 231, 0.2);
   box-shadow:
     0 18px 40px rgba(15, 12, 28, 0.28),
@@ -277,7 +277,7 @@ body.light-rounded {
 :root.light-rounded .pane-terminal-dock,
 :root.light-rounded .pane-terminal-rail-shell,
 :root.light-rounded .pane-detail-panel-inner {
-  border-width: 2px;
+  border-width: 1.5px;
   border-color: rgba(31, 35, 40, 0.1);
   box-shadow:
     0 18px 36px rgba(15, 23, 42, 0.08),
