@@ -5,9 +5,12 @@
  * - Open an existing project
  * - Create a new project
  * - Clone a repository from GitHub
+ * - Quick preferences (theme, UI scale, terminal shell)
  * - Recently active sessions across all projects
  */
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useTheme } from '../contexts/ThemeContext';
+import { useConfigStore } from '../stores/configStore';
 import { useSessionStore } from '../stores/sessionStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import { API } from '../utils/api';
@@ -60,6 +63,31 @@ function GitHubIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
       <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+function ChevronUpIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="18 15 12 9 6 15" />
+    </svg>
+  );
+}
+
+function TerminalIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="4 17 10 11 4 5" />
+      <line x1="12" y1="19" x2="20" y2="19" />
     </svg>
   );
 }
@@ -121,6 +149,25 @@ function OpenProjectCard({
 }) {
   const navigateToProject = useNavigationStore(s => s.navigateToProject);
 
+  // Build items: real projects + separator "Add Repository" item at the end
+  const items = [
+    ...projects.map(p => ({
+      id: String(p.id),
+      label: p.name,
+      onClick: () => {
+        API.projects.activate(String(p.id)).catch(() => {});
+        navigateToProject(p.id);
+      },
+    })),
+    // "Add Repository" as the last item so it auto-closes the dropdown on click
+    {
+      id: '__add_repository__',
+      label: '+ Add Repository',
+      onClick: onAddProject,
+      variant: 'default' as const,
+    },
+  ];
+
   return (
     <Dropdown
       trigger={
@@ -129,22 +176,7 @@ function OpenProjectCard({
           <span className="text-sm font-medium text-text-primary">Open Project</span>
         </div>
       }
-      items={projects.map(p => ({
-        id: String(p.id),
-        label: p.name,
-        onClick: () => {
-          API.projects.activate(String(p.id)).catch(() => {});
-          navigateToProject(p.id);
-        },
-      }))}
-      footer={
-        <button
-          onClick={onAddProject}
-          className="w-full text-left px-3 py-2 text-sm text-interactive hover:bg-surface-hover"
-        >
-          + Add Repository
-        </button>
-      }
+      items={items}
       position="bottom-left"
       width="md"
     />
@@ -155,9 +187,18 @@ function OpenProjectCard({
 
 export function HomePage() {
   const { sessions, setActiveSession } = useSessionStore();
+  const { theme, setTheme } = useTheme();
+  const { config, updateConfig } = useConfigStore();
   const [projects, setProjects] = useState<Project[]>([]);
   const [showAddProject, setShowAddProject] = useState(false);
   const [showCloneDialog, setShowCloneDialog] = useState(false);
+
+  // Platform and shell state for preferences
+  const [platform, setPlatform] = useState<string>('');
+  const [availableShells, setAvailableShells] = useState<Array<{id: string; name: string; path: string}>>([]);
+  const [preferredShell, setPreferredShell] = useState<string>('auto');
+
+  const uiScale = config?.uiScale ?? 1.0;
 
   const loadProjects = useCallback(async () => {
     try {
@@ -176,6 +217,47 @@ export function HomePage() {
     window.addEventListener('project-changed', handler);
     return () => window.removeEventListener('project-changed', handler);
   }, [loadProjects]);
+
+  // Fetch platform and available shells on mount
+  useEffect(() => {
+    window.electronAPI
+      .getPlatform()
+      .then(async (p) => {
+        setPlatform(p);
+        if (p === 'win32') {
+          try {
+            const shellsResponse = await API.config.getAvailableShells();
+            if (shellsResponse.success) {
+              setAvailableShells(shellsResponse.data);
+            }
+          } catch (error) {
+            console.error('Failed to fetch available shells:', error);
+          }
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to get platform:', error);
+      });
+  }, []);
+
+  // Sync preferredShell with config
+  useEffect(() => {
+    if (config?.preferredShell) {
+      setPreferredShell(config.preferredShell);
+    }
+  }, [config?.preferredShell]);
+
+  const handleScaleChange = async (delta: number) => {
+    const newScale = Math.round((uiScale + delta) * 10) / 10;
+    if (newScale >= 0.8 && newScale <= 1.5) {
+      await updateConfig({ uiScale: newScale }).catch(() => {});
+    }
+  };
+
+  const handleShellChange = async (shell: string) => {
+    setPreferredShell(shell);
+    await updateConfig({ preferredShell: shell as 'auto' | 'gitbash' | 'powershell' | 'pwsh' | 'cmd' }).catch(() => {});
+  };
 
   // Recent sessions: those with a lastActivity timestamp, sorted desc, limited to 8
   const recentSessions = useMemo(() => {
@@ -196,7 +278,6 @@ export function HomePage() {
   const navigateToSessions = useNavigationStore(s => s.navigateToSessions);
 
   const handleOpenSession = (session: Session) => {
-    // Ensure activeView is 'sessions' so SessionView renders the session, not a project dashboard
     navigateToSessions();
     setActiveSession(session.id).catch(() => {});
   };
@@ -209,13 +290,11 @@ export function HomePage() {
         <div>
           <h2 className="text-lg font-semibold text-text-primary mb-4">Get Started</h2>
           <div className="grid grid-cols-3 gap-4">
-            {/* Open Project */}
             <OpenProjectCard
               projects={projects}
               onAddProject={() => setShowAddProject(true)}
             />
 
-            {/* Create / Add Project */}
             <button
               type="button"
               onClick={() => setShowAddProject(true)}
@@ -225,7 +304,6 @@ export function HomePage() {
               <span className="text-sm font-medium text-text-primary">New Project</span>
             </button>
 
-            {/* Clone from GitHub */}
             <button
               type="button"
               onClick={() => setShowCloneDialog(true)}
@@ -235,6 +313,89 @@ export function HomePage() {
               <span className="text-sm font-medium text-text-primary">Clone from GitHub</span>
             </button>
           </div>
+        </div>
+
+        {/* Quick Preferences */}
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-text-primary">Preferences</h2>
+
+          {/* Theme */}
+          <div className="flex items-center justify-between p-4 bg-surface-secondary rounded-lg">
+            <span className="text-text-primary">Theme</span>
+            <Dropdown
+              trigger={
+                <button
+                  type="button"
+                  className="px-3 py-1.5 rounded-md bg-surface-tertiary hover:bg-surface-hover text-sm text-text-primary border border-border-secondary focus:outline-none focus:ring-2 focus:ring-interactive cursor-pointer flex items-center gap-2"
+                >
+                  <span>{theme === 'light' ? 'Light' : theme === 'dark' ? 'Dark' : 'OLED Black'}</span>
+                  <ChevronDownIcon className="w-3 h-3 text-text-tertiary" />
+                </button>
+              }
+              items={[
+                { id: 'light', label: 'Light', onClick: () => setTheme('light') },
+                { id: 'dark', label: 'Dark', onClick: () => setTheme('dark') },
+                { id: 'oled', label: 'OLED Black', onClick: () => setTheme('oled') },
+              ]}
+              selectedId={theme}
+              position="bottom-right"
+              width="sm"
+            />
+          </div>
+
+          {/* UI Scale */}
+          <div className="flex items-center justify-between p-4 bg-surface-secondary rounded-lg">
+            <span className="text-text-primary">UI Scale</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleScaleChange(-0.1)}
+                disabled={uiScale <= 0.8}
+                className="p-1 rounded-md bg-surface-tertiary hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronDownIcon className="w-4 h-4" />
+              </button>
+              <span className="text-sm text-text-secondary w-10 text-center">{uiScale.toFixed(1)}x</span>
+              <button
+                onClick={() => handleScaleChange(0.1)}
+                disabled={uiScale >= 1.5}
+                className="p-1 rounded-md bg-surface-tertiary hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronUpIcon className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Terminal Shell (Windows only) */}
+          {platform === 'win32' && (
+            <div className="flex items-center justify-between p-4 bg-surface-secondary rounded-lg">
+              <div className="flex items-center gap-2">
+                <TerminalIcon className="w-4 h-4 text-text-secondary" />
+                <span className="text-text-primary">Terminal Shell</span>
+              </div>
+              <Dropdown
+                trigger={
+                  <button
+                    type="button"
+                    className="px-3 py-1.5 rounded-md bg-surface-tertiary hover:bg-surface-hover text-sm text-text-primary border border-border-secondary focus:outline-none focus:ring-2 focus:ring-interactive cursor-pointer flex items-center gap-2"
+                  >
+                    <span>{preferredShell === 'auto' ? 'Auto (Git Bash)' : availableShells.find(s => s.id === preferredShell)?.name ?? preferredShell}</span>
+                    <ChevronDownIcon className="w-3 h-3 text-text-tertiary" />
+                  </button>
+                }
+                items={[
+                  { id: 'auto', label: 'Auto (Git Bash)', onClick: () => handleShellChange('auto') },
+                  ...availableShells.map(shell => ({
+                    id: shell.id,
+                    label: shell.name,
+                    onClick: () => handleShellChange(shell.id),
+                  })),
+                ]}
+                selectedId={preferredShell}
+                position="bottom-right"
+                width="sm"
+              />
+            </div>
+          )}
         </div>
 
         {/* Recent sessions */}
