@@ -285,8 +285,8 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           const scrollDisposable = terminalInstance.onScroll(() => {
             const buf = terminalInstance.buffer.active;
             const distFromBottom = buf.baseY - buf.viewportY;
-            // At least 5% of viewport height, minimum 3 lines
-            const nearThreshold = Math.max(SNAP_THRESHOLD, Math.ceil(terminalInstance.rows * 0.05));
+            // 5% of viewport height, capped at 20 lines
+            const nearThreshold = Math.min(20, Math.max(SNAP_THRESHOLD, Math.ceil(terminalInstance.rows * 0.05)));
             isNearBottomRef.current = distFromBottom <= nearThreshold;
             // Snap: if user scrolled to within a few lines of bottom, go all the way
             if (distFromBottom > 0 && distFromBottom <= SNAP_THRESHOLD) {
