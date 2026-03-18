@@ -2,11 +2,10 @@ import React, { useState, useEffect, memo, useCallback, useRef, useMemo, forward
 import DiffViewer, { DiffViewerHandle } from './DiffViewer';
 import ExecutionList from '../../ExecutionList';
 import { CommitDialog } from '../../CommitDialog';
-import { FileList } from '../../FileList';
 import { API } from '../../../utils/api';
 import type { CombinedDiffViewProps, FileDiff } from '../../../types/diff';
 import type { ExecutionDiff, GitDiffResult } from '../../../types/diff';
-import { Maximize2, Minimize2, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { panelApi } from '../../../services/panelApi';
 import { usePanelStore } from '../../../stores/panelStore';
 
@@ -65,12 +64,11 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
   const [combinedDiff, setCombinedDiff] = useState<GitDiffResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+
   const [showCommitDialog, setShowCommitDialog] = useState(false);
   const [mainBranch, setMainBranch] = useState<string>('main');
   const [historySource, setHistorySource] = useState<'remote' | 'local' | 'branch'>(isMainRepo ? 'remote' : 'branch');
   const [forceRefresh, setForceRefresh] = useState<number>(0);
-  const [selectedFile, setSelectedFile] = useState<string | undefined>();
 
   // Diff cache: keyed by sessionId + sorted selection
   const diffCacheRef = useRef<Map<string, { diff: GitDiffResult; parsedFiles: FileDiff[] }>>(new Map());
@@ -172,7 +170,6 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
       setLastSessionId(sessionId);
       setCombinedDiff(null);
       setExecutions([]);
-      setSelectedFile(undefined);
       setHistorySource(isMainRepo ? 'remote' : 'branch');
       diffCacheRef.current.clear();
       lastGitFingerprintRef.current = '';
@@ -374,10 +371,6 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
     setSelectedExecutions(newSelection);
   };
 
-  const toggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen);
-  };
-
   const handleManualRefresh = () => {
     diffCacheRef.current.clear();
     setForceRefresh(prev => prev + 1);
@@ -430,65 +423,16 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
     }
   }, [sessionId]);
 
-  // Clear selected file when diff changes
-  useEffect(() => {
-    setSelectedFile(undefined);
-  }, [combinedDiff]);
-
   const limitReached = useMemo(
     () => executions.some(exec => exec.history_limit_reached),
     [executions]
   );
 
-  // Parse files from diff — single parse, shared between FileList and DiffViewer
+  // Parse files from diff for DiffViewer
   const parsedFiles = useMemo(() => {
     if (!combinedDiff?.diff) return [];
     return parseUnifiedDiffToFiles(combinedDiff.diff);
   }, [combinedDiff]);
-
-  const handleFileClick = useCallback((filePath: string, index: number) => {
-    setSelectedFile(filePath);
-    diffViewerRef.current?.scrollToFile(index);
-  }, []);
-
-  const handleFileDelete = useCallback(async (filePath: string) => {
-    try {
-      const result = await window.electronAPI.invoke('file:delete', {
-        sessionId,
-        filePath
-      });
-
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to delete file');
-      }
-
-      // Reload executions to reflect the deletion
-      const response = await API.sessions.getExecutions(sessionId);
-      if (response.success) {
-        setExecutions(response.data);
-      }
-
-      // Reload the diff to get the current state
-      diffCacheRef.current.clear();
-      if (selectedExecutions.length > 0) {
-        let diffResponse;
-        if (selectedExecutions.length === 1 && selectedExecutions[0] === 0) {
-          diffResponse = await API.sessions.getCombinedDiff(sessionId, [0]);
-        } else if (selectedExecutions.length === executions.length) {
-          diffResponse = await API.sessions.getCombinedDiff(sessionId);
-        } else {
-          diffResponse = await API.sessions.getCombinedDiff(sessionId, selectedExecutions);
-        }
-
-        if (diffResponse.success) {
-          setCombinedDiff(diffResponse.data);
-        }
-      }
-    } catch (err) {
-      console.error('Error deleting file:', err);
-      alert(`Failed to delete file: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    }
-  }, [sessionId, selectedExecutions, executions.length]);
 
   const handleRestore = useCallback(async () => {
     if (!window.confirm('Are you sure you want to restore all uncommitted changes? This will discard all your local modifications.')) {
@@ -558,7 +502,7 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
   }
 
   return (
-    <div className={`combined-diff-view flex flex-col ${isFullscreen ? 'fixed inset-0 z-50 bg-bg-primary' : 'h-full'}`}>
+    <div className="combined-diff-view flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-1.5 border-b border-border-primary bg-surface-secondary">
         <div className="flex items-center gap-2 min-w-0">
@@ -589,43 +533,17 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
           >
             <RefreshCw className={`w-3.5 h-3.5 text-text-tertiary ${loading ? 'animate-spin' : ''}`} />
           </button>
-          <button
-            onClick={toggleFullscreen}
-            className="p-1 rounded hover:bg-surface-hover transition-colors"
-            title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-          >
-            {isFullscreen ? (
-              <Minimize2 className="w-3.5 h-3.5 text-text-tertiary" />
-            ) : (
-              <Maximize2 className="w-3.5 h-3.5 text-text-tertiary" />
-            )}
-          </button>
         </div>
       </div>
 
       <div className="flex-1 flex min-h-0">
         {/* Commits selection sidebar */}
-        {!isFullscreen && (
-          <>
             <div
               className="border-r border-border-primary bg-surface-secondary overflow-hidden flex flex-col flex-shrink-0"
               style={{ width: sidebarWidth }}
             >
-              {/* File list - show only when we have a diff */}
-              {parsedFiles.length > 0 && (
-                <div className="h-1/3 border-b border-border-primary overflow-y-auto">
-                  <FileList
-                    files={parsedFiles}
-                    onFileClick={handleFileClick}
-                    onFileDelete={handleFileDelete}
-                    onOpenInEditor={handleOpenInEditor}
-                    selectedFile={selectedFile}
-                  />
-                </div>
-              )}
-
               {/* Execution list */}
-              <div className={parsedFiles.length > 0 ? "flex-1 overflow-hidden" : "h-full"}>
+              <div className="h-full">
                 <ExecutionList
                   sessionId={sessionId}
                   executions={executions}
@@ -648,11 +566,8 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
               onMouseDown={handleResizeStart}
               title="Drag to resize sidebar"
             />
-          </>
-        )}
-
         {/* Diff preview */}
-        <div className={`${isFullscreen ? 'w-full' : 'flex-1'} overflow-auto bg-bg-primary min-w-0 flex flex-col`}>
+        <div className="flex-1 overflow-auto bg-bg-primary min-w-0 flex flex-col">
           {isGitOperationRunning ? (
             <div className="flex flex-col items-center justify-center h-full p-8">
               <svg className="animate-spin h-12 w-12 text-interactive mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

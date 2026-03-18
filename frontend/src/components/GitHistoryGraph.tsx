@@ -25,6 +25,7 @@ interface GitGraphResponse {
 interface GitHistoryGraphProps {
   sessionId: string;
   baseBranch: string;
+  layout?: 'compact' | 'wide';
 }
 
 function CommitTooltipContent({ entry }: { entry: GitGraphCommitData }) {
@@ -88,24 +89,26 @@ function CommitTooltipContent({ entry }: { entry: GitGraphCommitData }) {
 const CommitRow = memo(function CommitRow({
   entry,
   isLast,
+  layout = 'compact',
 }: {
   entry: GitGraphCommitData;
   isLast: boolean;
+  layout?: 'compact' | 'wide';
 }) {
   const isIndex = entry.hash === 'index';
   const date = new Date(entry.committerDate);
   const dateStr = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const hasStats = entry.filesChanged != null && entry.filesChanged > 0;
 
-  return (
-    <Tooltip content={<CommitTooltipContent entry={entry} />} side="left" interactive>
+  const row = (
       <div
-        className="flex items-stretch gap-1.5 w-full text-left rounded-sm transition-colors min-w-0 hover:bg-surface-secondary cursor-default"
+        className={`flex items-stretch gap-1.5 w-full text-left rounded-sm min-w-0 ${layout === 'wide' ? '' : 'hover:bg-surface-secondary cursor-default transition-colors'}`}
       >
         {/* Graph rail: vertical line with commit node */}
         <div className="flex flex-col items-center flex-shrink-0 w-3 ml-1">
           <div className={`w-px flex-1 ${isIndex ? 'bg-transparent' : 'bg-border-secondary'}`} />
           <GitCommitHorizontal
-            className={`w-3 h-3 flex-shrink-0 ${
+            className={`w-3 h-3 flex-shrink-0 rotate-90 ${
               isIndex ? 'text-status-warning' : 'text-interactive'
             }`}
           />
@@ -114,9 +117,52 @@ const CommitRow = memo(function CommitRow({
         {/* Content */}
         <div className="min-w-0 flex-1 py-0.5 pr-1">
           {isIndex ? (
-            <div className="text-[10px] text-status-warning/70 italic truncate leading-snug">
-              {entry.message}
-            </div>
+            <>
+              <div className="text-[10px] text-status-warning/70 italic truncate leading-snug">
+                {entry.message}
+              </div>
+              {hasStats && (
+                <div className="flex items-center gap-1.5 text-[10px] leading-snug">
+                  <span className="text-text-tertiary">
+                    {entry.filesChanged} {entry.filesChanged === 1 ? 'file' : 'files'}
+                  </span>
+                  {(entry.additions ?? 0) > 0 && (
+                    <span className="text-status-success">+{entry.additions}</span>
+                  )}
+                  {(entry.deletions ?? 0) > 0 && (
+                    <span className="text-status-error">-{entry.deletions}</span>
+                  )}
+                </div>
+              )}
+            </>
+          ) : layout === 'wide' ? (
+            <>
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-xs text-text-primary truncate leading-snug flex-1 min-w-0">
+                  {entry.message}
+                </span>
+                {hasStats && (
+                  <span className="flex items-center gap-1.5 text-[10px] flex-shrink-0">
+                    <span className="text-text-tertiary">
+                      {entry.filesChanged} {entry.filesChanged === 1 ? 'file' : 'files'}
+                    </span>
+                    {(entry.additions ?? 0) > 0 && (
+                      <span className="text-status-success">+{entry.additions}</span>
+                    )}
+                    {(entry.deletions ?? 0) > 0 && (
+                      <span className="text-status-error">-{entry.deletions}</span>
+                    )}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 text-[10px] text-text-tertiary leading-snug">
+                <span className="font-mono">{entry.hash.slice(0, 7)}</span>
+                <span>&middot;</span>
+                <span>{entry.author}</span>
+                <span>&middot;</span>
+                <span>{dateStr}</span>
+              </div>
+            </>
           ) : (
             <>
               <div className="text-xs text-text-primary truncate leading-snug">
@@ -129,11 +175,18 @@ const CommitRow = memo(function CommitRow({
           )}
         </div>
       </div>
+  );
+
+  if (layout === 'wide') return row;
+
+  return (
+    <Tooltip content={<CommitTooltipContent entry={entry} />} side="left" interactive>
+      {row}
     </Tooltip>
   );
 });
 
-export function GitHistoryGraph({ sessionId, baseBranch }: GitHistoryGraphProps) {
+export function GitHistoryGraph({ sessionId, baseBranch, layout = 'compact' }: GitHistoryGraphProps) {
   const [rawEntries, setRawEntries] = useState<GitGraphCommitData[]>([]);
   const [currentBranch, setCurrentBranch] = useState(baseBranch);
   const [loading, setLoading] = useState(true);
@@ -222,6 +275,7 @@ export function GitHistoryGraph({ sessionId, baseBranch }: GitHistoryGraphProps)
             key={entry.hash}
             entry={entry}
             isLast={i === rawEntries.length - 1}
+            layout={layout}
           />
         ))}
       </div>

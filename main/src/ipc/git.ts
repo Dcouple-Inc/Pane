@@ -364,6 +364,24 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       // Prepend uncommitted changes if any
       const hasUncommittedChanges = gitDiffManager.hasChanges(session.worktreePath, ctx.commandRunner);
       if (hasUncommittedChanges) {
+        // Get diff stats for uncommitted changes
+        let filesChanged = 0;
+        let additions = 0;
+        let deletions = 0;
+        try {
+          const combinedStat = ctx.commandRunner.exec('git diff HEAD --shortstat', session.worktreePath).trim();
+          if (combinedStat) {
+            const fileMatch = combinedStat.match(/(\d+) files? changed/);
+            const addMatch = combinedStat.match(/(\d+) insertions?\(\+\)/);
+            const delMatch = combinedStat.match(/(\d+) deletions?\(-\)/);
+            filesChanged = fileMatch ? parseInt(fileMatch[1]) : 0;
+            additions = addMatch ? parseInt(addMatch[1]) : 0;
+            deletions = delMatch ? parseInt(delMatch[1]) : 0;
+          }
+        } catch {
+          // Ignore stat errors — still show the entry without stats
+        }
+
         entries.unshift({
           hash: 'index',
           parents: entries.length > 0 ? [entries[0].hash] : [],
@@ -371,6 +389,9 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
           message: 'Uncommitted changes',
           committerDate: new Date().toISOString(),
           author: 'You',
+          filesChanged,
+          additions,
+          deletions,
         });
       }
 
