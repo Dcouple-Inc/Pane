@@ -36,7 +36,6 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
   const isNearBottomRef = useRef(true); // Track if user is scrolled near the bottom
   const [isInitialized, setIsInitialized] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Get session data from context using the safe hook
   const sessionContext = useSession();
