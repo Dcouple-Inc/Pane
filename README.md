@@ -30,6 +30,14 @@
 
 [Installation](#installation) · [Features](#features) · [Keyboard Shortcuts](#keyboard-shortcuts) · [Building from Source](#building-from-source)
 
+<br />
+
+<a href="https://runpane.com">
+  <img src="screenshot.png" alt="Pane — running Claude Code with multiple sessions" width="100%">
+</a>
+
+<sub>See more screenshots and demo at <a href="https://runpane.com">runpane.com</a></sub>
+
 </div>
 
 ---
@@ -37,22 +45,6 @@
 Not an IDE. Not a terminal emulator. **Vim for agent management.**
 
 Pane manages AI coding agents without replacing them. If it runs in a terminal, it runs in Pane — instantly, with zero integration. Claude Code, Codex, Aider, Goose, or any CLI tool. No plugins, no SDK, no waiting for support.
-
-```
-┌──────────────┬──────────────────────────────────────────┬─────────────────┐
-│              │  Terminal (Claude)                       │                 │
-│  Sessions    │  $ claude --dangerously-skip-permissions │   Git Tree      │
-│              │  > Implementing feature X...             │                 │
-│  ○ Feature A │                                          │   ├── src/      │
-│  ○ Feature B ├──────────────────────────────────────────┤   ├── lib/      │
-│  ○ Bug Fix   │  Terminal (Codex)                        │   └── test/     │
-│              │  $ codex                                 │                 │
-│              │  > Refactoring module Y...               │  Quick Actions  │
-│              │                                          │  ⟳ Rebase       │
-│              │  [Add Tool ▾]      [Git Actions ▾]       │  ⤵ Squash       │
-└──────────────┴──────────────────────────────────────────┴─────────────────┘
-                              ⌘K Command Palette
-```
 
 ---
 
