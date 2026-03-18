@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { ChevronDown, ChevronRight, Plus, GitBranch, GitFork, MoreHorizontal, Home, Archive, ArchiveRestore, Trash2, Loader2, GitPullRequest } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, GitBranch, GitFork, MoreHorizontal, Home, Archive, ArchiveRestore, Trash2, GitPullRequest } from 'lucide-react';
 import { useSessionStore } from '../stores/sessionStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import { useHotkeyStore } from '../stores/hotkeyStore';
@@ -793,9 +793,10 @@ export function ArchivedSessions() {
       {showArchived && (
         <div className="pb-2 max-h-[40vh] overflow-y-auto">
           {isLoadingArchived ? (
-            <div className="flex items-center gap-2 px-6 py-3 text-xs text-text-tertiary">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              <span>Loading...</span>
+            <div className="px-4 py-2 space-y-2 animate-pulse">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="h-7 bg-surface-tertiary rounded" />
+              ))}
             </div>
           ) : archivedProjects.length === 0 ? (
             <div className="px-6 py-3 text-xs text-text-tertiary">
