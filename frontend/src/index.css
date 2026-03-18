@@ -59,31 +59,30 @@ body.light-rounded {
     linear-gradient(180deg, #f7fafc 0%, #eef3f7 100%);
 }
 
-/* Scrollbar styling */
+/* Scrollbars stay functional but visually hidden */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 0;
+  height: 0;
 }
 
-/* Scrollbar styling with design tokens */
 ::-webkit-scrollbar-track {
-  @apply bg-transparent;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-border-secondary;
-  border-radius: 4px;
-  transition: background-color 0.2s;
+  background: transparent;
+  border-radius: 0;
+  transition: none;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-border-primary;
+  background: transparent;
 }
 
 /* Firefox scrollbar support */
 * {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-border-secondary) transparent;
+  scrollbar-width: none;
+  scrollbar-color: transparent transparent;
 }
 
 /* Tab indicator — default fill mode */
@@ -310,23 +309,23 @@ body.light-rounded {
   display: none;
 }
 
-/* Custom scrollbar classes for Rich Output */
+/* Keep custom scroll regions visually silent too */
 .scrollbar-thin {
-  scrollbar-width: thin;
+  scrollbar-width: none;
 }
 
 .scrollbar-thumb-border-secondary {
-  scrollbar-color: var(--color-border-secondary) transparent;
+  scrollbar-color: transparent transparent;
 }
 
 .scrollbar-thumb-border-primary {
-  scrollbar-color: var(--color-border-primary) transparent;
+  scrollbar-color: transparent transparent;
 }
 
 /* Webkit browsers (Chrome, Safari, Edge) - Rich Output specific */
 .scrollbar-thin::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 0;
+  height: 0;
 }
 
 .scrollbar-thin::-webkit-scrollbar-track {
@@ -334,17 +333,17 @@ body.light-rounded {
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: var(--color-border-secondary);
-  border-radius: 4px;
-  transition: background-color 0.2s;
+  background-color: transparent;
+  border-radius: 0;
+  transition: none;
 }
 
 .scrollbar-thin:hover::-webkit-scrollbar-thumb {
-  background-color: var(--color-border-primary);
+  background-color: transparent;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background-color: var(--color-text-tertiary);
+  background-color: transparent;
 }
 
 /* Custom animations for the working indicator */
