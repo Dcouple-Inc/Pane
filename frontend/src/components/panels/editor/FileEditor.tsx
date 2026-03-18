@@ -26,7 +26,7 @@ interface FileItem {
 
 const ROOT_ID = '\0root';
 const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB
-const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico', 'bmp']);
+const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'ico', 'bmp']);
 const PDF_EXTENSIONS = new Set(['pdf']);
 
 interface HeadlessFileTreeProps {
@@ -855,7 +855,7 @@ export function FileEditor({
           if (binaryBlobUrlRef.current) URL.revokeObjectURL(binaryBlobUrlRef.current);
 
           const mimeType = isImage
-            ? `image/${ext === 'jpg' ? 'jpeg' : ext === 'svg' ? 'svg+xml' : ext === 'ico' ? 'x-icon' : ext}`
+            ? `image/${ext === 'jpg' ? 'jpeg' : ext === 'ico' ? 'x-icon' : ext}`
             : 'application/pdf';
           const byteChars = atob(result.contentBase64);
           const byteArray = new Uint8Array(byteChars.length);
@@ -866,6 +866,10 @@ export function FileEditor({
           setBinaryBlobUrl(URL.createObjectURL(blob));
           setFileContent('');
           setOriginalContent('');
+        } else {
+          // Binary read failed — show error instead of blank/stale preview
+          setBinaryBlobUrl(null);
+          setError(result.error || 'Failed to load binary file');
         }
         setSelectedFile(file);
         setViewMode('edit');
