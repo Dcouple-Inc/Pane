@@ -281,11 +281,13 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           // wheel sometimes stops 1-2 lines short of baseY, leaving the prompt just
           // out of view. Snapping within a small threshold fixes the "can't reach input" feel.
           const terminalInstance = terminal;
-          const SNAP_THRESHOLD = 3; // lines
+          const SNAP_THRESHOLD = 3; // lines — for the "can't reach input" snap fix
           const scrollDisposable = terminalInstance.onScroll(() => {
             const buf = terminalInstance.buffer.active;
             const distFromBottom = buf.baseY - buf.viewportY;
-            isNearBottomRef.current = distFromBottom <= SNAP_THRESHOLD;
+            // At least 5% of viewport height, minimum 3 lines
+            const nearThreshold = Math.max(SNAP_THRESHOLD, Math.ceil(terminalInstance.rows * 0.05));
+            isNearBottomRef.current = distFromBottom <= nearThreshold;
             // Snap: if user scrolled to within a few lines of bottom, go all the way
             if (distFromBottom > 0 && distFromBottom <= SNAP_THRESHOLD) {
               terminalInstance.scrollToBottom();
@@ -720,12 +722,12 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
 
   // Always render the terminal div to keep XTerm instance alive
   return (
-    <div className="h-full w-full relative" onMouseMove={onMouseMove}>
+    <div className="h-full w-full relative group/terminal" onMouseMove={onMouseMove}>
       <div ref={terminalRef} className="h-full w-full" />
 
-      {/* Terminal action buttons */}
+      {/* Terminal action buttons — revealed on parent hover via group */}
       {isInitialized && (
-        <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 pointer-events-none hover:opacity-100 hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto transition-opacity">
+        <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 pointer-events-none group-hover/terminal:opacity-100 group-hover/terminal:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto transition-opacity">
           <button
             onClick={() => xtermRef.current?.scrollToTop()}
             className="p-1.5 rounded bg-surface-secondary/80 hover:bg-surface-tertiary text-text-tertiary hover:text-text-primary transition-colors"
