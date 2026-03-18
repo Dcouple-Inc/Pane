@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import type { WebglAddon } from '@xterm/addon-webgl';
@@ -9,7 +9,7 @@ import { TerminalPanelProps } from '../../types/panelComponents';
 import { useHotkeyStore } from '../../stores/hotkeyStore';
 import { renderLog, devLog } from '../../utils/console';
 import { getTerminalTheme } from '../../utils/terminalTheme';
-import { RefreshCw, FileEdit, FolderOpen } from 'lucide-react';
+import { FileEdit, FolderOpen } from 'lucide-react';
 import { useTerminalLinks } from '../terminal/hooks/useTerminalLinks';
 import { TerminalLinkTooltip } from '../terminal/TerminalLinkTooltip';
 import { TerminalPopover, PopoverButton } from '../terminal/TerminalPopover';
@@ -37,7 +37,7 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
   const [isInitialized, setIsInitialized] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
+
   // Get session data from context using the safe hook
   const sessionContext = useSession();
   const sessionId = sessionContext?.sessionId;
@@ -632,37 +632,41 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
   // Include isInitialized so this effect re-runs after terminal initialization completes
   useEffect(() => {
     if (isActive && isInitialized && fitAddonRef.current && xtermRef.current) {
-      // Use requestAnimationFrame to ensure the DOM has reflowed after display: none -> block,
-      // then fit. If the container still has tiny dimensions, retry after a longer delay.
+      // After display:none→block, the container needs time to reflow to its final size.
+      // We fit repeatedly until the width stabilizes, then do a final repaint + focus.
+      let lastWidth = 0;
+      let retries = 0;
+      const MAX_RETRIES = 10;
+
       const fitTerminal = () => {
-        if (!fitAddonRef.current || !xtermRef.current) return;
+        if (!fitAddonRef.current || !xtermRef.current || !terminalRef.current) return;
+
+        const containerWidth = terminalRef.current.clientWidth;
+
+        // If width is still changing or zero, the reflow isn't done — retry
+        if ((containerWidth === 0 || containerWidth !== lastWidth) && retries < MAX_RETRIES) {
+          lastWidth = containerWidth;
+          retries++;
+          setTimeout(fitTerminal, 50);
+          return;
+        }
+
         fitAddonRef.current.fit();
         const dimensions = fitAddonRef.current.proposeDimensions();
         if (dimensions) {
           window.electronAPI.invoke('terminal:resize', panel.id, dimensions.cols, dimensions.rows);
-          // If cols are suspiciously small, the reflow hasn't happened yet — retry
-          if (dimensions.cols < 20) {
-            setTimeout(fitTerminal, 150);
-          } else {
-            // Repaint all visible rows — after display:none→block, the WebGL/canvas
-            // renderer has stale glyph positions that cause janky shifted text.
-            // Without this, the terminal only fixes itself on the next keystroke.
-            const rows = xtermRef.current?.rows ?? 0;
-            if (rows > 0) {
-              xtermRef.current!.refresh(0, rows - 1);
-            }
-            // Focus the terminal once it's properly sized
-            xtermRef.current?.focus();
-            // Re-focus after a short delay to handle any focus stealing from other components
-            setTimeout(() => {
-              xtermRef.current?.focus();
-            }, 50);
-          }
         }
+
+        // Repaint all visible rows — after display:none→block, the WebGL/canvas
+        // renderer has stale glyph positions that cause janky shifted text.
+        const rows = xtermRef.current?.rows ?? 0;
+        if (rows > 0) {
+          xtermRef.current!.refresh(0, rows - 1);
+        }
+        xtermRef.current?.focus();
       };
-      requestAnimationFrame(() => {
-        requestAnimationFrame(fitTerminal);
-      });
+
+      requestAnimationFrame(fitTerminal);
     }
   }, [isActive, panel.id, isInitialized]);
 
@@ -680,29 +684,6 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
     }
   }, [theme]);
 
-  // Handler to refresh/reset the terminal flow control
-  const handleRefresh = useCallback(async () => {
-    if (!panel.id) return;
-
-    setIsRefreshing(true);
-    try {
-      // Reset backend flow control state
-      await window.electronAPI.invoke('terminal:resetFlowControl', panel.id);
-
-      // Re-fit terminal
-      if (fitAddonRef.current) {
-        fitAddonRef.current.fit();
-        const dimensions = fitAddonRef.current.proposeDimensions();
-        if (dimensions) {
-          await window.electronAPI.invoke('terminal:resize', panel.id, dimensions.cols, dimensions.rows);
-        }
-      }
-    } catch (error) {
-      console.error('[TerminalPanel] Refresh failed:', error);
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [panel.id]);
 
   // Handle missing session context (show after all hooks have been called)
   if (!sessionContext) {
@@ -748,14 +729,6 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
               <path d="M3 8.5L7 12L11 8.5" />
               <line x1="7" y1="11.5" x2="7" y2="2" />
             </svg>
-          </button>
-          <button
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="p-1.5 rounded-full border border-border-primary/40 bg-surface-secondary/80 hover:bg-surface-tertiary text-text-tertiary hover:text-text-primary transition-colors"
-            title="Refresh terminal (reset flow control)"
-          >
-            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
         </div>
       )}
