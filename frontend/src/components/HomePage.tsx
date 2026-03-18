@@ -267,8 +267,8 @@ export function HomePage() {
     <div className="flex-1 overflow-y-auto bg-bg-primary px-8 py-10">
       <div className="flex min-h-full items-center">
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-8">
-          <div className="flex justify-center">
-            <pre className="max-w-full overflow-hidden whitespace-pre text-center font-mono text-[10px] leading-[0.95] tracking-tight text-text-tertiary sm:text-[11px]">
+          <div className="flex justify-start">
+            <pre className="max-w-full overflow-hidden whitespace-pre text-left font-mono text-[10px] leading-[0.95] tracking-tight text-text-tertiary sm:text-[11px]">
               {paneAscii}
             </pre>
           </div>
@@ -318,7 +318,7 @@ export function HomePage() {
                     type="button"
                     className="flex cursor-pointer items-center gap-2 rounded-md border border-border-secondary bg-surface-tertiary px-3 py-1.5 text-sm text-text-primary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-interactive"
                   >
-                    <span>{{ light: 'Light', dark: 'Dark', oled: 'OLED Black', dusk: 'Dusk', forge: 'Forge' }[theme]}</span>
+                    <span>{{ light: 'Light', dark: 'Dark', oled: 'OLED Black', dusk: 'Dusk', forge: 'Forge', ember: 'Ember', aurora: 'Aurora' }[theme]}</span>
                     <ChevronDown className="w-3 h-3 text-text-tertiary" />
                   </button>
                 }
@@ -328,6 +328,8 @@ export function HomePage() {
                   { id: 'oled', label: 'OLED Black', onClick: () => setTheme('oled') },
                   { id: 'dusk', label: 'Dusk', onClick: () => setTheme('dusk') },
                   { id: 'forge', label: 'Forge', onClick: () => setTheme('forge') },
+                  { id: 'ember', label: 'Ember', onClick: () => setTheme('ember') },
+                  { id: 'aurora', label: 'Aurora', onClick: () => setTheme('aurora') },
                 ]}
                 selectedId={theme}
                 position="bottom-right"

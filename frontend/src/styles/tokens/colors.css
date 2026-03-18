@@ -77,6 +77,38 @@
   --forge-blue8: #548AF7;
   --forge-blue9: #6B9BFA;
   --forge-blue10: #83ACFC;
+
+  /* Ember primitives — warm graphite and copper */
+  --ember-950: #120e0c;
+  --ember-900: #1a1411;
+  --ember-850: #221a17;
+  --ember-800: #2b211d;
+  --ember-700: #382b26;
+  --ember-600: #4a3932;
+  --ember-500: #6b5448;
+  --ember-400: #9d8273;
+  --ember-300: #ccb8ac;
+  --ember-200: #e7dad2;
+  --ember-100: #f7efea;
+  --ember-accent-500: #d97757;
+  --ember-accent-400: #e7926f;
+  --ember-accent-300: #f2ab86;
+
+  /* Aurora primitives — midnight teal and ice */
+  --aurora-950: #061218;
+  --aurora-900: #0a1a22;
+  --aurora-850: #0d2530;
+  --aurora-800: #123240;
+  --aurora-700: #194759;
+  --aurora-600: #215f74;
+  --aurora-500: #2c8398;
+  --aurora-400: #53b6c9;
+  --aurora-300: #8bd8e4;
+  --aurora-200: #bfeef4;
+  --aurora-100: #e9fbfd;
+  --aurora-accent-500: #38bdf8;
+  --aurora-accent-400: #67e8f9;
+  --aurora-accent-300: #a5f3fc;
 }
 
 /* Dark Theme - Pure Black OLED */
@@ -439,8 +471,8 @@
   /* Structural tokens */
   --color-bg-chrome: var(--color-bg-primary);
   --color-bg-editor: var(--color-bg-primary);
-  --tab-indicator-color: transparent;
-  --tab-indicator-height: 0px;
+  --tab-indicator-color: var(--aurora-accent-400);
+  --tab-indicator-height: 3px;
 
   /* Terminal - only bg and black need to change */
   --color-terminal-bg: rgb(0 0 0);
@@ -737,4 +769,276 @@
   --color-terminal-bright-magenta: #D4A0CC;
   --color-terminal-bright-cyan: #57D1DE;
   --color-terminal-bright-white: #FFFFFF;
+}
+
+/* Ember Theme — warm graphite with copper accents */
+:root.ember {
+  --color-bg-primary: var(--ember-900);
+  --color-bg-secondary: var(--ember-800);
+  --color-bg-tertiary: var(--ember-700);
+  --color-bg-hover: var(--ember-700);
+  --color-bg-active: var(--ember-600);
+  --color-bg-chrome: var(--ember-850);
+  --color-bg-editor: var(--ember-900);
+
+  --color-surface-primary: var(--ember-800);
+  --color-surface-secondary: var(--ember-850);
+  --color-surface-tertiary: var(--ember-700);
+  --color-surface-hover: rgba(255, 255, 255, 0.045);
+
+  --color-text-primary: var(--ember-100);
+  --color-text-secondary: var(--ember-300);
+  --color-text-tertiary: var(--ember-400);
+  --color-text-muted: var(--ember-500);
+  --color-text-disabled: var(--ember-600);
+
+  --color-border-primary: rgba(255, 255, 255, 0.1);
+  --color-border-secondary: rgba(255, 255, 255, 0.06);
+  --color-border-hover: rgba(255, 255, 255, 0.16);
+  --color-border-focus: var(--ember-accent-500);
+
+  --color-interactive-primary: var(--ember-accent-500);
+  --color-interactive-hover: var(--ember-accent-400);
+  --color-interactive-active: var(--ember-accent-300);
+  --color-interactive-text: var(--ember-accent-300);
+  --color-focus-ring: var(--ember-accent-500);
+  --color-interactive-rgb: 217 119 87;
+
+  --color-text-interactive-on-dark: var(--ember-accent-300);
+  --color-text-interactive-on-dark-hover: var(--ember-accent-500);
+  --color-text-interactive-on-dark-active: var(--ember-accent-300);
+  --color-text-interactive-on-dark-focus: var(--ember-accent-300);
+
+  --color-surface-interactive: var(--ember-800);
+  --color-surface-interactive-hover: var(--ember-700);
+  --color-interactive-surface: rgba(217, 119, 87, 0.16);
+  --color-interactive-surface-hover: rgba(217, 119, 87, 0.24);
+
+  --color-border-interactive-subtle: rgba(255, 255, 255, 0.07);
+  --color-border-interactive: rgba(255, 255, 255, 0.11);
+  --color-interactive-border: rgba(217, 119, 87, 0.5);
+  --color-interactive-border-hover: rgba(217, 119, 87, 0.7);
+  --color-text-interactive-muted: var(--ember-500);
+  --color-focus-ring-subtle: rgba(217, 119, 87, 0.4);
+
+  --color-status-success: #7fb685;
+  --color-status-success-hover: #6aa572;
+  --color-status-warning: #d9a35b;
+  --color-status-warning-hover: #c38d45;
+  --color-status-error: #e26d5a;
+  --color-status-error-hover: #cd5643;
+  --color-status-info: #7aa2f7;
+  --color-status-neutral: var(--ember-500);
+
+  --color-text-on-primary: var(--ember-100);
+  --color-text-on-secondary: var(--ember-300);
+  --color-text-on-tertiary: var(--ember-300);
+  --color-text-on-surface: var(--ember-300);
+  --color-text-on-interactive: rgb(255 255 255);
+  --color-text-on-status-success: rgb(255 255 255);
+  --color-text-on-status-warning: rgb(0 0 0);
+  --color-text-on-status-error: rgb(255 255 255);
+  --color-text-on-status-info: rgb(255 255 255);
+  --color-text-on-navigation: var(--ember-300);
+
+  --color-button-primary-bg: var(--ember-accent-500);
+  --color-button-primary-hover: var(--ember-accent-400);
+  --color-button-primary-text: rgb(255 255 255);
+  --color-button-secondary-bg: var(--ember-700);
+  --color-button-secondary-hover: var(--ember-600);
+  --color-button-secondary-text: var(--ember-300);
+  --color-button-ghost-hover: var(--ember-800);
+  --color-button-ghost-text: var(--ember-400);
+
+  --color-card-bg: var(--ember-800);
+  --color-card-border: rgba(255, 255, 255, 0.1);
+  --color-card-nested-bg: var(--ember-700);
+
+  --color-input-bg: var(--ember-900);
+  --color-input-border: rgba(255, 255, 255, 0.08);
+  --color-input-focus: var(--ember-accent-500);
+  --color-input-text: var(--ember-100);
+  --color-input-placeholder: var(--ember-500);
+
+  --color-modal-overlay: rgba(0, 0, 0, 0.62);
+  --color-modal-bg: var(--ember-800);
+
+  --color-surface-navigation: var(--ember-850);
+  --color-surface-navigation-hover: var(--ember-800);
+  --color-surface-navigation-active: var(--ember-700);
+  --color-surface-navigation-selected: rgba(217, 119, 87, 0.14);
+  --color-surface-navigation-selected-hover: rgba(217, 119, 87, 0.2);
+  --color-text-navigation-primary: var(--ember-300);
+  --color-text-navigation-secondary: var(--ember-400);
+  --color-text-navigation-muted: var(--ember-500);
+  --color-text-navigation-selected: var(--ember-100);
+  --color-text-navigation-hover: var(--ember-100);
+  --color-text-navigation-section: var(--ember-500);
+  --color-text-navigation-brand: var(--ember-400);
+  --color-border-navigation: rgba(255, 255, 255, 0.06);
+  --color-divider-navigation: rgba(255, 255, 255, 0.05);
+  --color-divider-navigation-subtle: rgba(255, 255, 255, 0.03);
+
+  --color-scrollbar-track: var(--ember-900);
+  --color-scrollbar-thumb: var(--ember-600);
+  --color-scrollbar-thumb-hover: var(--ember-500);
+
+  --tab-indicator-color: transparent;
+  --tab-indicator-height: 0px;
+
+  --color-terminal-bg: var(--ember-900);
+  --color-terminal-fg: var(--ember-100);
+  --color-terminal-cursor: var(--ember-accent-400);
+  --color-terminal-black: var(--ember-900);
+  --color-terminal-red: #e26d5a;
+  --color-terminal-green: #7fb685;
+  --color-terminal-yellow: #d9a35b;
+  --color-terminal-blue: #7aa2f7;
+  --color-terminal-magenta: #c792ea;
+  --color-terminal-cyan: #7dcfff;
+  --color-terminal-white: var(--ember-100);
+  --color-terminal-bright-black: var(--ember-500);
+  --color-terminal-bright-red: #ef8b79;
+  --color-terminal-bright-green: #98d19f;
+  --color-terminal-bright-yellow: #e7bc7a;
+  --color-terminal-bright-blue: #99b8fb;
+  --color-terminal-bright-magenta: #d6a6f2;
+  --color-terminal-bright-cyan: #9ee7ff;
+  --color-terminal-bright-white: #ffffff;
+}
+
+/* Aurora Theme — midnight teal with icy highlights */
+:root.aurora {
+  --color-bg-primary: var(--aurora-900);
+  --color-bg-secondary: var(--aurora-800);
+  --color-bg-tertiary: var(--aurora-700);
+  --color-bg-hover: var(--aurora-700);
+  --color-bg-active: var(--aurora-600);
+  --color-bg-chrome: var(--aurora-850);
+  --color-bg-editor: var(--aurora-900);
+
+  --color-surface-primary: var(--aurora-800);
+  --color-surface-secondary: var(--aurora-850);
+  --color-surface-tertiary: var(--aurora-700);
+  --color-surface-hover: rgba(255, 255, 255, 0.05);
+
+  --color-text-primary: var(--aurora-100);
+  --color-text-secondary: var(--aurora-200);
+  --color-text-tertiary: var(--aurora-300);
+  --color-text-muted: var(--aurora-400);
+  --color-text-disabled: var(--aurora-500);
+
+  --color-border-primary: rgba(133, 214, 231, 0.16);
+  --color-border-secondary: rgba(133, 214, 231, 0.08);
+  --color-border-hover: rgba(165, 243, 252, 0.2);
+  --color-border-focus: var(--aurora-accent-500);
+
+  --color-interactive-primary: var(--aurora-accent-500);
+  --color-interactive-hover: var(--aurora-accent-400);
+  --color-interactive-active: var(--aurora-accent-300);
+  --color-interactive-text: var(--aurora-accent-300);
+  --color-focus-ring: var(--aurora-accent-500);
+  --color-interactive-rgb: 56 189 248;
+
+  --color-text-interactive-on-dark: var(--aurora-accent-300);
+  --color-text-interactive-on-dark-hover: var(--aurora-accent-400);
+  --color-text-interactive-on-dark-active: var(--aurora-accent-300);
+  --color-text-interactive-on-dark-focus: var(--aurora-accent-300);
+
+  --color-surface-interactive: var(--aurora-800);
+  --color-surface-interactive-hover: var(--aurora-700);
+  --color-interactive-surface: rgba(56, 189, 248, 0.18);
+  --color-interactive-surface-hover: rgba(56, 189, 248, 0.26);
+
+  --color-border-interactive-subtle: rgba(191, 238, 244, 0.08);
+  --color-border-interactive: rgba(191, 238, 244, 0.14);
+  --color-interactive-border: rgba(56, 189, 248, 0.5);
+  --color-interactive-border-hover: rgba(56, 189, 248, 0.72);
+  --color-text-interactive-muted: var(--aurora-400);
+  --color-focus-ring-subtle: rgba(56, 189, 248, 0.4);
+
+  --color-status-success: #34d399;
+  --color-status-success-hover: #10b981;
+  --color-status-warning: #f59e0b;
+  --color-status-warning-hover: #d97706;
+  --color-status-error: #f87171;
+  --color-status-error-hover: #ef4444;
+  --color-status-info: #38bdf8;
+  --color-status-neutral: var(--aurora-500);
+
+  --color-text-on-primary: var(--aurora-100);
+  --color-text-on-secondary: var(--aurora-200);
+  --color-text-on-tertiary: var(--aurora-200);
+  --color-text-on-surface: var(--aurora-200);
+  --color-text-on-interactive: rgb(255 255 255);
+  --color-text-on-status-success: rgb(255 255 255);
+  --color-text-on-status-warning: rgb(0 0 0);
+  --color-text-on-status-error: rgb(255 255 255);
+  --color-text-on-status-info: rgb(255 255 255);
+  --color-text-on-navigation: var(--aurora-200);
+
+  --color-button-primary-bg: var(--aurora-accent-500);
+  --color-button-primary-hover: var(--aurora-accent-400);
+  --color-button-primary-text: rgb(255 255 255);
+  --color-button-secondary-bg: var(--aurora-700);
+  --color-button-secondary-hover: var(--aurora-600);
+  --color-button-secondary-text: var(--aurora-200);
+  --color-button-ghost-hover: var(--aurora-800);
+  --color-button-ghost-text: var(--aurora-300);
+
+  --color-card-bg: var(--aurora-800);
+  --color-card-border: rgba(133, 214, 231, 0.18);
+  --color-card-nested-bg: var(--aurora-700);
+
+  --color-input-bg: var(--aurora-900);
+  --color-input-border: rgba(133, 214, 231, 0.12);
+  --color-input-focus: var(--aurora-accent-500);
+  --color-input-text: var(--aurora-100);
+  --color-input-placeholder: var(--aurora-500);
+
+  --color-modal-overlay: rgba(0, 0, 0, 0.58);
+  --color-modal-bg: var(--aurora-800);
+
+  --color-surface-navigation: var(--aurora-850);
+  --color-surface-navigation-hover: var(--aurora-800);
+  --color-surface-navigation-active: var(--aurora-700);
+  --color-surface-navigation-selected: rgba(56, 189, 248, 0.14);
+  --color-surface-navigation-selected-hover: rgba(56, 189, 248, 0.2);
+  --color-text-navigation-primary: var(--aurora-200);
+  --color-text-navigation-secondary: var(--aurora-300);
+  --color-text-navigation-muted: var(--aurora-400);
+  --color-text-navigation-selected: var(--aurora-100);
+  --color-text-navigation-hover: var(--aurora-100);
+  --color-text-navigation-section: var(--aurora-400);
+  --color-text-navigation-brand: var(--aurora-300);
+  --color-border-navigation: rgba(133, 214, 231, 0.1);
+  --color-divider-navigation: rgba(133, 214, 231, 0.08);
+  --color-divider-navigation-subtle: rgba(133, 214, 231, 0.04);
+
+  --color-scrollbar-track: var(--aurora-900);
+  --color-scrollbar-thumb: var(--aurora-600);
+  --color-scrollbar-thumb-hover: var(--aurora-500);
+
+  --tab-indicator-color: transparent;
+  --tab-indicator-height: 0px;
+
+  --color-terminal-bg: var(--aurora-900);
+  --color-terminal-fg: var(--aurora-100);
+  --color-terminal-cursor: var(--aurora-accent-400);
+  --color-terminal-black: var(--aurora-900);
+  --color-terminal-red: #f87171;
+  --color-terminal-green: #34d399;
+  --color-terminal-yellow: #f59e0b;
+  --color-terminal-blue: #60a5fa;
+  --color-terminal-magenta: #a78bfa;
+  --color-terminal-cyan: #67e8f9;
+  --color-terminal-white: var(--aurora-100);
+  --color-terminal-bright-black: var(--aurora-500);
+  --color-terminal-bright-red: #fca5a5;
+  --color-terminal-bright-green: #6ee7b7;
+  --color-terminal-bright-yellow: #fcd34d;
+  --color-terminal-bright-blue: #93c5fd;
+  --color-terminal-bright-magenta: #c4b5fd;
+  --color-terminal-bright-cyan: #a5f3fc;
+  --color-terminal-bright-white: #ffffff;
 }

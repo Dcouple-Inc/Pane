@@ -100,7 +100,7 @@ export function DetailPanel({ isVisible, width, height, onResize, mergeError, pr
             className="absolute top-0 left-0 right-0 h-1 cursor-row-resize group z-10"
             onMouseDown={onResize}
           >
-            <div className="absolute inset-0 bg-border-primary hover:bg-interactive transition-colors" />
+            <div className="absolute -top-2 bottom-0 left-0 right-0" />
           </div>
         )}
 
@@ -234,7 +234,7 @@ export function DetailPanel({ isVisible, width, height, onResize, mergeError, pr
         className="absolute top-0 left-0 w-1 h-full cursor-col-resize group z-10"
         onMouseDown={onResize}
       >
-        <div className="absolute inset-0 bg-border-primary hover:bg-interactive transition-colors" />
+        <div className="absolute -left-2 right-0 top-0 bottom-0" />
       </div>
 
       <div className="pane-detail-panel-inner flex flex-col h-full min-h-0">

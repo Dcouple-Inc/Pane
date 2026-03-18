@@ -1053,7 +1053,7 @@ export const SessionView = memo(() => {
                     className="absolute top-0 left-0 w-1 h-full cursor-col-resize group z-10"
                     onMouseDown={startRightTerminalResize}
                   >
-                    <div className="absolute inset-0 bg-border-primary hover:bg-interactive transition-colors" />
+                    <div className="absolute -left-2 right-0 top-0 bottom-0" />
                   </div>
 
                   {/* Terminal header */}
@@ -1197,9 +1197,7 @@ export const SessionView = memo(() => {
                         <div
                           className="ml-2 h-full flex items-center cursor-row-resize group flex-shrink-0"
                           onMouseDown={startTerminalResize}
-                        >
-                          <GripHorizontal className="w-4 h-3 text-text-muted opacity-40 hover:opacity-100 transition-opacity" />
-                        </div>
+                        />
                       )}
                     </div>
                     {/* Terminal content (hidden when collapsed) */}

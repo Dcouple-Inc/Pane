@@ -168,3 +168,29 @@
   --panel-shell-radius: 0.5rem;
   --panel-shell-shadow: var(--shadow-none);
 }
+
+/* Ember Theme — soft editorial panels */
+:root.ember {
+  --button-radius: var(--radius-lg);
+  --card-radius: var(--radius-xl);
+  --input-radius: var(--radius-md);
+  --button-shadow: var(--shadow-none);
+  --button-shadow-hover: var(--shadow-none);
+  --card-shadow: var(--shadow-sm);
+  --app-shell-radius: var(--radius-xl);
+  --panel-shell-radius: var(--radius-lg);
+  --panel-shell-shadow: var(--shadow-sm);
+}
+
+/* Aurora Theme — glassy rounded shells */
+:root.aurora {
+  --button-radius: var(--radius-lg);
+  --card-radius: var(--radius-xl);
+  --input-radius: var(--radius-lg);
+  --button-shadow: var(--shadow-none);
+  --button-shadow-hover: var(--shadow-none);
+  --card-shadow: var(--shadow-sm);
+  --app-shell-radius: var(--radius-2xl);
+  --panel-shell-radius: var(--radius-xl);
+  --panel-shell-shadow: var(--shadow-sm);
+}

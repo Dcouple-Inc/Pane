@@ -784,41 +784,6 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
     <div className="h-full w-full relative group/terminal" onMouseMove={onMouseMove} onKeyDown={handleTerminalKeyDown}>
       <div ref={terminalRef} className="h-full w-full" />
 
-      {/* Terminal search overlay */}
-      <TerminalSearchOverlay
-        isOpen={isSearchOpen}
-        searchQuery={searchQuery}
-        searchStatus={searchStatus}
-        searchInputRef={searchInputRef}
-        onQueryChange={onQueryChange}
-        onStep={onStep}
-        onClose={closeSearch}
-      />
-
-      {/* Terminal scroll buttons — compact, revealed on hover */}
-      {isInitialized && (
-        <div className="absolute -top-0.5 right-2 z-30 flex items-center gap-0.5 opacity-0 pointer-events-none group-hover/terminal:opacity-100 group-hover/terminal:pointer-events-auto transition-opacity">
-          <button
-            onClick={() => xtermRef.current?.scrollToTop()}
-            className="p-0.5 rounded bg-surface-secondary/60 hover:bg-surface-tertiary/80 text-text-tertiary hover:text-text-secondary transition-colors"
-            title="Scroll to top"
-          >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 7L6 4L9 7" />
-            </svg>
-          </button>
-          <button
-            onClick={() => xtermRef.current?.scrollToBottom()}
-            className="p-0.5 rounded bg-surface-secondary/60 hover:bg-surface-tertiary/80 text-text-tertiary hover:text-text-secondary transition-colors"
-            title="Scroll to bottom"
-          >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 5L6 8L9 5" />
-            </svg>
-          </button>
-        </div>
-      )}
-
       {!isInitialized && (
         <div className="absolute inset-0 flex items-center justify-center bg-surface-primary bg-opacity-80">
           <div className="text-text-secondary">Initializing terminal...</div>

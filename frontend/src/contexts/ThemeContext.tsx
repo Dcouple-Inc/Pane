@@ -2,10 +2,10 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useConfigStore } from '../stores/configStore';
 import { API } from '../utils/api';
 
-type Theme = 'light' | 'dark' | 'oled' | 'dusk' | 'forge';
+type Theme = 'light' | 'dark' | 'oled' | 'dusk' | 'forge' | 'ember' | 'aurora';
 
-const VALID_THEMES: Theme[] = ['light', 'dark', 'oled', 'dusk', 'forge'];
-const DARK_THEMES: Theme[] = ['dark', 'oled', 'dusk', 'forge'];
+const VALID_THEMES: Theme[] = ['light', 'dark', 'oled', 'dusk', 'forge', 'ember', 'aurora'];
+const DARK_THEMES: Theme[] = ['dark', 'oled', 'dusk', 'forge', 'ember', 'aurora'];
 const isValidTheme = (t: string): t is Theme => VALID_THEMES.includes(t as Theme);
 
 interface ThemeContextType {
@@ -40,8 +40,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const body = document.body;
 
     // Remove ALL theme classes from both root and body
-    root.classList.remove('light', 'dark', 'oled', 'dusk', 'forge');
-    body.classList.remove('light', 'dark', 'oled', 'dusk', 'forge');
+    root.classList.remove('light', 'dark', 'oled', 'dusk', 'forge', 'ember', 'aurora');
+    body.classList.remove('light', 'dark', 'oled', 'dusk', 'forge', 'ember', 'aurora');
 
     // All dark-based themes need the 'dark' class for Tailwind dark: utilities
     if (DARK_THEMES.includes(theme)) {

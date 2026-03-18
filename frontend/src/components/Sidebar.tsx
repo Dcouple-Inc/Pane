@@ -423,18 +423,8 @@ export function Sidebar({ onHelpClick, onAboutClick, onSettingsClick, isSettings
           className="absolute top-0 right-0 w-1 h-full cursor-col-resize group z-10"
           onMouseDown={onResize}
         >
-          {/* Visual indicator */}
-          <div className="absolute inset-0 bg-border-secondary group-hover:bg-interactive transition-colors" />
           {/* Larger grab area */}
           <div className="absolute -left-2 -right-2 top-0 bottom-0" />
-          {/* Drag indicator dots */}
-          <div className="absolute top-1/2 -translate-y-1/2 right-0 transform translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <div className="flex flex-col gap-1">
-              <div className="w-1 h-1 bg-interactive rounded-full" />
-              <div className="w-1 h-1 bg-interactive rounded-full" />
-              <div className="w-1 h-1 bg-interactive rounded-full" />
-            </div>
-          </div>
         </div>
         <div className="px-3 py-2 border-b border-border-primary flex items-center justify-between overflow-hidden">
           <div className="flex items-center space-x-2 min-w-0">
