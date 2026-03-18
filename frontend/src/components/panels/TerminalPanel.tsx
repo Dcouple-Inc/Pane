@@ -123,7 +123,7 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
         console.log('[TerminalPanel] Creating XTerm instance...');
         terminal = new Terminal({
           fontSize: 14,
-          fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+          fontFamily: '"Geist Mono", "SF Mono", Menlo, Monaco, "Courier New", monospace',
           theme: getTerminalTheme(),
           scrollback: 2500,
           cursorBlink: false,
