@@ -29,11 +29,11 @@ class WorktreePoolManager {
   // Path helpers (inlined — do NOT call WorktreeManager's private methods)
   // ---------------------------------------------------------------------------
 
-  private resolveBaseDir(projectPath: string, worktreeFolder: string | undefined): string {
+  private resolveBaseDir(projectPath: string, worktreeFolder: string | undefined, pathResolver: PathResolver): string {
     if (worktreeFolder && (worktreeFolder.startsWith('/') || worktreeFolder.includes(':'))) {
       return worktreeFolder;
     }
-    return path.join(projectPath, worktreeFolder || 'worktrees');
+    return pathResolver.join(projectPath, worktreeFolder || 'worktrees');
   }
 
   private reserveKey(projectPath: string, baseRef: string): string {
@@ -68,7 +68,7 @@ class WorktreePoolManager {
     const hex = crypto.randomBytes(4).toString('hex'); // 8 hex chars
     const reserveName = `_reserve-${hex}`;
     const branchName = `_reserve/${hex}`;
-    const baseDir = this.resolveBaseDir(projectPath, worktreeFolder);
+    const baseDir = this.resolveBaseDir(projectPath, worktreeFolder, pathResolver);
     const reservePath = pathResolver.join(baseDir, reserveName);
 
     // Non-blocking fetch — ignore errors (user may be offline)
@@ -161,7 +161,7 @@ class WorktreePoolManager {
     // Remove from map immediately so nothing else claims this reserve
     this.reserves.delete(key);
 
-    const baseDir = this.resolveBaseDir(projectPath, worktreeFolder);
+    const baseDir = this.resolveBaseDir(projectPath, worktreeFolder, pathResolver);
     const targetPath = pathResolver.join(baseDir, targetName);
 
     try {

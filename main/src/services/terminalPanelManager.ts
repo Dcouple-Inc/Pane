@@ -467,7 +467,14 @@ export class TerminalPanelManager {
       return;
     }
 
-    terminal.pty.resize(cols, rows);
+    try {
+      terminal.pty.resize(cols, rows);
+    } catch (err) {
+      // PTY may have exited between the map lookup and the resize call
+      console.warn(`[TerminalPanelManager] Failed to resize terminal ${panelId}:`, err);
+      this.terminals.delete(panelId);
+      return;
+    }
     
     // Update panel state with new dimensions
     const panel = panelManager.getPanel(panelId);
