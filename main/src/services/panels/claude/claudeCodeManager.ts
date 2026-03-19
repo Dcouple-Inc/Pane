@@ -5,6 +5,7 @@ import * as os from 'os';
 import { execSync } from 'child_process';
 import type { Logger } from '../../../utils/logger';
 import type { ConfigManager } from '../../configManager';
+import { PathResolver } from '../../../utils/pathResolver';
 import type { ConversationMessage } from '../../../database/models';
 import { testClaudeCodeAvailability, testClaudeCodeInDirectory } from '../../../utils/claudeCodeTest';
 import { findExecutableInPath } from '../../../utils/shellPath';
@@ -760,17 +761,19 @@ export class ClaudeCodeManager extends AbstractCliManager {
       }
 
       const baseProjectPath = project.path;
+      const resolver = new PathResolver(project);
       this.logger?.verbose(`[MCP] Looking for base project MCP servers at: ${baseProjectPath}`);
 
       // Check for .mcp.json in the base project directory
-      const mcpJsonPath = path.join(baseProjectPath, '.mcp.json');
-      if (fs.existsSync(mcpJsonPath)) {
+      const mcpJsonPath = resolver.join(baseProjectPath, '.mcp.json');
+      const mcpJsonFsPath = resolver.toFileSystem(mcpJsonPath);
+      if (fs.existsSync(mcpJsonFsPath)) {
         this.logger?.verbose(`[MCP] Found .mcp.json at: ${mcpJsonPath}`);
         result.mcpJsonPath = mcpJsonPath;
 
         // Also parse it to merge with other servers
         try {
-          const mcpJsonContent = fs.readFileSync(mcpJsonPath, 'utf8');
+          const mcpJsonContent = fs.readFileSync(mcpJsonFsPath, 'utf8');
           const mcpJson = JSON.parse(mcpJsonContent) as { mcpServers?: Record<string, unknown> };
           if (mcpJson.mcpServers) {
             Object.assign(result.mcpServers, mcpJson.mcpServers);
