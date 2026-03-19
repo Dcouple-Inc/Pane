@@ -24,6 +24,7 @@ interface DetailPanelProps {
   onToggleCollapse?: () => void;
   onSwapLayout?: () => void;
   terminalShortcuts?: React.ReactNode;
+  onCommitClick?: (hash: string) => void;
 }
 
 /** Consistent compact button class for sidebar actions */
@@ -55,7 +56,7 @@ function DetailSection({ title, children }: { title: string; children: React.Rea
   );
 }
 
-export function DetailPanel({ isVisible, width, height, onResize, mergeError, projectGitActions, orientation, isCollapsed, onToggleCollapse, onSwapLayout, terminalShortcuts }: DetailPanelProps) {
+export function DetailPanel({ isVisible, width, height, onResize, mergeError, projectGitActions, orientation, isCollapsed, onToggleCollapse, onSwapLayout, terminalShortcuts, onCommitClick }: DetailPanelProps) {
   const sessionContext = useSession();
   const immersiveMode = useNavigationStore(s => s.immersiveMode);
 
@@ -216,6 +217,7 @@ export function DetailPanel({ isVisible, width, height, onResize, mergeError, pr
                 sessionId={session.id}
                 baseBranch={session.baseBranch || 'main'}
                 layout="wide"
+                onCommitClick={onCommitClick}
               />
             </div>
           )}
@@ -531,6 +533,7 @@ export function DetailPanel({ isVisible, width, height, onResize, mergeError, pr
               <GitHistoryGraph
                 sessionId={session.id}
                 baseBranch={session.baseBranch || 'main'}
+                onCommitClick={onCommitClick}
               />
             </div>
           </div>

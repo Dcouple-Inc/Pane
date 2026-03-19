@@ -26,6 +26,7 @@ interface GitHistoryGraphProps {
   sessionId: string;
   baseBranch: string;
   layout?: 'compact' | 'wide';
+  onCommitClick?: (hash: string) => void;
 }
 
 function CommitTooltipContent({ entry }: { entry: GitGraphCommitData }) {
@@ -90,10 +91,12 @@ const CommitRow = memo(function CommitRow({
   entry,
   isLast,
   layout = 'compact',
+  onClick,
 }: {
   entry: GitGraphCommitData;
   isLast: boolean;
   layout?: 'compact' | 'wide';
+  onClick?: (hash: string) => void;
 }) {
   const isIndex = entry.hash === 'index';
   const date = new Date(entry.committerDate);
@@ -102,7 +105,8 @@ const CommitRow = memo(function CommitRow({
 
   const row = (
       <div
-        className={`flex items-stretch gap-1.5 w-full text-left rounded-sm min-w-0 ${layout === 'wide' ? '' : 'hover:bg-surface-secondary cursor-default transition-colors'}`}
+        className={`flex items-stretch gap-1.5 w-full text-left rounded-sm min-w-0 ${layout === 'wide' ? (onClick ? 'hover:bg-surface-secondary cursor-pointer transition-colors' : '') : `hover:bg-surface-secondary ${onClick ? 'cursor-pointer' : 'cursor-default'} transition-colors`}`}
+        onClick={onClick ? () => onClick(entry.hash) : undefined}
       >
         {/* Graph rail: vertical line with commit node */}
         <div className="flex flex-col items-center flex-shrink-0 w-3 ml-1">
@@ -186,7 +190,7 @@ const CommitRow = memo(function CommitRow({
   );
 });
 
-export function GitHistoryGraph({ sessionId, baseBranch, layout = 'compact' }: GitHistoryGraphProps) {
+export function GitHistoryGraph({ sessionId, baseBranch, layout = 'compact', onCommitClick }: GitHistoryGraphProps) {
   const [rawEntries, setRawEntries] = useState<GitGraphCommitData[]>([]);
   const [currentBranch, setCurrentBranch] = useState(baseBranch);
   const [loading, setLoading] = useState(true);
@@ -276,6 +280,7 @@ export function GitHistoryGraph({ sessionId, baseBranch, layout = 'compact' }: G
             entry={entry}
             isLast={i === rawEntries.length - 1}
             layout={layout}
+            onClick={onCommitClick}
           />
         ))}
       </div>

@@ -64,6 +64,7 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
   const [combinedDiff, setCombinedDiff] = useState<GitDiffResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [viewingCommitHash, setViewingCommitHash] = useState<string | null>(null);
 
   const [showCommitDialog, setShowCommitDialog] = useState(false);
   const [mainBranch, setMainBranch] = useState<string>('main');
@@ -98,6 +99,7 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
     refresh: () => {
       diffCacheRef.current.clear();
       setSelectedExecutions([]);
+      setViewingCommitHash(null);
       setForceRefresh(prev => prev + 1);
     }
   }));
@@ -167,6 +169,7 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
   useEffect(() => {
     if (sessionId !== lastSessionId) {
       setSelectedExecutions([]);
+      setViewingCommitHash(null);
       setLastSessionId(sessionId);
       setCombinedDiff(null);
       setExecutions([]);
@@ -213,6 +216,43 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
       }
     }
   }, [isMainRepo]);
+
+  // Listen for commit-click events dispatched from GitHistoryGraph via SessionView
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const { sessionId: eventSessionId, commitHash } = (event as CustomEvent<{ sessionId: string; commitHash: string }>).detail;
+      if (eventSessionId !== sessionId) return;
+      setViewingCommitHash(commitHash);
+      setSelectedExecutions([]);
+    };
+    window.addEventListener('diff:view-commit', handler);
+    return () => window.removeEventListener('diff:view-commit', handler);
+  }, [sessionId]);
+
+  // Load diff when viewingCommitHash changes
+  useEffect(() => {
+    if (!viewingCommitHash) return;
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await API.sessions.getCommitDiffByHash(sessionId, viewingCommitHash);
+        if (cancelled) return;
+        if (!response.success) throw new Error(response.error);
+        setCombinedDiff(response.data);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to load commit diff');
+          setCombinedDiff(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [viewingCommitHash, sessionId]);
 
   // Load executions for the session (skip when panel is not visible)
   useEffect(() => {
@@ -368,6 +408,7 @@ const CombinedDiffView = memo(forwardRef<CombinedDiffViewHandle, CombinedDiffVie
   }, [selectedExecutions, sessionId, forceRefresh]);
 
   const handleSelectionChange = (newSelection: number[]) => {
+    setViewingCommitHash(null); // exit hash mode
     setSelectedExecutions(newSelection);
   };
 

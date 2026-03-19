@@ -217,6 +217,19 @@ export const SessionView = memo(() => {
     [activeSession, setActivePanelInStore, addToHistory]
   );
 
+  const handleCommitClick = useCallback(
+    (commitHash: string) => {
+      if (!activeSession || sessionPanels.length === 0) return;
+      const diffPanel = sessionPanels.find(p => p.type === 'diff');
+      if (!diffPanel) return;
+      handlePanelSelect(diffPanel);
+      window.dispatchEvent(new CustomEvent('diff:view-commit', {
+        detail: { sessionId: activeSession.id, commitHash },
+      }));
+    },
+    [activeSession, sessionPanels, handlePanelSelect]
+  );
+
   // Tab cycling: navigates between panels in the current session using
   // keyboard shortcuts. Supports wrap-around (last → first). Only enabled
   // when there are 2+ panels. Uses sortedSessionPanels to match tab bar order.
@@ -986,6 +999,7 @@ export const SessionView = memo(() => {
                   isCollapsed={isDetailCollapsed}
                   onToggleCollapse={toggleDetailCollapse}
                   onSwapLayout={toggleLayoutSwap}
+                  onCommitClick={handleCommitClick}
                   terminalShortcuts={
                     <>
                       <Tooltip content={hotkeyDisplay('add-tool-terminal-claude') ? <Kbd>{hotkeyDisplay('add-tool-terminal-claude')}</Kbd> : undefined} side="top">
@@ -1223,6 +1237,7 @@ export const SessionView = memo(() => {
                 onResize={startDetailResize}
                 mergeError={hook.mergeError}
                 onSwapLayout={toggleLayoutSwap}
+                onCommitClick={handleCommitClick}
               />
             </>
           )}

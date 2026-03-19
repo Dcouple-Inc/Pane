@@ -264,7 +264,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     gitCommit: (sessionId: string, message: string): Promise<IPCResponse> => ipcRenderer.invoke('sessions:git-commit', sessionId, message),
     gitDiff: (sessionId: string): Promise<IPCResponse> => ipcRenderer.invoke('sessions:git-diff', sessionId),
     getCombinedDiff: (sessionId: string, executionIds?: number[]): Promise<IPCResponse> => ipcRenderer.invoke('sessions:get-combined-diff', sessionId, executionIds),
-    
+    getCommitDiffByHash: (sessionId: string, commitHash: string): Promise<IPCResponse> => ipcRenderer.invoke('sessions:get-commit-diff-by-hash', sessionId, commitHash),
+
     // Main repo session
     getOrCreateMainRepoSession: (projectId: number): Promise<IPCResponse> => ipcRenderer.invoke('sessions:get-or-create-main-repo', projectId),
     

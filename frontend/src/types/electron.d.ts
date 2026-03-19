@@ -77,7 +77,8 @@ interface ElectronAPI {
     gitCommit: (sessionId: string, message: string) => Promise<IPCResponse>;
     gitDiff: (sessionId: string) => Promise<IPCResponse>;
     getCombinedDiff: (sessionId: string, executionIds?: number[]) => Promise<IPCResponse>;
-    
+    getCommitDiffByHash: (sessionId: string, commitHash: string) => Promise<IPCResponse>;
+
     // Script operations
     hasRunScript: (sessionId: string) => Promise<IPCResponse>;
     getRunningSession: () => Promise<IPCResponse>;

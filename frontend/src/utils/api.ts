@@ -144,6 +144,11 @@ export class API {
       return window.electronAPI.sessions.getCombinedDiff(sessionId, executionIds);
     },
 
+    async getCommitDiffByHash(sessionId: string, commitHash: string) {
+      if (!isElectron()) throw new Error('Electron API not available');
+      return window.electronAPI.sessions.getCommitDiffByHash(sessionId, commitHash);
+    },
+
     // Main repo session
     async getOrCreateMainRepoSession(projectId: number) {
       if (!isElectron()) throw new Error('Electron API not available');
