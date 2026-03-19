@@ -1,7 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { ConfigManager } from './configManager';
-import fs from 'fs/promises';
-import path from 'path';
 
 export class WorktreeNameGenerator {
   private anthropic: Anthropic | null = null;
@@ -140,38 +138,5 @@ Respond with ONLY the session name, nothing else.`
       .replace(/-+/g, '-')
       .replace(/^-|-$/g, '')
       .substring(0, 30);
-  }
-
-  async generateUniqueWorktreeName(prompt: string): Promise<string> {
-    const baseName = await this.generateWorktreeName(prompt);
-    const gitRepoPath = this.configManager.getGitRepoPath();
-    const worktreesPath = path.join(gitRepoPath, 'worktrees');
-    
-    let uniqueName = baseName;
-    let counter = 1;
-
-    try {
-      // Check if worktrees directory exists
-      await fs.access(worktreesPath);
-      
-      // Check for existing directories
-      while (await this.worktreeExists(worktreesPath, uniqueName)) {
-        uniqueName = `${baseName}-${counter}`;
-        counter++;
-      }
-    } catch (error) {
-      // worktrees directory doesn't exist yet, so any name is unique
-    }
-
-    return uniqueName;
-  }
-
-  private async worktreeExists(worktreesPath: string, name: string): Promise<boolean> {
-    try {
-      const stat = await fs.stat(path.join(worktreesPath, name));
-      return stat.isDirectory();
-    } catch {
-      return false;
-    }
   }
 }

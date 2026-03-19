@@ -8,7 +8,9 @@ import type { GitDiffManager } from './gitDiffManager';
 import type { ExecutionTracker } from './executionTracker';
 import { formatForDisplay } from '../utils/timestampUtils';
 import * as os from 'os';
+import * as fs from 'fs';
 import { panelManager } from './panelManager';
+import { PathResolver } from '../utils/pathResolver';
 import type { DatabaseService } from '../database/database';
 import type { Project } from '../database/models';
 
@@ -493,11 +495,10 @@ export class TaskQueue {
       let worktreePathExists = false;
       try {
         if (project) {
-          const path = require('path');
-          const fs = require('fs');
+          const resolver = new PathResolver(project);
           const worktreeFolder = project.worktree_folder || 'worktrees';
-          const worktreePath = path.join(project.path, worktreeFolder, uniqueWorktreeName);
-          worktreePathExists = fs.existsSync(worktreePath);
+          const worktreePath = resolver.join(project.path, worktreeFolder, uniqueWorktreeName);
+          worktreePathExists = fs.existsSync(resolver.toFileSystem(worktreePath));
         }
       } catch (e) {
         // Ignore filesystem check errors
