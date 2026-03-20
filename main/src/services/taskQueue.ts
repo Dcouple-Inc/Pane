@@ -13,6 +13,9 @@ import { panelManager } from './panelManager';
 import { PathResolver } from '../utils/pathResolver';
 import type { DatabaseService } from '../database/database';
 import type { Project } from '../database/models';
+import { worktreeFileSyncService } from './worktreeFileSyncService';
+import { terminalPanelManager } from './terminalPanelManager';
+import { configManager } from '../index';
 
 interface TaskQueueOptions {
   sessionManager: SessionManager;
@@ -260,6 +263,52 @@ export class TaskQueue {
 
         // Emit the session-created event BEFORE running build script so UI shows immediately
         sessionManager.emitSessionCreated(session);
+
+        // Worktree file sync — copy gitignored files in background, then run install
+        // Fire-and-forget: copies first, then writes install command to the terminal
+        // after the copy is complete (no race between copy and install)
+        const capturedSessionId = session.id;
+        worktreeFileSyncService.syncWorktree(
+          targetProject.path,
+          worktreePath,
+          ctx.commandRunner,
+          ctx.pathResolver.environment,
+          configManager.getWorktreeFileSyncEntries()
+        ).then(async (installCommand) => {
+          if (!installCommand) return;
+          // Find the default terminal panel — may not exist yet if sync finished before
+          // the session-created event handler in events.ts created it. Retry briefly.
+          let terminalPanel = panelManager.getPanelsForSession(capturedSessionId).find(p => p.type === 'terminal');
+          if (!terminalPanel) {
+            // Wait up to 3 seconds for the panel to be created
+            for (let i = 0; i < 6; i++) {
+              await new Promise(resolve => setTimeout(resolve, 500));
+              terminalPanel = panelManager.getPanelsForSession(capturedSessionId).find(p => p.type === 'terminal');
+              if (terminalPanel) break;
+            }
+            if (!terminalPanel) {
+              console.warn(`[TaskQueue] No terminal panel found for session ${capturedSessionId}, skipping install command`);
+              return;
+            }
+          }
+
+          if (terminalPanelManager.isTerminalInitialized(terminalPanel.id)) {
+            // Terminal already running — write directly
+            terminalPanelManager.writeToTerminal(terminalPanel.id, installCommand + '\r');
+            console.log(`[TaskQueue] Wrote install command to terminal: ${installCommand}`);
+          } else {
+            // Terminal not yet initialized — eagerly init it, then write the command
+            // We don't store as initialCommand to avoid polluting panel state
+            const wslContext = ctx.commandRunner.wslContext ?? null;
+            await terminalPanelManager.initializeTerminal(terminalPanel, worktreePath, wslContext);
+            // Small delay for shell prompt to appear before writing
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            terminalPanelManager.writeToTerminal(terminalPanel.id, installCommand + '\r');
+            console.log(`[TaskQueue] Eagerly initialized terminal and wrote install command: ${installCommand}`);
+          }
+        }).catch((err) => {
+          console.error('[TaskQueue] Worktree file sync failed (non-fatal):', err);
+        });
 
         // Fire-and-forget AI name generation (only when user didn't provide a name and this is
         // a single session — multi-session paths have index set)
