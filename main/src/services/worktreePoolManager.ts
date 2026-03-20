@@ -247,12 +247,14 @@ class WorktreePoolManager {
     }
 
     // Parse porcelain output: lines starting with "worktree " give the path
+    // Exclude paths that belong to currently-tracked (just-created) reserves
+    const activeReservePaths = new Set([...this.reserves.values()].map(r => r.reservePath));
     const orphanPaths: string[] = [];
     for (const line of worktreeListOutput.split('\n')) {
       if (line.startsWith('worktree ')) {
         const wtPath = line.substring('worktree '.length).trim();
         const dirName = path.basename(wtPath);
-        if (/^_reserve-[0-9a-f]{8}$/.test(dirName)) {
+        if (/^_reserve-[0-9a-f]{8}$/.test(dirName) && !activeReservePaths.has(wtPath)) {
           orphanPaths.push(wtPath);
         }
       }
@@ -285,10 +287,12 @@ class WorktreePoolManager {
       return;
     }
 
+    // Exclude branches that belong to currently-tracked (just-created) reserves
+    const activeBranches = new Set([...this.reserves.values()].map(r => r.branchName));
     const orphanBranches = branchListOutput
       .split('\n')
       .map(line => line.replace(/^[*+]?\s*/, '').trim())
-      .filter(branch => branch.startsWith('_reserve/'));
+      .filter(branch => branch.startsWith('_reserve/') && !activeBranches.has(branch));
 
     for (const branch of orphanBranches) {
       console.log(`[WorktreePool] Removing orphaned reserve branch: ${branch}`);

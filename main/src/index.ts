@@ -784,13 +784,16 @@ app.whenReady().then(async () => {
   setTimeout(async () => {
     try {
       const projects = databaseService.getAllProjects();
-      for (const project of projects) {
-        if (!project.path) continue;
-        const ctx = sessionManager.getProjectContextByProjectId(project.id);
-        if (!ctx) continue;
-        // Cleanup leftover reserves from previous runs (fire-and-forget)
-        worktreePoolManager.cleanupOrphanedReserves(project.path, ctx.commandRunner).catch(() => {});
-      }
+      // Cleanup leftover reserves from previous runs — await before seeding new ones
+      await Promise.all(
+        projects
+          .filter(p => p.path)
+          .map(project => {
+            const ctx = sessionManager.getProjectContextByProjectId(project.id);
+            if (!ctx) return Promise.resolve();
+            return worktreePoolManager.cleanupOrphanedReserves(project.path!, ctx.commandRunner).catch(() => {});
+          })
+      );
       // Seed a reserve for the active project
       const activeProject = sessionManager.getActiveProject();
       if (activeProject?.path) {
