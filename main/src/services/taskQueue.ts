@@ -270,11 +270,12 @@ export class TaskQueue {
             const capturedFallbackName = sessionName;
             this.options.worktreeNameGenerator.generateSessionName(prompt).then(aiName => {
               if (aiName && aiName !== capturedFallbackName) {
-                // Same pattern as sessions:rename IPC handler
+                // Same pattern as sessions:rename IPC handler.
+                // Guard: only apply if the name is still the fallback (user may have renamed manually)
                 const sm = this.options.sessionManager;
-                sm.db.updateSession(capturedSessionId, { name: aiName });
                 const liveSession = sm.getSession(capturedSessionId);
-                if (liveSession) {
+                if (liveSession && liveSession.name === capturedFallbackName) {
+                  sm.db.updateSession(capturedSessionId, { name: aiName });
                   liveSession.name = aiName;
                   sm.emit('session-updated', liveSession);
                 }

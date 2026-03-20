@@ -256,6 +256,7 @@ export class TerminalPanelManager {
         const cliState = panel.state;
         const cliCs = (cliState.customState || {}) as TerminalPanelState;
         cliCs.isCliPanel = true;
+        cliCs.isCliReady = false; // Reset on (re-)launch so the overlay shows for fresh CLI processes
         cliState.customState = cliCs;
         // Will be persisted below — either by the claude-specific block or the explicit call after it
       }
