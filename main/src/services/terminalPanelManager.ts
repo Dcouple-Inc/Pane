@@ -371,6 +371,7 @@ export class TerminalPanelManager {
     state.customState = {
       ...state.customState,
       isInitialized: true,
+      initialCommand: undefined, // Clear after first use so it doesn't re-run on app restart
       cwd: cwd,
       shellType: path.basename(shellPath),
       dimensions: { cols: 80, rows: 30 }
