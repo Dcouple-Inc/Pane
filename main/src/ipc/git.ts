@@ -517,6 +517,34 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
     }
   });
 
+  ipcMain.handle('sessions:get-commit-diff-by-hash', async (_event, sessionId: string, commitHash: string) => {
+    try {
+      const session = await sessionManager.getSession(sessionId);
+      if (!session || !session.worktreePath) {
+        return { success: false, error: 'Session or worktree path not found' };
+      }
+
+      if (session.archived) {
+        return { success: false, error: 'Cannot access git diff for archived session' };
+      }
+
+      const ctx = sessionManager.getProjectContext(sessionId);
+      if (!ctx) throw new Error('Project context not found for session');
+
+      if (commitHash === 'index') {
+        const data = await gitDiffManager.captureWorkingDirectoryDiff(session.worktreePath, ctx.commandRunner);
+        return { success: true, data };
+      }
+
+      const data = gitDiffManager.getCommitDiff(session.worktreePath, commitHash, ctx.commandRunner);
+      return { success: true, data };
+    } catch (error) {
+      console.error('Failed to get commit diff by hash:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to get commit diff';
+      return { success: false, error: errorMessage };
+    }
+  });
+
   ipcMain.handle('sessions:get-combined-diff', async (_event, sessionId: string, executionIds?: number[]) => {
     try {
       // Get session to find worktree path
