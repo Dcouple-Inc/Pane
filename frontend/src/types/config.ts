@@ -68,4 +68,6 @@ export interface AppConfig {
   preferredShell?: 'auto' | 'gitbash' | 'powershell' | 'pwsh' | 'cmd';
   // Cloud VM settings
   cloud?: CloudVmConfig;
+  terminalFontFamily?: string;
+  terminalFontSize?: number;
 }

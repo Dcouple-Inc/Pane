@@ -378,6 +378,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getSessionPreferences: (): Promise<IPCResponse> => ipcRenderer.invoke('config:get-session-preferences'),
     updateSessionPreferences: (preferences: AppConfig['sessionCreationPreferences']): Promise<IPCResponse> => ipcRenderer.invoke('config:update-session-preferences', preferences),
     getAvailableShells: (): Promise<IPCResponse> => ipcRenderer.invoke('config:get-available-shells'),
+    getMonospaceFonts: (): Promise<IPCResponse> => ipcRenderer.invoke('config:get-monospace-fonts'),
   },
 
   // Prompts
@@ -631,6 +632,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return () => ipcRenderer.removeListener('updater:error', wrappedCallback);
     },
     
+    onTerminalFontUpdated: (callback: (data: { terminalFontFamily: string; terminalFontSize: number }) => void) => {
+      const wrappedCallback = (_event: Electron.IpcRendererEvent, data: { terminalFontFamily: string; terminalFontSize: number }) => callback(data);
+      ipcRenderer.on('config:terminal-font-updated', wrappedCallback);
+      return () => ipcRenderer.removeListener('config:terminal-font-updated', wrappedCallback);
+    },
+
     // Process management events
     onZombieProcessesDetected: (callback: (data: { count: number; processes: string[] }) => void) => {
       const wrappedCallback = (_event: Electron.IpcRendererEvent, data: { count: number; processes: string[] }) => callback(data);
