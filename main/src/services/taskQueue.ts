@@ -14,6 +14,7 @@ import { PathResolver } from '../utils/pathResolver';
 import type { DatabaseService } from '../database/database';
 import type { Project } from '../database/models';
 import { worktreeFileSyncService } from './worktreeFileSyncService';
+import { terminalPanelManager } from './terminalPanelManager';
 import { configManager } from '../index';
 
 interface TaskQueueOptions {
@@ -260,31 +261,59 @@ export class TaskQueue {
           panelManager.ensureDiffPanel(session.id),
         ]);
 
-        // Worktree file sync — copy gitignored files from main repo and detect install command
-        let installCommand: string | null = null;
-        try {
-          const fileSyncEntries = configManager.getWorktreeFileSyncEntries();
-          installCommand = await worktreeFileSyncService.syncWorktree(
-            targetProject.path,
-            worktreePath,
-            ctx.commandRunner,
-            ctx.pathResolver.environment,
-            fileSyncEntries
-          );
-          if (installCommand) {
-            console.log(`[TaskQueue] Detected install command: ${installCommand}`);
-          }
-        } catch (err) {
-          console.error('[TaskQueue] Worktree file sync failed (non-fatal):', err);
-        }
-
-        // Attach install command for events.ts to pick up (transient, not persisted)
-        if (installCommand) {
-          (session as unknown as Record<string, unknown>).installCommand = installCommand;
-        }
-
         // Emit the session-created event BEFORE running build script so UI shows immediately
         sessionManager.emitSessionCreated(session);
+
+        // Worktree file sync — copy gitignored files and run install in background
+        // Fire-and-forget: never blocks session creation or UI
+        const capturedSessionId = session.id;
+        const capturedWorktreePath = worktreePath;
+        const capturedProjectPath = targetProject.path;
+        const capturedCtx = ctx;
+        worktreeFileSyncService.syncWorktree(
+          capturedProjectPath,
+          capturedWorktreePath,
+          capturedCtx.commandRunner,
+          capturedCtx.pathResolver.environment,
+          configManager.getWorktreeFileSyncEntries()
+        ).then(async (installCommand) => {
+          if (!installCommand) return;
+          console.log(`[TaskQueue] Detected install command for session ${capturedSessionId}: ${installCommand}`);
+          try {
+            // Find the default terminal panel (created by events.ts session-created handler)
+            const panels = panelManager.getPanelsForSession(capturedSessionId);
+            const terminalPanel = panels.find(p => p.type === 'terminal');
+            if (!terminalPanel) return;
+
+            // Set initialCommand on the terminal panel
+            const existingCustomState = terminalPanel.state?.customState as Record<string, unknown> | undefined;
+            await panelManager.updatePanel(terminalPanel.id, {
+              state: {
+                ...terminalPanel.state,
+                customState: {
+                  ...existingCustomState,
+                  initialCommand: installCommand,
+                },
+              },
+            });
+
+            // Re-fetch with updated state and eagerly initialize
+            const updatedPanel = panelManager.getPanel(terminalPanel.id);
+            if (updatedPanel) {
+              const wslContext = capturedCtx.commandRunner.wslContext ?? null;
+              await terminalPanelManager.initializeTerminal(
+                updatedPanel,
+                capturedWorktreePath,
+                wslContext
+              );
+              console.log(`[TaskQueue] Eagerly initialized terminal with install command: ${installCommand}`);
+            }
+          } catch (err) {
+            console.error('[TaskQueue] Failed to set up install terminal (non-fatal):', err);
+          }
+        }).catch((err) => {
+          console.error('[TaskQueue] Worktree file sync failed (non-fatal):', err);
+        });
 
         // Fire-and-forget AI name generation (only when user didn't provide a name and this is
         // a single session — multi-session paths have index set)
