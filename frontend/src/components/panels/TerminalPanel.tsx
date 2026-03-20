@@ -685,12 +685,20 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           // Subscribe to live terminal font updates from Settings
           const unsubscribeFontUpdate = window.electronAPI.events.onTerminalFontUpdated((data: { terminalFontFamily: string; terminalFontSize: number }) => {
             if (!terminal || disposed) return;
-            const newFontFamily = buildTerminalFontFamily(data.terminalFontFamily || DEFAULT_TERMINAL_FONT_FAMILY);
+            const userFont = data.terminalFontFamily || DEFAULT_TERMINAL_FONT_FAMILY;
+            const newFontFamily = buildTerminalFontFamily(userFont);
             const newFontSize = data.terminalFontSize || DEFAULT_TERMINAL_FONT_SIZE;
             if (terminal.options.fontFamily !== newFontFamily || terminal.options.fontSize !== newFontSize) {
-              terminal.options.fontFamily = newFontFamily;
-              terminal.options.fontSize = newFontSize;
-              if (fitAddon) fitAddon.fit();
+              // Wait for the new font to load before applying, so xterm measures correct cell dimensions
+              Promise.all([
+                document.fonts.load(`${newFontSize}px "${userFont}"`).catch(() => {}),
+                document.fonts.load(`${newFontSize}px "Symbols Nerd Font Mono"`).catch(() => {}),
+              ]).then(() => {
+                if (!terminal || disposed) return;
+                terminal.options.fontFamily = newFontFamily;
+                terminal.options.fontSize = newFontSize;
+                if (fitAddon) fitAddon.fit();
+              });
             }
           });
 

@@ -490,42 +490,68 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
                         }}
                         onBlur={() => {
                           // Delay to allow click on dropdown item
-                          setTimeout(() => setIsFontDropdownOpen(false), 150);
+                          setTimeout(() => {
+                            setIsFontDropdownOpen(false);
+                            // If user typed a custom font name, save it
+                            if (fontSearch.trim()) {
+                              setTerminalFontFamily(fontSearch.trim());
+                              API.config.update({ terminalFontFamily: fontSearch.trim() });
+                              setFontSearch('');
+                            }
+                          }, 150);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && fontSearch.trim()) {
+                            setTerminalFontFamily(fontSearch.trim());
+                            setIsFontDropdownOpen(false);
+                            API.config.update({ terminalFontFamily: fontSearch.trim() });
+                            setFontSearch('');
+                          }
                         }}
                         placeholder="Search fonts..."
                         className="w-full px-3 py-2 border border-border-primary rounded-md focus:outline-none focus:ring-2 focus:ring-interactive text-text-primary bg-surface-secondary text-sm"
                       />
                       <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none" />
-                      {isFontDropdownOpen && systemMonoFonts.length > 0 && (
+                      {isFontDropdownOpen && (
                         <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-md border border-border-primary bg-surface-secondary shadow-lg">
-                          {systemMonoFonts
-                            .filter(f => !fontSearch || f.toLowerCase().includes(fontSearch.toLowerCase()))
-                            .map((font) => (
-                              <button
-                                key={font}
-                                type="button"
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={() => {
-                                  setTerminalFontFamily(font);
-                                  setIsFontDropdownOpen(false);
-                                  setFontSearch('');
-                                  API.config.update({ terminalFontFamily: font });
-                                }}
-                                className={`w-full text-left px-3 py-1.5 text-sm hover:bg-surface-hover transition-colors ${
-                                  font === (terminalFontFamily || 'Geist Mono') ? 'text-interactive font-medium' : 'text-text-primary'
-                                }`}
-                              >
-                                {font}
-                              </button>
-                            ))}
-                          {systemMonoFonts.filter(f => !fontSearch || f.toLowerCase().includes(fontSearch.toLowerCase())).length === 0 && (
-                            <div className="px-3 py-2 text-xs text-text-tertiary">No matching fonts</div>
+                          {systemMonoFonts.length > 0 ? (
+                            <>
+                              {systemMonoFonts
+                                .filter(f => !fontSearch || f.toLowerCase().includes(fontSearch.toLowerCase()))
+                                .map((font) => (
+                                  <button
+                                    key={font}
+                                    type="button"
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={() => {
+                                      setTerminalFontFamily(font);
+                                      setIsFontDropdownOpen(false);
+                                      setFontSearch('');
+                                      API.config.update({ terminalFontFamily: font });
+                                    }}
+                                    className={`w-full text-left px-3 py-1.5 text-sm hover:bg-surface-hover transition-colors ${
+                                      font === (terminalFontFamily || 'Geist Mono') ? 'text-interactive font-medium' : 'text-text-primary'
+                                    }`}
+                                  >
+                                    {font}
+                                  </button>
+                                ))}
+                              {fontSearch && systemMonoFonts.filter(f => f.toLowerCase().includes(fontSearch.toLowerCase())).length === 0 && (
+                                <div className="px-3 py-2 text-xs text-text-tertiary">No matches — press Enter to use &quot;{fontSearch}&quot;</div>
+                              )}
+                            </>
+                          ) : (
+                            <div className="px-3 py-2 text-xs text-text-tertiary">
+                              {fontSearch ? <>Press Enter to use &quot;{fontSearch}&quot;</> : 'Type a font name'}
+                            </div>
                           )}
                         </div>
                       )}
                     </div>
                     <p className="text-xs text-text-tertiary mt-1.5">
-                      Select a monospace font from your system. Nerd Font icons are always available.
+                      {systemMonoFonts.length > 0
+                        ? 'Select a monospace font or type a custom name. Nerd Font icons are always available.'
+                        : 'Type any monospace font installed on your system. Nerd Font icons are always available.'}
                     </p>
                   </div>
                   <div>
