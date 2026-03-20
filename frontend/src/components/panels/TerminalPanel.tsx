@@ -135,6 +135,27 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
     onStep,
   } = useTerminalSearch(xtermRef);
 
+  // Refresh terminal: reset and rewrite fresh scrollback from backend
+  const handleRefreshTerminal = useCallback(async () => {
+    const terminal = xtermRef.current;
+    if (!terminal) return;
+    try {
+      const state = await window.electronAPI.invoke('terminal:getState', panel.id);
+      terminal.reset();
+      if (state?.scrollbackBuffer) {
+        const content = typeof state.scrollbackBuffer === 'string'
+          ? state.scrollbackBuffer
+          : Array.isArray(state.scrollbackBuffer)
+            ? state.scrollbackBuffer.join('\n')
+            : '';
+        if (content) terminal.write(content);
+      }
+      fitAddonRef.current?.fit();
+    } catch (e) {
+      console.warn('[TerminalPanel] Failed to refresh terminal:', e);
+    }
+  }, [panel.id]);
+
   // Open search on Ctrl/Cmd+F from the container div
   const handleTerminalKeyDown = useCallback((e: React.KeyboardEvent) => {
     const ctrlOrMeta = e.ctrlKey || e.metaKey;
@@ -182,9 +203,9 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           // Terminal is already initialized, get its state to restore scrollback
           console.log('[TerminalPanel] Restoring terminal state from backend...');
           const terminalState = await window.electronAPI.invoke('terminal:getState', panel.id);
-          if (terminalState && terminalState.scrollbackBuffer) {
+          if (terminalState && (terminalState.scrollbackBuffer || terminalState.serializedBuffer)) {
             // We'll restore this to the terminal after it's created
-            console.log('[TerminalPanel] Found scrollback buffer with', terminalState.scrollbackBuffer.length, 'lines');
+            console.log('[TerminalPanel] Found restore state — scrollback:', !!terminalState.scrollbackBuffer, 'serialized:', !!terminalState.serializedBuffer);
             // Store for restoration after terminal is created - LOCAL to this initialization
             terminalStateForThisPanel = terminalState;
           }
@@ -469,26 +490,32 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           }, SNAPSHOT_INTERVAL);
 
           // Restore scrollback if we have saved state FOR THIS PANEL
-          // Prefer serialized buffer (preserves colors/formatting) over raw scrollback
+          // When the PTY is alive (initialized === true), always prefer raw scrollback
+          // because it accumulates all PTY output in real-time — the serialized snapshot
+          // is frozen at the moment the component last unmounted and misses any output
+          // that arrived while the panel wasn't displayed.
+          // The serialized snapshot is only more valuable for app restart scenarios
+          // (PTY gone, raw buffer lost) where it preserves formatting.
           if (terminalStateForThisPanel) {
-            if (terminalStateForThisPanel.serializedBuffer) {
-              console.log('[TerminalPanel] Restoring serialized snapshot for panel', panel.id);
-              terminal.write(terminalStateForThisPanel.serializedBuffer);
-            } else if (terminalStateForThisPanel.scrollbackBuffer) {
-              // Fallback: raw scrollback (loses formatting)
+            // Raw scrollback: always current when PTY is alive, contains full ANSI codes
+            if (terminalStateForThisPanel.scrollbackBuffer) {
               let restoredContent: string;
               if (typeof terminalStateForThisPanel.scrollbackBuffer === 'string') {
                 restoredContent = terminalStateForThisPanel.scrollbackBuffer;
-                console.log('[TerminalPanel] Restoring', restoredContent.length, 'chars of scrollback (raw)');
+                console.log('[TerminalPanel] Restoring', restoredContent.length, 'chars of scrollback (raw, live PTY)');
               } else if (Array.isArray(terminalStateForThisPanel.scrollbackBuffer)) {
                 restoredContent = terminalStateForThisPanel.scrollbackBuffer.join('\n');
-                console.log('[TerminalPanel] Restoring', terminalStateForThisPanel.scrollbackBuffer.length, 'lines of scrollback (raw)');
+                console.log('[TerminalPanel] Restoring', terminalStateForThisPanel.scrollbackBuffer.length, 'lines of scrollback (raw, live PTY)');
               } else {
                 restoredContent = '';
               }
               if (restoredContent) {
                 terminal.write(restoredContent);
               }
+            } else if (terminalStateForThisPanel.serializedBuffer) {
+              // Fallback: serialized snapshot (for when raw scrollback is empty/unavailable)
+              console.log('[TerminalPanel] Restoring serialized snapshot for panel', panel.id);
+              terminal.write(terminalStateForThisPanel.serializedBuffer);
             }
           }
 
@@ -921,6 +948,18 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
       {/* Terminal scroll buttons — compact, revealed on hover */}
       {isInitialized && (
         <div className="absolute -top-0.5 right-2 z-30 flex items-center gap-0.5 opacity-0 pointer-events-none group-hover/terminal:opacity-100 group-hover/terminal:pointer-events-auto transition-opacity">
+          <button
+            onClick={handleRefreshTerminal}
+            className="p-0.5 rounded bg-surface-secondary/60 hover:bg-surface-tertiary/80 text-text-tertiary hover:text-text-secondary transition-colors"
+            title="Refresh terminal"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1.5 2v3h3" />
+              <path d="M10.5 10v-3h-3" />
+              <path d="M9.25 4.5A3.75 3.75 0 0 0 3 3.15L1.5 5" />
+              <path d="M2.75 7.5A3.75 3.75 0 0 0 9 8.85L10.5 7" />
+            </svg>
+          </button>
           <button
             onClick={() => xtermRef.current?.scrollToTop()}
             className="p-0.5 rounded bg-surface-secondary/60 hover:bg-surface-tertiary/80 text-text-tertiary hover:text-text-secondary transition-colors"
