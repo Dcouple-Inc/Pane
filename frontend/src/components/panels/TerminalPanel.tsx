@@ -126,6 +126,27 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
     onStep,
   } = useTerminalSearch(xtermRef);
 
+  // Refresh terminal: reset and rewrite fresh scrollback from backend
+  const handleRefreshTerminal = useCallback(async () => {
+    const terminal = xtermRef.current;
+    if (!terminal) return;
+    try {
+      const state = await window.electronAPI.invoke('terminal:getState', panel.id);
+      terminal.reset();
+      if (state?.scrollbackBuffer) {
+        const content = typeof state.scrollbackBuffer === 'string'
+          ? state.scrollbackBuffer
+          : Array.isArray(state.scrollbackBuffer)
+            ? state.scrollbackBuffer.join('\n')
+            : '';
+        if (content) terminal.write(content);
+      }
+      fitAddonRef.current?.fit();
+    } catch (e) {
+      console.warn('[TerminalPanel] Failed to refresh terminal:', e);
+    }
+  }, [panel.id]);
+
   // Open search on Ctrl/Cmd+F from the container div
   const handleTerminalKeyDown = useCallback((e: React.KeyboardEvent) => {
     const ctrlOrMeta = e.ctrlKey || e.metaKey;
@@ -861,6 +882,18 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
       {/* Terminal scroll buttons — compact, revealed on hover */}
       {isInitialized && (
         <div className="absolute -top-0.5 right-2 z-30 flex items-center gap-0.5 opacity-0 pointer-events-none group-hover/terminal:opacity-100 group-hover/terminal:pointer-events-auto transition-opacity">
+          <button
+            onClick={handleRefreshTerminal}
+            className="p-0.5 rounded bg-surface-secondary/60 hover:bg-surface-tertiary/80 text-text-tertiary hover:text-text-secondary transition-colors"
+            title="Refresh terminal"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1.5 2v3h3" />
+              <path d="M10.5 10v-3h-3" />
+              <path d="M9.25 4.5A3.75 3.75 0 0 0 3 3.15L1.5 5" />
+              <path d="M2.75 7.5A3.75 3.75 0 0 0 9 8.85L10.5 7" />
+            </svg>
+          </button>
           <button
             onClick={() => xtermRef.current?.scrollToTop()}
             className="p-0.5 rounded bg-surface-secondary/60 hover:bg-surface-tertiary/80 text-text-tertiary hover:text-text-secondary transition-colors"
