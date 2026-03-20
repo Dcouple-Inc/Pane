@@ -81,8 +81,8 @@ async function ensureParentDir(
     : path.dirname(destPath);
 
   if (environment === 'windows') {
-    // Windows: use md with || to suppress "already exists" error
-    await commandRunner.execAsync(`cmd /c "md "${parentDir}" 2>nul || echo ok"`, cwd);
+    // Windows: use md to create directory, suppress "already exists" error
+    await commandRunner.execAsync(`md "${parentDir}" 2>nul || echo.`, cwd);
   } else {
     await commandRunner.execAsync(`mkdir -p "${parentDir}"`, cwd);
   }

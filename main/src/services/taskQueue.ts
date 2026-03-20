@@ -297,16 +297,14 @@ export class TaskQueue {
             terminalPanelManager.writeToTerminal(terminalPanel.id, installCommand + '\r');
             console.log(`[TaskQueue] Wrote install command to terminal: ${installCommand}`);
           } else {
-            // Terminal not yet initialized — store as initialCommand for when it does init
-            const cs = terminalPanel.state?.customState as Record<string, unknown> | undefined;
-            panelManager.updatePanel(terminalPanel.id, {
-              state: {
-                ...terminalPanel.state,
-                customState: { ...cs, initialCommand: installCommand },
-              },
-            }).then(() => {
-              console.log(`[TaskQueue] Set initialCommand on terminal: ${installCommand}`);
-            }).catch(() => { /* best effort */ });
+            // Terminal not yet initialized — eagerly init it, then write the command
+            // We don't store as initialCommand to avoid polluting panel state
+            const wslContext = ctx.commandRunner.wslContext ?? null;
+            await terminalPanelManager.initializeTerminal(terminalPanel, worktreePath, wslContext);
+            // Small delay for shell prompt to appear before writing
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            terminalPanelManager.writeToTerminal(terminalPanel.id, installCommand + '\r');
+            console.log(`[TaskQueue] Eagerly initialized terminal and wrote install command: ${installCommand}`);
           }
         }).catch((err) => {
           console.error('[TaskQueue] Worktree file sync failed (non-fatal):', err);
