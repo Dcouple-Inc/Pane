@@ -2,7 +2,20 @@ import path from 'path';
 import fs from 'fs';
 import { CommandRunner } from '../utils/commandRunner';
 import type { ProjectEnvironment } from '../utils/pathResolver';
+import { posixJoin } from '../utils/wslUtils';
 import type { WorktreeFileSyncEntry } from '../../../shared/types/worktreeFileSync';
+
+/**
+ * Joins path segments correctly for the target environment.
+ * On WSL, Node's path.join uses backslashes (Windows host), but commands
+ * execute inside the Linux distro and need forward slashes.
+ */
+function envJoin(environment: ProjectEnvironment, ...segments: string[]): string {
+  if (environment === 'wsl') {
+    return posixJoin(...segments);
+  }
+  return path.join(...segments);
+}
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -59,9 +72,18 @@ async function ensureParentDir(
   destPath: string,
   commandRunner: CommandRunner,
   cwd: string,
+  environment: ProjectEnvironment,
 ): Promise<void> {
-  const parentDir = path.dirname(destPath);
-  await commandRunner.execAsync(`mkdir -p "${parentDir}"`, cwd);
+  const parentDir = environment === 'wsl'
+    ? posixJoin(...path.dirname(destPath).split(/[\\/]/))
+    : path.dirname(destPath);
+
+  if (environment === 'windows') {
+    // Windows: use md with || to suppress "already exists" error
+    await commandRunner.execAsync(`cmd /c "md "${parentDir}" 2>nul || echo ok"`, cwd);
+  } else {
+    await commandRunner.execAsync(`mkdir -p "${parentDir}"`, cwd);
+  }
 }
 
 /**
@@ -236,8 +258,8 @@ async function copyRootEntry(
 ): Promise<void> {
   if (entry.path.trim().length === 0) return;
 
-  const srcPath = path.join(mainRepoPath, entry.path);
-  const destPath = path.join(worktreePath, entry.path);
+  const srcPath = envJoin(environment, mainRepoPath, entry.path);
+  const destPath = envJoin(environment, worktreePath, entry.path);
 
   const srcExists = await existsAt(srcPath, commandRunner, environment);
   if (!srcExists) return;
@@ -246,7 +268,7 @@ async function copyRootEntry(
   if (destExists) return;
 
   const isFile = await isFilePath(srcPath, commandRunner, environment);
-  await ensureParentDir(destPath, commandRunner, worktreePath);
+  await ensureParentDir(destPath, commandRunner, worktreePath, environment);
   const cmd = getFastCopyCommand(srcPath, destPath, environment, isFile);
   await execCopyCommand(cmd, mainRepoPath, commandRunner, environment);
 }
@@ -272,12 +294,12 @@ async function copyRecursiveMatches(
   for (const match of matches) {
     try {
       const relativePath = path.relative(mainRepoPath, match.path);
-      const destPath = path.join(worktreePath, relativePath);
+      const destPath = envJoin(environment, worktreePath, relativePath);
 
       const destExists = await existsAt(destPath, commandRunner, environment);
       if (destExists) continue;
 
-      await ensureParentDir(destPath, commandRunner, worktreePath);
+      await ensureParentDir(destPath, commandRunner, worktreePath, environment);
       const cmd = getFastCopyCommand(match.path, destPath, environment, match.isFile);
       await execCopyCommand(cmd, mainRepoPath, commandRunner, environment);
     } catch (err) {
@@ -291,11 +313,14 @@ async function copyRecursiveMatches(
  * Checks root-level lock files in priority order and returns the corresponding
  * install command for the first match.
  *
- * Uses `fs.existsSync` for local paths and the command runner for WSL paths —
- * but since we want a single code path, we always use `existsAt` via the
- * command runner for consistency.
+ * Uses `existsAt` (which handles WSL and native Windows transparently) to
+ * check each lock file.
  */
-function detectInstallCommand(mainRepoPath: string): string | null {
+async function detectInstallCommand(
+  mainRepoPath: string,
+  commandRunner: CommandRunner,
+  environment: ProjectEnvironment,
+): Promise<string | null> {
   const lockFiles: Array<{ file: string; command: string }> = [
     { file: 'pnpm-lock.yaml', command: 'pnpm install' },
     { file: 'package-lock.json', command: 'npm install' },
@@ -304,8 +329,9 @@ function detectInstallCommand(mainRepoPath: string): string | null {
   ];
 
   for (const { file, command } of lockFiles) {
-    const lockPath = path.join(mainRepoPath, file);
-    if (fs.existsSync(lockPath)) {
+    const lockPath = envJoin(environment, mainRepoPath, file);
+    const exists = await existsAt(lockPath, commandRunner, environment);
+    if (exists) {
       return command;
     }
   }
@@ -364,7 +390,7 @@ export const worktreeFileSyncService = {
         }
       }
 
-      return detectInstallCommand(mainRepoPath);
+      return await detectInstallCommand(mainRepoPath, commandRunner, environment);
     } catch (err) {
       console.error('[WorktreeFileSync] syncWorktree failed:', err);
       return null;
