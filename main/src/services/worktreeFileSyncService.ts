@@ -98,6 +98,7 @@ async function existsAt(
   filePath: string,
   commandRunner: CommandRunner,
   environment: ProjectEnvironment,
+  cwd: string,
 ): Promise<boolean> {
   if (environment === 'windows') {
     try {
@@ -108,7 +109,7 @@ async function existsAt(
     }
   }
   try {
-    await commandRunner.execAsync(`test -e "${filePath}"`, path.dirname(filePath) || '/');
+    await commandRunner.execAsync(`test -e "${filePath}"`, cwd);
     return true;
   } catch {
     return false;
@@ -126,6 +127,7 @@ async function isFilePath(
   filePath: string,
   commandRunner: CommandRunner,
   environment: ProjectEnvironment,
+  cwd: string,
 ): Promise<boolean> {
   if (environment === 'windows') {
     try {
@@ -136,7 +138,7 @@ async function isFilePath(
     }
   }
   try {
-    await commandRunner.execAsync(`test -f "${filePath}"`, path.dirname(filePath) || '/');
+    await commandRunner.execAsync(`test -f "${filePath}"`, cwd);
     return true;
   } catch {
     return false;
@@ -178,11 +180,11 @@ async function findRecursiveMatchesUnix(
   let isFile: boolean;
 
   if (pattern === 'node_modules') {
-    // Exclude nested node_modules (e.g. node_modules/pkg/node_modules)
-    cmd = `find "${repoPath}" -name "node_modules" -type d -not -path "*/node_modules/*/node_modules" -maxdepth 4`;
+    // Exclude nested node_modules and worktree directories (which contain sibling worktrees)
+    cmd = `find "${repoPath}" -maxdepth 4 -name "node_modules" -type d -not -path "*/node_modules/*/node_modules" -not -path "*/worktrees/*" -not -path "*/.git/*"`;
     isFile = false;
   } else if (pattern.startsWith('.env')) {
-    cmd = `find "${repoPath}" -name ".env*" -type f -not -path "*/node_modules/*" -maxdepth 4`;
+    cmd = `find "${repoPath}" -maxdepth 4 -name ".env*" -type f -not -path "*/node_modules/*" -not -path "*/worktrees/*" -not -path "*/.git/*"`;
     isFile = true;
   } else {
     return [];
@@ -208,6 +210,7 @@ async function findRecursiveMatchesWindows(
       .trim()
       .split('\r\n')
       .filter(Boolean)
+      .filter((p) => !p.includes('\\worktrees\\') && !p.includes('\\.git\\'))
       .map((p) => ({ path: p, isFile: false }));
   } else if (pattern.startsWith('.env')) {
     const cmd = `dir /s /b "${repoPath}\\.env*"`;
@@ -216,6 +219,7 @@ async function findRecursiveMatchesWindows(
       .trim()
       .split('\r\n')
       .filter(Boolean)
+      .filter((p) => !p.includes('\\worktrees\\') && !p.includes('\\.git\\'))
       .map((p) => ({ path: p, isFile: true }));
   }
   return [];
@@ -261,13 +265,13 @@ async function copyRootEntry(
   const srcPath = envJoin(environment, mainRepoPath, entry.path);
   const destPath = envJoin(environment, worktreePath, entry.path);
 
-  const srcExists = await existsAt(srcPath, commandRunner, environment);
+  const srcExists = await existsAt(srcPath, commandRunner, environment, mainRepoPath);
   if (!srcExists) return;
 
-  const destExists = await existsAt(destPath, commandRunner, environment);
+  const destExists = await existsAt(destPath, commandRunner, environment, worktreePath);
   if (destExists) return;
 
-  const isFile = await isFilePath(srcPath, commandRunner, environment);
+  const isFile = await isFilePath(srcPath, commandRunner, environment, mainRepoPath);
   await ensureParentDir(destPath, commandRunner, worktreePath, environment);
   const cmd = getFastCopyCommand(srcPath, destPath, environment, isFile);
   await execCopyCommand(cmd, mainRepoPath, commandRunner, environment);
@@ -296,7 +300,7 @@ async function copyRecursiveMatches(
       const relativePath = path.relative(mainRepoPath, match.path);
       const destPath = envJoin(environment, worktreePath, relativePath);
 
-      const destExists = await existsAt(destPath, commandRunner, environment);
+      const destExists = await existsAt(destPath, commandRunner, environment, worktreePath);
       if (destExists) continue;
 
       await ensureParentDir(destPath, commandRunner, worktreePath, environment);
@@ -330,7 +334,7 @@ async function detectInstallCommand(
 
   for (const { file, command } of lockFiles) {
     const lockPath = envJoin(environment, mainRepoPath, file);
-    const exists = await existsAt(lockPath, commandRunner, environment);
+    const exists = await existsAt(lockPath, commandRunner, environment, mainRepoPath);
     if (exists) {
       return command;
     }
