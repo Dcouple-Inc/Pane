@@ -9,7 +9,6 @@ import { ShellDetector } from '../utils/shellDetector';
 import type { AnalyticsManager } from './analyticsManager';
 import { getWSLShellSpawn, WSLContext } from '../utils/wslUtils';
 import { GIT_ATTRIBUTION_ENV } from '../utils/attribution';
-import { detectInstallCommandSync } from './worktreeFileSyncService';
 
 const HIGH_WATERMARK = 100_000; // 100KB — pause PTY when pending exceeds this
 const LOW_WATERMARK = 10_000;   // 10KB — resume PTY when pending drops below this
@@ -242,19 +241,7 @@ export class TerminalPanelManager {
     
     // Get initialCommand from existing state before updating
     const existingState = panel.state.customState as TerminalPanelState | undefined;
-    let initialCommand = existingState?.initialCommand;
-
-    // Auto-detect install command for plain terminal panels (not CLI panels)
-    // This runs when the default terminal panel initializes in a worktree that has
-    // a lock file. No coordination with taskQueue needed — the terminal discovers
-    // its own install command from the filesystem.
-    if (!initialCommand && !existingState?.isCliPanel && panel.type === 'terminal') {
-      const detected = detectInstallCommandSync(cwd);
-      if (detected) {
-        initialCommand = detected;
-        console.log(`[TerminalPanelManager] Auto-detected install command for panel ${panel.id}: ${detected}`);
-      }
-    }
+    const initialCommand = existingState?.initialCommand;
 
     // If we have an initial command, set up the prompt detection listener BEFORE
     // setupTerminalHandlers so we don't miss early shell output.

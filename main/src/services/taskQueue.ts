@@ -14,6 +14,7 @@ import { PathResolver } from '../utils/pathResolver';
 import type { DatabaseService } from '../database/database';
 import type { Project } from '../database/models';
 import { worktreeFileSyncService } from './worktreeFileSyncService';
+import { terminalPanelManager } from './terminalPanelManager';
 import { configManager } from '../index';
 
 interface TaskQueueOptions {
@@ -263,16 +264,40 @@ export class TaskQueue {
         // Emit the session-created event BEFORE running build script so UI shows immediately
         sessionManager.emitSessionCreated(session);
 
-        // Worktree file sync — copy gitignored files in background
-        // Truly fire-and-forget: the terminal panel auto-detects the install command
-        // from lock files when it initializes (see terminalPanelManager.initializeTerminal)
+        // Worktree file sync — copy gitignored files in background, then run install
+        // Fire-and-forget: copies first, then writes install command to the terminal
+        // after the copy is complete (no race between copy and install)
+        const capturedSessionId = session.id;
         worktreeFileSyncService.syncWorktree(
           targetProject.path,
           worktreePath,
           ctx.commandRunner,
           ctx.pathResolver.environment,
           configManager.getWorktreeFileSyncEntries()
-        ).catch((err) => {
+        ).then((installCommand) => {
+          if (!installCommand) return;
+          // Find the default terminal panel and write the install command
+          const panels = panelManager.getPanelsForSession(capturedSessionId);
+          const terminalPanel = panels.find(p => p.type === 'terminal');
+          if (!terminalPanel) return;
+
+          if (terminalPanelManager.isTerminalInitialized(terminalPanel.id)) {
+            // Terminal already running — write directly
+            terminalPanelManager.writeToTerminal(terminalPanel.id, installCommand + '\r');
+            console.log(`[TaskQueue] Wrote install command to terminal: ${installCommand}`);
+          } else {
+            // Terminal not yet initialized — store as initialCommand for when it does init
+            const cs = terminalPanel.state?.customState as Record<string, unknown> | undefined;
+            panelManager.updatePanel(terminalPanel.id, {
+              state: {
+                ...terminalPanel.state,
+                customState: { ...cs, initialCommand: installCommand },
+              },
+            }).then(() => {
+              console.log(`[TaskQueue] Set initialCommand on terminal: ${installCommand}`);
+            }).catch(() => { /* best effort */ });
+          }
+        }).catch((err) => {
           console.error('[TaskQueue] Worktree file sync failed (non-fatal):', err);
         });
 
