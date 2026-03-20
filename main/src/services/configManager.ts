@@ -25,6 +25,8 @@ export class ConfigManager extends EventEmitter {
       systemPromptAppend: undefined,
       runScript: undefined,
       theme: 'light-rounded',
+      terminalFontFamily: 'Geist Mono',
+      terminalFontSize: 14,
       defaultPermissionMode: 'ignore',
       defaultModel: 'sonnet',
       stravuApiKey: undefined,

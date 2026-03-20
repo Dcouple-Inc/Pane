@@ -1,4 +1,5 @@
 import { IpcMain } from 'electron';
+import { execFile } from 'child_process';
 import type { AppServices } from './types';
 import { ShellDetector } from '../utils/shellDetector';
 
@@ -38,6 +39,18 @@ export function registerConfigHandlers(ipcMain: IpcMain, { configManager, claude
         }
       }
 
+      // Send terminal font update to renderer for live preview
+      if (updates.terminalFontFamily !== undefined || updates.terminalFontSize !== undefined) {
+        const mainWindow = getMainWindow();
+        if (mainWindow) {
+          const config = configManager.getConfig();
+          mainWindow.webContents.send('config:terminal-font-updated', {
+            terminalFontFamily: config.terminalFontFamily,
+            terminalFontSize: config.terminalFontSize,
+          });
+        }
+      }
+
       return { success: true };
     } catch (error) {
       console.error('Failed to update config:', error);
@@ -73,6 +86,35 @@ export function registerConfigHandlers(ipcMain: IpcMain, { configManager, claude
       const message = error instanceof Error ? error.message : 'Failed to get available shells';
       console.error('Failed to get available shells:', error);
       return { success: false, error: message };
+    }
+  });
+
+  ipcMain.handle('config:get-monospace-fonts', async () => {
+    try {
+      const fonts = await new Promise<string[]>((resolve) => {
+        // fc-list is available on Linux natively and macOS via Homebrew
+        execFile('fc-list', [':spacing=mono', 'family'], { timeout: 5000 }, (error, stdout) => {
+          if (error) {
+            console.warn('[Config] fc-list failed, returning empty font list:', error.message);
+            resolve([]);
+            return;
+          }
+          const families = new Set<string>();
+          for (const line of stdout.split('\n')) {
+            // fc-list outputs lines like "DejaVu Sans Mono" or "Fira Code,Fira Code Light"
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            // Take the first family name (before any comma-separated variants)
+            const family = trimmed.split(',')[0].trim();
+            if (family) families.add(family);
+          }
+          resolve([...families].sort((a, b) => a.localeCompare(b)));
+        });
+      });
+      return { success: true, data: fonts };
+    } catch (error) {
+      console.error('Failed to get monospace fonts:', error);
+      return { success: false, data: [] };
     }
   });
 } 

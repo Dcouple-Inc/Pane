@@ -193,6 +193,7 @@ interface ElectronAPI {
     getSessionPreferences: () => Promise<IPCResponse>;
     updateSessionPreferences: (preferences: SessionCreationPreferences) => Promise<IPCResponse>;
     getAvailableShells: () => Promise<IPCResponse>;
+    getMonospaceFonts: () => Promise<IPCResponse>;
   };
 
   // Prompts
@@ -286,6 +287,9 @@ interface ElectronAPI {
     onSpotlightStatusChanged?: (callback: (data: { sessionId: string; projectId: number; active: boolean }) => void) => () => void;
     onSpotlightSyncError?: (callback: (data: { sessionId: string; projectId: number; error: string }) => void) => () => void;
     onSpotlightTamperDetected?: (callback: (data: { sessionId: string; projectId: number; message: string }) => void) => () => void;
+
+    // Terminal font config events
+    onTerminalFontUpdated: (callback: (data: { terminalFontFamily: string; terminalFontSize: number }) => void) => () => void;
 
     removeAllListeners: (channel: string) => void;
   };

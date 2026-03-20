@@ -68,6 +68,11 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
   const [disableAutoContext, setDisableAutoContext] = useState(false);
   const [autoRenameToPR, setAutoRenameToPR] = useState<boolean>(true);
   const [uiScale, setUiScale] = useState(1.0);
+  const [terminalFontFamily, setTerminalFontFamily] = useState('');
+  const [terminalFontSize, setTerminalFontSize] = useState(14);
+  const [systemMonoFonts, setSystemMonoFonts] = useState<string[]>([]);
+  const [fontSearch, setFontSearch] = useState('');
+  const [isFontDropdownOpen, setIsFontDropdownOpen] = useState(false);
   const [notificationSettings, setNotificationSettings] = useState({
     enabled: true,
     playSound: true,
@@ -129,6 +134,13 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
         fetchConfig(p);
       });
 
+      // Load system monospace fonts for the font picker
+      window.electronAPI.config.getMonospaceFonts().then((result) => {
+        if (result?.data && Array.isArray(result.data)) {
+          setSystemMonoFonts(result.data as string[]);
+        }
+      }).catch(() => { /* fc-list not available — dropdown will be empty */ });
+
       const loadAutoRename = async () => {
         try {
           const result = await window.electron?.invoke('preferences:get', 'auto_rename_sessions_to_pr') as IPCResponse<string>;
@@ -164,6 +176,8 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
       setEnableCommitFooter(data.enableCommitFooter !== false); // Default to true
       setDisableAutoContext(data.disableAutoContext || false);
       setUiScale(data.uiScale || 1.0);
+      setTerminalFontFamily(data.terminalFontFamily || '');
+      setTerminalFontSize(data.terminalFontSize || 14);
 
       // Load additional paths
       const paths = data.additionalPaths || [];
@@ -448,6 +462,130 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
                         {preset.toFixed(1)}x
                       </button>
                     ))}
+                  </div>
+                </div>
+              </SettingsSection>
+
+              <SettingsSection
+                title="Terminal Font"
+                description="Customize the font used in terminal panels"
+                icon={<Terminal className="w-4 h-4" />}
+              >
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-medium text-text-secondary mb-1.5">
+                      Font Family
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={isFontDropdownOpen ? fontSearch : (terminalFontFamily || 'Geist Mono')}
+                        onChange={(e) => {
+                          setFontSearch(e.target.value);
+                          if (!isFontDropdownOpen) setIsFontDropdownOpen(true);
+                        }}
+                        onFocus={() => {
+                          setFontSearch('');
+                          setIsFontDropdownOpen(true);
+                        }}
+                        onBlur={() => {
+                          // Delay to allow click on dropdown item
+                          setTimeout(() => setIsFontDropdownOpen(false), 150);
+                        }}
+                        placeholder="Search fonts..."
+                        className="w-full px-3 py-2 border border-border-primary rounded-md focus:outline-none focus:ring-2 focus:ring-interactive text-text-primary bg-surface-secondary text-sm"
+                      />
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none" />
+                      {isFontDropdownOpen && systemMonoFonts.length > 0 && (
+                        <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-md border border-border-primary bg-surface-secondary shadow-lg">
+                          {systemMonoFonts
+                            .filter(f => !fontSearch || f.toLowerCase().includes(fontSearch.toLowerCase()))
+                            .map((font) => (
+                              <button
+                                key={font}
+                                type="button"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => {
+                                  setTerminalFontFamily(font);
+                                  setIsFontDropdownOpen(false);
+                                  setFontSearch('');
+                                  API.config.update({ terminalFontFamily: font });
+                                }}
+                                className={`w-full text-left px-3 py-1.5 text-sm hover:bg-surface-hover transition-colors ${
+                                  font === (terminalFontFamily || 'Geist Mono') ? 'text-interactive font-medium' : 'text-text-primary'
+                                }`}
+                              >
+                                {font}
+                              </button>
+                            ))}
+                          {systemMonoFonts.filter(f => !fontSearch || f.toLowerCase().includes(fontSearch.toLowerCase())).length === 0 && (
+                            <div className="px-3 py-2 text-xs text-text-tertiary">No matching fonts</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-text-tertiary mt-1.5">
+                      Select a monospace font from your system. Nerd Font icons are always available.
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-text-secondary mb-1.5">
+                      Font Size
+                    </label>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newSize = terminalFontSize - 1;
+                            if (newSize >= 10) {
+                              setTerminalFontSize(newSize);
+                              API.config.update({ terminalFontSize: newSize });
+                            }
+                          }}
+                          disabled={terminalFontSize <= 10}
+                          className="p-1.5 rounded-md bg-surface-tertiary hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <ChevronDown className="w-4 h-4" />
+                        </button>
+                        <span className="text-sm font-medium text-text-primary w-12 text-center">
+                          {terminalFontSize}px
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newSize = terminalFontSize + 1;
+                            if (newSize <= 24) {
+                              setTerminalFontSize(newSize);
+                              API.config.update({ terminalFontSize: newSize });
+                            }
+                          }}
+                          disabled={terminalFontSize >= 24}
+                          className="p-1.5 rounded-md bg-surface-tertiary hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <ChevronUp className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="flex gap-2">
+                        {[12, 14, 16, 18].map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => {
+                              setTerminalFontSize(preset);
+                              API.config.update({ terminalFontSize: preset });
+                            }}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+                              terminalFontSize === preset
+                                ? 'bg-interactive text-white border-interactive'
+                                : 'bg-surface-secondary text-text-secondary border-border-secondary hover:bg-surface-hover'
+                            }`}
+                          >
+                            {preset}px
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </SettingsSection>

@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import type { WebglAddon } from '@xterm/addon-webgl';
 import type { WebLinksAddon } from '@xterm/addon-web-links';
 import type { SerializeAddon } from '@xterm/addon-serialize';
+import type { Unicode11Addon } from '@xterm/addon-unicode11';
 import { useSession } from '../../contexts/SessionContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { TerminalPanelProps } from '../../types/panelComponents';
@@ -43,6 +44,13 @@ interface TerminalRestoreState {
   cursorY?: number;
 }
 
+const DEFAULT_TERMINAL_FONT_FAMILY = 'Geist Mono';
+const DEFAULT_TERMINAL_FONT_SIZE = 14;
+
+function buildTerminalFontFamily(userFont: string): string {
+  return `"${userFont}", "Symbols Nerd Font Mono", monospace`;
+}
+
 export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, isActive }) => {
   renderLog('[TerminalPanel] Component rendering, panel:', panel.id, 'isActive:', isActive);
   
@@ -53,6 +61,7 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
   const webglAddonRef = useRef<WebglAddon | null>(null);
   const webLinksAddonRef = useRef<WebLinksAddon | null>(null);
   const serializeAddonRef = useRef<SerializeAddon | null>(null);
+  const unicode11AddonRef = useRef<Unicode11Addon | null>(null);
   const isActiveRef = useRef(isActive);
   const isNearBottomRef = useRef(true); // Track if user is scrolled near the bottom
   const [isInitialized, setIsInitialized] = useState(false);
@@ -184,11 +193,27 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
         // FIX: Check if component was unmounted during async operation
         if (disposed) return;
 
+        // Read terminal font config
+        let terminalFontFamily = DEFAULT_TERMINAL_FONT_FAMILY;
+        let terminalFontSize = DEFAULT_TERMINAL_FONT_SIZE;
+        try {
+          const configResult = await window.electronAPI.config.get();
+          if (configResult?.data) {
+            terminalFontFamily = configResult.data.terminalFontFamily || DEFAULT_TERMINAL_FONT_FAMILY;
+            terminalFontSize = configResult.data.terminalFontSize || DEFAULT_TERMINAL_FONT_SIZE;
+          }
+        } catch {
+          // Config read failed — use defaults
+        }
+
+        // FIX: Check if component was unmounted during async config read
+        if (disposed) return;
+
         // Create XTerm instance
         console.log('[TerminalPanel] Creating XTerm instance...');
         terminal = new Terminal({
-          fontSize: 14,
-          fontFamily: '"Geist Mono", "SF Mono", Menlo, Monaco, "Courier New", monospace',
+          fontSize: terminalFontSize,
+          fontFamily: buildTerminalFontFamily(terminalFontFamily),
           theme: getTerminalTheme(),
           scrollback: 2500,
           cursorBlink: false,
@@ -293,12 +318,11 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           terminal.open(terminalRef.current);
           console.log('[TerminalPanel] Terminal opened in DOM');
 
-          // Wait for Geist Mono to load before fitting so xterm measures correct cell dimensions
-          try {
-            await document.fonts.load('14px "Geist Mono"');
-          } catch {
-            // Font load failed (offline/blocked) — fallback fonts will be used
-          }
+          // Wait for fonts to load before fitting so xterm measures correct cell dimensions
+          await Promise.all([
+            document.fonts.load(`${terminalFontSize}px "${terminalFontFamily}"`).catch(() => {}),
+            document.fonts.load(`${terminalFontSize}px "Symbols Nerd Font Mono"`).catch(() => {}),
+          ]);
           fitAddon.fit();
           console.log('[TerminalPanel] FitAddon fitted');
           terminal.options.theme = getTerminalTheme();
@@ -354,6 +378,21 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           } catch (e) {
             console.warn('[TerminalPanel] SerializeAddon failed to load for panel', panel.id, ':', e);
             serializeAddonRef.current = null;
+          }
+
+          // Load Unicode11Addon for better emoji/unicode width calculation
+          try {
+            const { Unicode11Addon: Unicode11AddonImpl } = await import('@xterm/addon-unicode11');
+            if (!disposed) {
+              const unicode11Addon = new Unicode11AddonImpl();
+              terminal.loadAddon(unicode11Addon);
+              terminal.unicode.activeVersion = '11';
+              unicode11AddonRef.current = unicode11Addon;
+              console.log('[TerminalPanel] Unicode11Addon loaded for panel', panel.id);
+            }
+          } catch (e) {
+            console.warn('[TerminalPanel] Unicode11Addon failed to load for panel', panel.id, ':', e);
+            unicode11AddonRef.current = null;
           }
 
           xtermRef.current = terminal;
@@ -643,6 +682,18 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           const unsubscribeOutput = window.electronAPI.events.onTerminalOutput(outputHandler);
           console.log('[TerminalPanel] Subscribed to terminal output events for panel:', panel.id);
 
+          // Subscribe to live terminal font updates from Settings
+          const unsubscribeFontUpdate = window.electronAPI.events.onTerminalFontUpdated((data: { terminalFontFamily: string; terminalFontSize: number }) => {
+            if (!terminal || disposed) return;
+            const newFontFamily = buildTerminalFontFamily(data.terminalFontFamily || DEFAULT_TERMINAL_FONT_FAMILY);
+            const newFontSize = data.terminalFontSize || DEFAULT_TERMINAL_FONT_SIZE;
+            if (terminal.options.fontFamily !== newFontFamily || terminal.options.fontSize !== newFontSize) {
+              terminal.options.fontFamily = newFontFamily;
+              terminal.options.fontSize = newFontSize;
+              if (fitAddon) fitAddon.fit();
+            }
+          });
+
           // Handle terminal input
           const inputDisposable = terminal.onData((data) => {
             window.electronAPI.invoke('terminal:input', panel.id, data);
@@ -688,7 +739,8 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
             if (ackFlushTimer) clearTimeout(ackFlushTimer);
             resizeObserver.disconnect();
             if (resizeTimer) clearTimeout(resizeTimer);
-            unsubscribeOutput(); // Use the unsubscribe function
+            unsubscribeOutput();
+            unsubscribeFontUpdate();
             inputDisposable.dispose();
             scrollDisposable.dispose();
             terminalElement?.removeEventListener('paste', handlePaste);
@@ -736,6 +788,12 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
       if (serializeAddonRef.current) {
         try { serializeAddonRef.current.dispose(); } catch { /* ignore */ }
         serializeAddonRef.current = null;
+      }
+
+      // Dispose Unicode11Addon
+      if (unicode11AddonRef.current) {
+        try { unicode11AddonRef.current.dispose(); } catch { /* ignore */ }
+        unicode11AddonRef.current = null;
       }
 
       // Dispose XTerm instance only on final unmount

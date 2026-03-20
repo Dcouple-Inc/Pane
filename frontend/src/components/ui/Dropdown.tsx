@@ -147,6 +147,13 @@ export function Dropdown({
       } else {
         pos.right = Math.max(8, rightEdge);
       }
+      // When width="full", match the trigger's width instead of using CSS w-full
+      // (portal renders to body, so w-full = viewport width, not trigger width)
+      if (width === 'full') {
+        pos.width = rect.width;
+        pos.left = rect.left;
+        delete pos.right;
+      }
       setFixedStyle(pos);
     }
   }, [isOpen, position]);
@@ -220,7 +227,7 @@ export function Dropdown({
             actualPosition.includes('top') ? 'animate-dropdown-enter-up' : 'animate-dropdown-enter',
             'ring-1 ring-border-secondary/30 dark:ring-white/5',
             'overflow-hidden',
-            widthClasses[width],
+            width !== 'full' && widthClasses[width],
             menuClassName
           )}
           style={{
