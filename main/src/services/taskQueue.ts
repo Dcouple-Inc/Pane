@@ -285,28 +285,34 @@ export class TaskQueue {
             const terminalPanel = panels.find(p => p.type === 'terminal');
             if (!terminalPanel) return;
 
-            // Set initialCommand on the terminal panel
-            const existingCustomState = terminalPanel.state?.customState as Record<string, unknown> | undefined;
-            await panelManager.updatePanel(terminalPanel.id, {
-              state: {
-                ...terminalPanel.state,
-                customState: {
-                  ...existingCustomState,
-                  initialCommand: installCommand,
+            // Check if terminal is already initialized (user may have opened it during sync)
+            if (terminalPanelManager.isTerminalInitialized(terminalPanel.id)) {
+              // Terminal already running — write the install command directly to the PTY
+              terminalPanelManager.writeToTerminal(terminalPanel.id, installCommand + '\r');
+              console.log(`[TaskQueue] Wrote install command directly to already-running terminal: ${installCommand}`);
+            } else {
+              // Terminal not yet initialized — set initialCommand and eagerly init
+              const existingCustomState = terminalPanel.state?.customState as Record<string, unknown> | undefined;
+              await panelManager.updatePanel(terminalPanel.id, {
+                state: {
+                  ...terminalPanel.state,
+                  customState: {
+                    ...existingCustomState,
+                    initialCommand: installCommand,
+                  },
                 },
-              },
-            });
+              });
 
-            // Re-fetch with updated state and eagerly initialize
-            const updatedPanel = panelManager.getPanel(terminalPanel.id);
-            if (updatedPanel) {
-              const wslContext = capturedCtx.commandRunner.wslContext ?? null;
-              await terminalPanelManager.initializeTerminal(
-                updatedPanel,
-                capturedWorktreePath,
-                wslContext
-              );
-              console.log(`[TaskQueue] Eagerly initialized terminal with install command: ${installCommand}`);
+              const updatedPanel = panelManager.getPanel(terminalPanel.id);
+              if (updatedPanel) {
+                const wslContext = capturedCtx.commandRunner.wslContext ?? null;
+                await terminalPanelManager.initializeTerminal(
+                  updatedPanel,
+                  capturedWorktreePath,
+                  wslContext
+                );
+                console.log(`[TaskQueue] Eagerly initialized terminal with install command: ${installCommand}`);
+              }
             }
           } catch (err) {
             console.error('[TaskQueue] Failed to set up install terminal (non-fatal):', err);

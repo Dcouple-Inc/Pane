@@ -28,9 +28,9 @@ function envJoin(environment: ProjectEnvironment, ...segments: string[]): string
  * links. Hard links share inodes, so editing the copy would silently edit the
  * original file in the main repo.
  *
- * Directories use fast copy:
- *   - Linux / WSL  → `cp -al`  (hard links, near-instant)
- *   - macOS        → `cp -c -R` (APFS clones, near-instant)
+ * Directories use platform-appropriate copy:
+ *   - Linux / WSL  → `cp -rp`  (recursive copy, preserves permissions)
+ *   - macOS        → `cp -c -R` (APFS clones, near-instant, copy-on-write)
  *   - Windows      → `robocopy /E /MT` (multi-threaded recursive copy)
  */
 function getFastCopyCommand(
@@ -47,13 +47,15 @@ function getFastCopyCommand(
     return `cp "${src}" "${dest}"`;
   }
 
-  // Fast directory copy
+  // Directory copy — use regular recursive copy for reliability
+  // Hard links (cp -al) cause issues: .asar files crash Electron's fs.watch,
+  // and shared inodes mean writes in the worktree can mutate the main repo.
   switch (environment) {
     case 'macos':
-      return `cp -c -R "${src}" "${dest}"`;
+      return `cp -c -R "${src}" "${dest}"`;  // APFS clones — fast, copy-on-write, no shared inodes
     case 'linux':
     case 'wsl':
-      return `cp -al "${src}" "${dest}"`;
+      return `cp -rp "${src}" "${dest}"`;    // regular recursive copy, preserves permissions
     case 'windows':
       return `robocopy "${src}" "${dest}" /E /MT /NJH /NJS /NDL /NFL /NC /NS`;
   }
