@@ -4,6 +4,7 @@ import { Modal, ModalHeader, ModalBody, ModalFooter } from './ui/Modal';
 import { Button } from './ui/Button';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { isMac } from '../utils/platformUtils';
 
 interface UpdateDialogProps {
   isOpen: boolean;
@@ -195,8 +196,39 @@ export function UpdateDialog({ isOpen, onClose, versionInfo }: UpdateDialogProps
                   A new version of Pane is available.
                   {isPackaged ? ' Click below to download and install the update.' : ' Auto-update is only available in the packaged app.'}
                 </p>
-                
-                {isPackaged ? (
+
+                {/*
+                 * Temporary workaround pending Apple code signing:
+                 * On macOS, electron-updater's quitAndInstall() fails because Gatekeeper
+                 * quarantines unsigned .zip replacements. Until the builds are signed, we
+                 * skip the in-app download flow entirely on macOS and direct users to
+                 * manually download and drag-install from GitHub instead.
+                 */}
+                {isPackaged && isMac() ? (
+                  <div className="space-y-4">
+                    <Button
+                      onClick={() => versionInfo.releaseUrl && window.electronAPI.openExternal(versionInfo.releaseUrl)}
+                      variant="primary"
+                      icon={<Download className="w-4 h-4" />}
+                    >
+                      Download from GitHub
+                    </Button>
+                    <div className="space-y-2">
+                      <p className="text-sm text-text-tertiary">To install the update:</p>
+                      <ol className="text-sm text-text-secondary list-decimal list-inside ml-2 space-y-2">
+                        <li>Click "Download from GitHub" above</li>
+                        <li>Download the .dmg file from the release page</li>
+                        <li>Close Pane</li>
+                        <li>Open the downloaded .dmg file</li>
+                        <li>Drag Pane to your Applications folder</li>
+                        <li>Launch the new version of Pane</li>
+                      </ol>
+                      <p className="text-sm text-text-tertiary mt-2">
+                        Your settings and sessions will be preserved during the update.
+                      </p>
+                    </div>
+                  </div>
+                ) : isPackaged ? (
                   <Button
                     onClick={handleCheckForUpdates}
                     variant="primary"
@@ -271,16 +303,50 @@ export function UpdateDialog({ isOpen, onClose, versionInfo }: UpdateDialogProps
                   <CheckCircle className="w-5 h-5 text-status-success mt-0.5" />
                   <div className="flex-1">
                     <h3 className="text-lg font-medium text-status-success mb-2">Update Downloaded</h3>
-                    <p className="text-text-secondary mb-4">
-                      The update has been downloaded successfully. Pane will restart to apply the update.
-                    </p>
-                    <Button
-                      onClick={handleInstallUpdate}
-                      variant="primary"
-                      className="bg-status-success hover:bg-status-success/90"
-                    >
-                      Restart and Install
-                    </Button>
+                    {/* Safety guard: quitAndInstall() doesn't work on unsigned macOS builds */}
+                    {isMac() ? (
+                      <div className="space-y-4">
+                        <p className="text-text-secondary">
+                          Please install the update manually to ensure it works correctly on macOS.
+                        </p>
+                        {versionInfo?.releaseUrl && (
+                          <Button
+                            onClick={() => window.electronAPI.openExternal(versionInfo.releaseUrl!)}
+                            variant="primary"
+                            icon={<Download className="w-4 h-4" />}
+                          >
+                            Download from GitHub
+                          </Button>
+                        )}
+                        <div className="space-y-2">
+                          <p className="text-sm text-text-tertiary">To install the update:</p>
+                          <ol className="text-sm text-text-secondary list-decimal list-inside ml-2 space-y-2">
+                            <li>Click "Download from GitHub" above</li>
+                            <li>Download the .dmg file from the release page</li>
+                            <li>Close Pane</li>
+                            <li>Open the downloaded .dmg file</li>
+                            <li>Drag Pane to your Applications folder</li>
+                            <li>Launch the new version of Pane</li>
+                          </ol>
+                          <p className="text-sm text-text-tertiary mt-2">
+                            Your settings and sessions will be preserved during the update.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-text-secondary mb-4">
+                          The update has been downloaded successfully. Pane will restart to apply the update.
+                        </p>
+                        <Button
+                          onClick={handleInstallUpdate}
+                          variant="primary"
+                          className="bg-status-success hover:bg-status-success/90"
+                        >
+                          Restart and Install
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
