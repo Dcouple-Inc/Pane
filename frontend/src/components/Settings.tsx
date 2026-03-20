@@ -492,12 +492,7 @@ export function Settings({ isOpen, onClose, initialSection }: SettingsProps) {
                           // Delay to allow click on dropdown item
                           setTimeout(() => {
                             setIsFontDropdownOpen(false);
-                            // If user typed a custom font name, save it
-                            if (fontSearch.trim()) {
-                              setTerminalFontFamily(fontSearch.trim());
-                              API.config.update({ terminalFontFamily: fontSearch.trim() });
-                              setFontSearch('');
-                            }
+                            setFontSearch('');
                           }, 150);
                         }}
                         onKeyDown={(e) => {

@@ -92,23 +92,71 @@ export function registerConfigHandlers(ipcMain: IpcMain, { configManager, claude
   ipcMain.handle('config:get-monospace-fonts', async () => {
     try {
       const fonts = await new Promise<string[]>((resolve) => {
-        // fc-list is available on Linux natively and macOS via Homebrew
-        execFile('fc-list', [':spacing=mono', 'family'], { timeout: 5000 }, (error, stdout) => {
-          if (error) {
-            console.warn('[Config] fc-list failed, returning empty font list:', error.message);
-            resolve([]);
-            return;
-          }
+        const parseFcList = (stdout: string): string[] => {
           const families = new Set<string>();
           for (const line of stdout.split('\n')) {
-            // fc-list outputs lines like "DejaVu Sans Mono" or "Fira Code,Fira Code Light"
             const trimmed = line.trim();
             if (!trimmed) continue;
-            // Take the first family name (before any comma-separated variants)
             const family = trimmed.split(',')[0].trim();
             if (family) families.add(family);
           }
-          resolve([...families].sort((a, b) => a.localeCompare(b)));
+          return [...families].sort((a, b) => a.localeCompare(b));
+        };
+
+        // Try fc-list first (Linux natively, macOS/Windows via Homebrew or package managers)
+        execFile('fc-list', [':spacing=mono', 'family'], { timeout: 5000 }, (fcError, fcStdout) => {
+          if (!fcError && fcStdout.trim()) {
+            resolve(parseFcList(fcStdout));
+            return;
+          }
+
+          // Fallback: platform-specific font enumeration
+          if (process.platform === 'darwin') {
+            // macOS: use system_profiler to list all fonts, filter for common mono families
+            execFile('system_profiler', ['SPFontsDataType', '-json'], { timeout: 10000 }, (spError, spStdout) => {
+              if (spError) {
+                console.warn('[Config] system_profiler failed:', spError.message);
+                resolve([]);
+                return;
+              }
+              try {
+                const data = JSON.parse(spStdout) as { SPFontsDataType?: Array<{ _name?: string; family?: string }> };
+                const families = new Set<string>();
+                const monoKeywords = ['mono', 'courier', 'console', 'code', 'fixed', 'menlo', 'terminal'];
+                for (const font of data.SPFontsDataType || []) {
+                  const family = font.family || font._name || '';
+                  if (family && monoKeywords.some(k => family.toLowerCase().includes(k))) {
+                    families.add(family);
+                  }
+                }
+                resolve([...families].sort((a, b) => a.localeCompare(b)));
+              } catch {
+                resolve([]);
+              }
+            });
+          } else if (process.platform === 'win32') {
+            // Windows: use PowerShell to enumerate font families
+            const psCommand = `[System.Reflection.Assembly]::LoadWithPartialName('System.Drawing') | Out-Null; (New-Object System.Drawing.Text.InstalledFontCollection).Families | ForEach-Object { $_.Name }`;
+            execFile('powershell.exe', ['-NoProfile', '-Command', psCommand], { timeout: 10000 }, (psError, psStdout) => {
+              if (psError) {
+                console.warn('[Config] PowerShell font enumeration failed:', psError.message);
+                resolve([]);
+                return;
+              }
+              const families = new Set<string>();
+              const monoKeywords = ['mono', 'courier', 'console', 'code', 'fixed', 'terminal', 'cascadia', 'fira', 'jetbrains', 'hack', 'iosevka', 'inconsolata', 'source code'];
+              for (const line of psStdout.split('\n')) {
+                const name = line.trim();
+                if (name && monoKeywords.some(k => name.toLowerCase().includes(k))) {
+                  families.add(name);
+                }
+              }
+              resolve([...families].sort((a, b) => a.localeCompare(b)));
+            });
+          } else {
+            console.warn('[Config] fc-list failed, no platform fallback for', process.platform);
+            resolve([]);
+          }
         });
       });
       return { success: true, data: fonts };
