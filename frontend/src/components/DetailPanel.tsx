@@ -93,7 +93,7 @@ export function DetailPanel({ isVisible, width, height, onResize, mergeError, pr
     return (
       <div
         className={`pane-detail-panel pane-detail-panel-horizontal flex-shrink-0 bg-surface-primary flex flex-col overflow-hidden relative transition-[height] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${immersiveMode ? '' : 'border-t border-border-primary'}`}
-        style={{ height: immersiveMode ? '0px' : isCollapsed ? (terminalShortcuts ? '60px' : '32px') : `${height ?? 200}px` }}
+        style={{ height: immersiveMode ? '0px' : isCollapsed ? 'auto' : `${height ?? 200}px` }}
       >
         {/* Resize handle at top edge */}
         {!isCollapsed && (
@@ -106,8 +106,9 @@ export function DetailPanel({ isVisible, width, height, onResize, mergeError, pr
         )}
 
         <div className="pane-detail-panel-inner flex flex-col h-full min-h-0">
-          {/* Header row */}
-          <div className="flex items-center h-8 px-3 gap-2 flex-shrink-0">
+          {/* Header row: wrapping content + pinned swap button */}
+          <div className="flex items-start flex-shrink-0">
+          <div className="flex items-center flex-wrap flex-1 min-w-0 min-h-[32px] px-3 gap-x-2 gap-y-1 py-1">
           {/* Collapse toggle */}
           <button
             onClick={onToggleCollapse}
@@ -149,66 +150,60 @@ export function DetailPanel({ isVisible, width, height, onResize, mergeError, pr
             </Tooltip>
           )}
 
-          {/* Action buttons row */}
-          <div className="flex-1 flex items-center gap-1 overflow-x-auto ml-2 scrollbar-none">
-            {/* Flatten git actions into compact horizontal buttons */}
-            {!gitUnavailable && !isProject && gitBranchActions?.map(action => (
-              <Tooltip key={action.id} content={action.description} side="top">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="!px-1.5 !py-0.5 text-xs h-6 flex-shrink-0"
-                  onClick={action.onClick}
-                  disabled={action.disabled || isMerging}
-                >
-                  <action.icon className="w-3 h-3 mr-1" />
-                  {action.label}
-                </Button>
-              </Tooltip>
-            ))}
+          {/* Action buttons — icon-only, labels in tooltips */}
+          {!gitUnavailable && !isProject && gitBranchActions?.map(action => (
+            <Tooltip key={action.id} content={action.label + (action.description ? ` — ${action.description}` : '')} side="top">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="!px-1.5 !py-0.5 text-xs h-6 flex-shrink-0"
+                onClick={action.onClick}
+                disabled={action.disabled || isMerging}
+              >
+                <action.icon className="w-3 h-3" />
+              </Button>
+            </Tooltip>
+          ))}
 
-            {/* IDE button */}
-            {onOpenIDEWithCommand && (
-              <Dropdown
-                trigger={
+          {/* IDE button */}
+          {onOpenIDEWithCommand && (
+            <Dropdown
+              trigger={
+                <Tooltip content="Open in IDE" side="top">
                   <Button variant="ghost" size="sm" className="!px-1.5 !py-0.5 text-xs h-6 flex-shrink-0">
-                    <Code2 className="w-3 h-3 mr-1" />
-                    IDE
+                    <Code2 className="w-3 h-3" />
                   </Button>
-                }
-                items={ideItems}
-                footer={
-                  <DropdownMenuItem
-                    icon={Settings}
-                    label="Configure..."
-                    onClick={onConfigureIDE}
-                  />
-                }
-                position="auto"
-                width="sm"
-              />
-            )}
+                </Tooltip>
+              }
+              items={ideItems}
+              footer={
+                <DropdownMenuItem
+                  icon={Settings}
+                  label="Configure..."
+                  onClick={onConfigureIDE}
+                />
+              }
+              position="auto"
+              width="sm"
+            />
+          )}
+
+          {/* Terminal shortcut pills — inline with git actions */}
+          {terminalShortcuts}
           </div>
 
-          {/* Swap button */}
+          {/* Swap button — pinned right */}
           {onSwapLayout && (
             <Tooltip content="Swap terminal and detail panel positions" side="top">
               <button
                 onClick={onSwapLayout}
-                className="p-1 hover:bg-surface-hover rounded transition-colors flex-shrink-0"
+                className="p-1 hover:bg-surface-hover rounded transition-colors flex-shrink-0 mr-2 mt-1"
               >
                 <ArrowLeftRight className="w-3.5 h-3.5 text-text-tertiary" />
               </button>
             </Tooltip>
           )}
           </div>
-
-          {/* Terminal shortcut pills row */}
-          {terminalShortcuts && (
-            <div className="flex items-center h-7 px-3 gap-2 flex-shrink-0 overflow-x-auto scrollbar-none">
-              {terminalShortcuts}
-            </div>
-          )}
 
           {/* Expandable content: history */}
           {!isCollapsed && !gitUnavailable && session.worktreePath && (

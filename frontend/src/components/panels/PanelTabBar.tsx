@@ -659,6 +659,16 @@ export const PanelTabBar: React.FC<PanelTabBarProps> = memo(({
                     <span className="block truncate">{cmd.name}</span>
                     {shortcutDisplay && <Kbd size="xs" variant="muted" className="mt-1 origin-left scale-[0.7]">{shortcutDisplay}</Kbd>}
                   </span>
+                  <button
+                    className="p-0.5 ml-1 rounded hover:bg-surface-hover text-text-muted hover:text-text-primary transition-colors flex-shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteCustomCommand(index);
+                    }}
+                    title="Remove shortcut"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
                 </button>
               );})}
               {/* Add Custom Command input */}

@@ -24,7 +24,7 @@ import { PanelContainer } from './panels/PanelContainer';
 import { SessionProvider } from '../contexts/SessionContext';
 import { ToolPanel, ToolPanelType, PANEL_CAPABILITIES } from '../../../shared/types/panels';
 import { PanelCreateOptions } from '../types/panelComponents';
-import { Download, Upload, GitMerge, GitPullRequestArrow, Terminal, ChevronDown, ChevronUp, RefreshCw, Archive, ArchiveRestore, GitCommitHorizontal, TerminalSquare, Undo2 } from 'lucide-react';
+import { Download, Upload, GitMerge, GitPullRequestArrow, Terminal, ChevronDown, ChevronUp, RefreshCw, Archive, ArchiveRestore, GitCommitHorizontal, TerminalSquare, Undo2, X } from 'lucide-react';
 import { ClaudeIcon, OpenAIIcon, getCliBrandIcon } from './ui/BrandIcons';
 import type { Project } from '../types/project';
 import { devLog, renderLog } from '../utils/console';
@@ -47,12 +47,16 @@ export const SessionView = memo(() => {
   const [currentUpstream, setCurrentUpstream] = useState<string | null>(null);
 
   // Config store for custom commands in terminal row pills
-  const { config, fetchConfig } = useConfigStore();
+  const { config, fetchConfig, updateConfig } = useConfigStore();
   useEffect(() => { if (!config) { fetchConfig(); } }, [config, fetchConfig]);
   const customCommands = useMemo(
     () => (config?.customCommands ?? []).filter(cmd => cmd?.name && cmd?.command),
     [config?.customCommands]
   );
+  const deleteCustomCommand = useCallback((index: number) => {
+    const existing = config?.customCommands ?? [];
+    updateConfig({ customCommands: existing.filter((_, i) => i !== index) }).catch(() => {});
+  }, [config, updateConfig]);
 
   // Get active session by subscribing directly to store state
   // This ensures the component re-renders when git status or other session properties update
@@ -835,6 +839,18 @@ export const SessionView = memo(() => {
           : 'No changes to commit'
       },
       {
+        id: 'undo-commit',
+        label: 'Undo Commit',
+        icon: Undo2,
+        shortcut: 'mod+shift+z',
+        onClick: hook.handleGitSoftReset,
+        disabled: hook.isMerging || activeSession.status === 'running' || activeSession.status === 'initializing' || !activeSession.gitStatus?.ahead,
+        variant: 'default' as const,
+        description: activeSession.gitStatus?.ahead
+          ? 'Undo last commit, keeping changes staged (git reset --soft HEAD~1)'
+          : 'No commits to undo'
+      },
+      {
         id: 'pull',
         label: 'Pull',
         icon: Download,
@@ -856,22 +872,10 @@ export const SessionView = memo(() => {
           ? `Push ${activeSession.gitStatus.ahead} commit(s)${hook.gitCommands?.currentBranch ? ` from ${hook.gitCommands.currentBranch}` : ''} to remote`
           : 'No commits to push'
       },
-      {
-        id: 'undo-commit',
-        label: 'Undo Commit',
-        icon: Undo2,
-        shortcut: 'mod+shift+z',
-        onClick: hook.handleGitSoftReset,
-        disabled: hook.isMerging || activeSession.status === 'running' || activeSession.status === 'initializing' || !activeSession.gitStatus?.ahead,
-        variant: 'default' as const,
-        description: activeSession.gitStatus?.ahead
-          ? 'Undo last commit, keeping changes staged (git reset --soft HEAD~1)'
-          : 'No commits to undo'
-      },
       // --- Main branch operations (last) ---
       {
         id: 'rebase-from-main',
-        label: `Rebase from ${hook.gitCommands?.mainBranch || 'main'}`,
+        label: 'Rebase',
         icon: GitPullRequestArrow,
         shortcut: 'mod+shift+r',
         onClick: hook.handleRebaseMainIntoWorktree,
@@ -881,7 +885,7 @@ export const SessionView = memo(() => {
       },
       {
         id: 'rebase-to-main',
-        label: `Merge to ${hook.gitCommands?.mainBranch || 'main'}`,
+        label: 'Merge',
         icon: GitMerge,
         shortcut: 'mod+shift+m',
         onClick: hook.handleSquashAndRebaseToMain,
@@ -1044,7 +1048,7 @@ export const SessionView = memo(() => {
                             title={cmd.command}
                           >
                             {getCliBrandIcon(cmd.command, 'w-3 h-3') || <TerminalSquare className="w-3 h-3" />}
-                            {cmd.name.length > 18 ? cmd.name.slice(0, 18) + '...' : cmd.name}
+                            {cmd.name.length > 13 ? cmd.name.slice(0, 13) + '…' : cmd.name}
                           </button>
                         );
                         return shortcutDisplay ? (
@@ -1191,9 +1195,9 @@ export const SessionView = memo(() => {
                         {customCommands.map((cmd, index) => {
                           const shortcutDisplay = hotkeyDisplay(`add-tool-custom-${index}`);
                           const pill = (
-                            <button
+                            <span
                               key={`shortcut-${index}`}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-text-tertiary border border-border-primary hover:bg-surface-hover hover:text-text-secondary transition-colors whitespace-nowrap flex-shrink-0"
+                              className="group/pill inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full text-[11px] font-medium text-text-tertiary border border-border-primary hover:bg-surface-hover hover:text-text-secondary transition-colors whitespace-nowrap flex-shrink-0 cursor-pointer"
                               onClick={() => handlePanelCreate('terminal', {
                                 initialCommand: cmd.command,
                                 title: cmd.name
@@ -1201,8 +1205,15 @@ export const SessionView = memo(() => {
                               title={cmd.command}
                             >
                               {getCliBrandIcon(cmd.command, 'w-3 h-3') || <TerminalSquare className="w-3 h-3" />}
-                              {cmd.name.length > 18 ? cmd.name.slice(0, 18) + '...' : cmd.name}
-                            </button>
+                              {cmd.name.length > 13 ? cmd.name.slice(0, 13) + '…' : cmd.name}
+                              <button
+                                className="p-0.5 rounded-full opacity-0 group-hover/pill:opacity-100 hover:bg-surface-tertiary hover:text-text-primary transition-all"
+                                onClick={(e) => { e.stopPropagation(); deleteCustomCommand(index); }}
+                                title="Remove shortcut"
+                              >
+                                <X className="w-2.5 h-2.5" />
+                              </button>
+                            </span>
                           );
                           return shortcutDisplay ? (
                             <Tooltip key={`shortcut-${index}`} content={<Kbd>{shortcutDisplay}</Kbd>} side="top">
