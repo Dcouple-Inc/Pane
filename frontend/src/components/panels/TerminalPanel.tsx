@@ -173,9 +173,9 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           // Terminal is already initialized, get its state to restore scrollback
           console.log('[TerminalPanel] Restoring terminal state from backend...');
           const terminalState = await window.electronAPI.invoke('terminal:getState', panel.id);
-          if (terminalState && terminalState.scrollbackBuffer) {
+          if (terminalState && (terminalState.scrollbackBuffer || terminalState.serializedBuffer)) {
             // We'll restore this to the terminal after it's created
-            console.log('[TerminalPanel] Found scrollback buffer with', terminalState.scrollbackBuffer.length, 'lines');
+            console.log('[TerminalPanel] Found restore state — scrollback:', !!terminalState.scrollbackBuffer, 'serialized:', !!terminalState.serializedBuffer);
             // Store for restoration after terminal is created - LOCAL to this initialization
             terminalStateForThisPanel = terminalState;
           }
@@ -430,26 +430,32 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = React.memo(({ panel, 
           }, SNAPSHOT_INTERVAL);
 
           // Restore scrollback if we have saved state FOR THIS PANEL
-          // Prefer serialized buffer (preserves colors/formatting) over raw scrollback
+          // When the PTY is alive (initialized === true), always prefer raw scrollback
+          // because it accumulates all PTY output in real-time — the serialized snapshot
+          // is frozen at the moment the component last unmounted and misses any output
+          // that arrived while the panel wasn't displayed.
+          // The serialized snapshot is only more valuable for app restart scenarios
+          // (PTY gone, raw buffer lost) where it preserves formatting.
           if (terminalStateForThisPanel) {
-            if (terminalStateForThisPanel.serializedBuffer) {
-              console.log('[TerminalPanel] Restoring serialized snapshot for panel', panel.id);
-              terminal.write(terminalStateForThisPanel.serializedBuffer);
-            } else if (terminalStateForThisPanel.scrollbackBuffer) {
-              // Fallback: raw scrollback (loses formatting)
+            // Raw scrollback: always current when PTY is alive, contains full ANSI codes
+            if (terminalStateForThisPanel.scrollbackBuffer) {
               let restoredContent: string;
               if (typeof terminalStateForThisPanel.scrollbackBuffer === 'string') {
                 restoredContent = terminalStateForThisPanel.scrollbackBuffer;
-                console.log('[TerminalPanel] Restoring', restoredContent.length, 'chars of scrollback (raw)');
+                console.log('[TerminalPanel] Restoring', restoredContent.length, 'chars of scrollback (raw, live PTY)');
               } else if (Array.isArray(terminalStateForThisPanel.scrollbackBuffer)) {
                 restoredContent = terminalStateForThisPanel.scrollbackBuffer.join('\n');
-                console.log('[TerminalPanel] Restoring', terminalStateForThisPanel.scrollbackBuffer.length, 'lines of scrollback (raw)');
+                console.log('[TerminalPanel] Restoring', terminalStateForThisPanel.scrollbackBuffer.length, 'lines of scrollback (raw, live PTY)');
               } else {
                 restoredContent = '';
               }
               if (restoredContent) {
                 terminal.write(restoredContent);
               }
+            } else if (terminalStateForThisPanel.serializedBuffer) {
+              // Fallback: serialized snapshot (for when raw scrollback is empty/unavailable)
+              console.log('[TerminalPanel] Restoring serialized snapshot for panel', panel.id);
+              terminal.write(terminalStateForThisPanel.serializedBuffer);
             }
           }
 
