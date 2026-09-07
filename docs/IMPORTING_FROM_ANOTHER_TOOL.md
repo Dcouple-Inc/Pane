@@ -53,3 +53,14 @@ The tool that owns the worktree remains responsible for its archive and deletion
 ## Conductor imports
 
 The bulk `runpane import conductor` workflow is planned as a follow-up to the core adoption support. Until then, enumerate active Conductor workspaces and call `panes adopt` for each one. Pane already reads `conductor.json` for project scripts, but adoption deliberately does not run setup/build scripts.
+
+## Implementation status
+
+Core adoption support is implemented on the `warrior` branch as of commit
+`4f4c3826` (September 3, 2026). The implementation adds persisted worktree
+ownership with database migration `007_add_worktree_ownership.sql`, RunPane
+adoption and preview handlers, resume staging, external-worktree lifecycle
+guards, sidebar ownership labeling, and generated CLI contract updates.
+
+The focused validation suite passes with 107 tests passing and 1 skipped. Main
+and frontend TypeScript checks and the blocking Oxlint gate also pass.
