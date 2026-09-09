@@ -48,17 +48,48 @@ type UsageWatchFactory = (
   options: NonNullable<Parameters<typeof chokidar.watch>[1]>,
 ) => UsageWatcher;
 
+/**
+ * Transcript roots are watched one level deep, not six.
+ *
+ * chokidar 5 carries no fsevents dependency (`readdirp` is its only one), so on
+ * every platform it registers one `fs.watch` handle per directory. The
+ * transcripts this indexer needs are the `.jsonl` files sitting directly inside
+ * each project directory — `~/.claude/projects/<project>/<session>.jsonl`.
+ * Everything nested below that is per-session scratch (`<uuid>/`, and
+ * `<uuid>/tool-results/`) that holds no transcript.
+ *
+ * At depth 6 the walk registers a handle for all of that scratch too. On the
+ * machine that motivated this fix, 63 project directories expanded to 5,194
+ * handles and exhausted the process handle table roughly ten seconds after
+ * launch. The resulting EMFILE is not contained to this watcher: it starves
+ * every descriptor the app opens afterwards (SQLite, node-pty, the daemon
+ * socket), so the visible failure is a crash on the next interaction rather
+ * than a fault reported here.
+ *
+ * Depth 1 reaches the same transcripts for the cost of the project directories
+ * plus the transcript files themselves — measured on that machine at 2,437
+ * handles against 4,632-and-climbing at depth 6, and it reaches `ready` where
+ * depth 6 never does. That is a reduction, not a constant: a large enough
+ * transcript corpus can still reach the ceiling, which is why the exhaustion
+ * path below degrades instead of assuming this bound always holds.
+ */
+const TRANSCRIPT_WATCH_DEPTH = 1;
+
+/** Handle-exhaustion codes that make native watching unrecoverable. */
+const HANDLE_EXHAUSTION_CODES = new Set(['EMFILE', 'ENFILE', 'ENOSPC']);
+
 export function createTranscriptWatchers(
   roots: readonly TranscriptRoot[],
   createWatcher: UsageWatchFactory,
   queueFile: (path: string, provider: UsageProvider) => void,
+  onHandleExhaustion: (root: TranscriptRoot, error: Error) => void = () => {},
 ): UsageWatcher[] {
   return roots.map(root => {
     // Missing paths are intentional. Chokidar watches the nearest existing
     // parent and begins reporting once a CLI creates its transcript root.
     const watcher = createWatcher(root.path, {
       ignoreInitial: true,
-      depth: 6,
+      depth: TRANSCRIPT_WATCH_DEPTH,
       awaitWriteFinish: { stabilityThreshold: 1500, pollInterval: 300 },
     });
 
@@ -67,7 +98,23 @@ export function createTranscriptWatchers(
     };
     watcher.on('add', queue);
     watcher.on('change', queue);
+
+    // Storm guard FIRST, mirroring the gitFileWatcher fix for #309: while the
+    // handle table is exhausted chokidar emits one error per failed directory
+    // registration and keeps emitting until the fire-and-forget close() lands.
+    // Unguarded, this handler wrote ~17,000 EMFILE lines in a single session
+    // and kept the table pinned. Degrade once, then stay silent.
+    let degraded = false;
     watcher.on('error', error => {
+      // SAFETY: Node filesystem failures may carry the optional errno code.
+      const code = (error as NodeJS.ErrnoException)?.code;
+      if (code !== undefined && HANDLE_EXHAUSTION_CODES.has(code)) {
+        if (degraded) return;
+        degraded = true;
+        void watcher.close();
+        onHandleExhaustion(root, error);
+        return;
+      }
       console.warn('[Usage] Watcher error:', error);
     });
     return watcher;
@@ -78,6 +125,8 @@ export function createTranscriptWatchers(
 const YIELD_EVERY_FILES = 25;
 /** Coalesce watcher events — an active agent appends constantly. */
 const WATCH_DEBOUNCE_MS = 3000;
+/** Re-scan cadence once native watching has been given up. */
+const USAGE_POLL_INTERVAL_MS = 5 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function transcriptRoots(): TranscriptRoot[] {
@@ -108,6 +157,8 @@ class UsageManager {
   private watchers: UsageWatcher[] = [];
   private pendingFiles = new Map<string, UsageProvider>();
   private debounceTimer: NodeJS.Timeout | undefined;
+  private pollingTimer: NodeJS.Timeout | undefined;
+  private watchMode: 'native' | 'polling' = 'native';
   private scanning = false;
   private started = false;
 
@@ -156,6 +207,9 @@ class UsageManager {
     this.priceProvider?.stop();
     this.priceProvider = null;
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
+    if (this.pollingTimer) clearInterval(this.pollingTimer);
+    this.pollingTimer = undefined;
+    this.watchMode = 'native';
     for (const watcher of this.watchers) void watcher.close();
     this.watchers = [];
   }
@@ -320,7 +374,37 @@ class UsageManager {
         this.pendingFiles.set(path, provider);
         this.scheduleFlush();
       },
+      (root, error) => this.degradeToPolling(root, error),
     );
+  }
+
+  /**
+   * Last-resort fallback when a transcript root cannot be watched natively.
+   *
+   * Depth 1 lowers the handle cost but does not bound it — it still scales with
+   * the number of transcripts — so a large enough corpus, or pressure from
+   * elsewhere in the process, can exhaust the table anyway. Usage indexing is a
+   * reporting feature, not a critical path: it gives up its handles and re-reads
+   * on a timer rather than compete for descriptors that terminals, the database
+   * and the daemon socket need in order to keep the app alive.
+   *
+   * Degradation is process-lifetime: nothing here reclaims native watching,
+   * because retrying is what produced the original storm. `stop()` resets it.
+   */
+  private degradeToPolling(root: TranscriptRoot, error: Error): void {
+    console.warn(
+      `[Usage] Handle exhaustion watching ${root.path} — falling back to a ` +
+        `${USAGE_POLL_INTERVAL_MS / 60000}min polling scan:`,
+      error.message,
+    );
+    this.status.lastError = `Live usage updates unavailable (${error.message}). Refreshing every ${USAGE_POLL_INTERVAL_MS / 60000}min.`;
+    if (this.watchMode === 'polling') return;
+    this.watchMode = 'polling';
+
+    this.pollingTimer = setInterval(() => {
+      void this.runFullScan();
+    }, USAGE_POLL_INTERVAL_MS);
+    this.pollingTimer.unref?.();
   }
 
   private scheduleFlush(): void {
