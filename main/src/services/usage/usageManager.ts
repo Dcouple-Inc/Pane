@@ -39,7 +39,7 @@ interface PaneCostsReport {
 /** Yield to the event loop every N files so a first scan never blocks the UI. */
 const YIELD_EVERY_FILES = 25;
 /** Complete discovery runs even when CLI transcript roots do not exist yet. */
-const USAGE_POLL_INTERVAL_MS = 5 * 60 * 1000;
+const USAGE_POLL_INTERVAL_MS = 4 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function transcriptRoots(): TranscriptRoot[] {

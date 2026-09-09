@@ -26,7 +26,7 @@ afterAll(async () => {
   else process.env.PANE_DIR = appDirectory.previous;
 });
 
-const POLL_MS = 300_000;
+const POLL_MS = 4 * 60 * 60 * 1000;
 let home: string;
 let db: InstanceType<typeof Database>;
 let repository: UsageRepository;
@@ -133,7 +133,7 @@ afterEach(async () => {
 });
 
 describe('usage polling', () => {
-  it('indexes every layout at startup and discovers appends, new directories and files on the five-minute tick', async () => {
+  it('indexes every layout at startup and discovers appends, new directories and files on the four-hour tick', async () => {
     const layouts: Array<[string, UsageProvider]> = [
       ['.claude/projects/project/session.jsonl', 'claude'],
       ['.claude/projects/project/session/subagents/agent.jsonl', 'claude'],

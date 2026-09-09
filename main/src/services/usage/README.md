@@ -5,10 +5,10 @@ and `~/.codex/sessions`. This includes Claude subagent transcripts and Codex
 `year/month/day` directories. Roots are rediscovered on every pass, including
 when their parent directories did not exist at startup.
 
-Indexing runs at startup, every five minutes, and on manual Refresh. There are
+Indexing runs at startup, every four hours, and on manual Refresh from the usage dashboard or Settings → Usage. There are
 no native usage watchers or per-transcript watch handles. Unchanged files are
 checked by metadata and skipped; changed files resume from their stored cursor.
-The five-minute interval is a scheduling cadence, not a maximum freshness
+The four-hour interval is a scheduling cadence, not a maximum freshness
 bound: large scans can take longer. The usage page shows the last successful
 scan and keeps errors visible until a subsequent successful pass.
 

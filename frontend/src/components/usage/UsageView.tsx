@@ -775,7 +775,7 @@ export function UsageView() {
 
             <footer className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-text-muted">
               <span>{report.index.eventsIndexed.toLocaleString()} messages indexed from {report.index.filesTracked.toLocaleString()} transcripts.</span>
-              <span>Usage is checked every 5 minutes; large scans may take longer. Refresh to check now.</span>
+              <span>Usage is checked every 4 hours; large scans may take longer. Refresh to check now.</span>
               <span>
                 {report.index.lastScanFinishedMs === null
                   ? 'No completed scan yet.'

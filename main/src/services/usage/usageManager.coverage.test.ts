@@ -105,7 +105,7 @@ describe('UsageManager transcript coverage without native watchers', () => {
     expect(manager.getStatus().missingRoots).toHaveLength(2);
     await addTranscript('.codex/sessions/2026/09/10/rollout-new.jsonl', codexLine());
     await addTranscript('.claude/projects/project/session/subagents/agent-new.jsonl', claudeLine('new-child'));
-    await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+    await vi.advanceTimersByTimeAsync(4 * 60 * 60 * 1000);
     await vi.waitFor(() => expect(repository.countEvents()).toBe(2));
     await vi.waitFor(() => expect(manager.getStatus().scanning).toBe(false));
     expect(manager.getStatus().missingRoots).toEqual([]);
